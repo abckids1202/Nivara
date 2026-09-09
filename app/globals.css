@@ -1,0 +1,34 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+:root { --font-body: "Avenir Next", "Segoe UI", Arial, sans-serif; --font-display: Georgia, "Times New Roman", serif; --background: #f8f4ee; --foreground: #27362d; --border: #e2d9cd; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-body); }
+button, a, input, select { font: inherit; }
+a { color: inherit; text-decoration: none; }
+.font-display { font-family: var(--font-display); }
+.eyebrow { display: inline-flex; align-items: center; gap: .45rem; color: #a6503d; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.section-title { margin-top: .65rem; max-width: 32rem; font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3.3rem); line-height: .98; letter-spacing: -.06em; }
+.button-primary { display: inline-flex; align-items: center; gap: .7rem; border-radius: 999px; background: #314338; padding: .9rem 1.2rem; color: #fffaf3; font-size: .9rem; font-weight: 700; transition: transform 160ms ease, background 160ms ease; }
+.button-primary:hover { transform: translateY(-2px); background: #25362b; }
+.button-secondary { display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid #d8cec1; padding: .85rem 1.1rem; color: #536259; font-size: .9rem; font-weight: 700; transition: background 160ms ease; }
+.button-secondary:hover { background: #fffaf3; }
+.category-card { position: relative; min-height: 11.2rem; overflow: hidden; border-radius: 1.25rem; padding: 1.25rem; color: #fffaf3; transition: transform 180ms ease; }
+.category-card:hover { transform: translateY(-3px); }
+.category-sage { background: #aebca6; color: #27362d; }
+.category-clay { background: #c8755f; }
+.category-ink { background: #536259; }
+.category-olive { background: #75866a; }
+.category-sand { background: #c1a985; color: #27362d; }
+.product-image { aspect-ratio: .88; }
+.product-detail-image { min-height: 520px; }
+::selection { background: #e4a18f; color: #27362d; }
