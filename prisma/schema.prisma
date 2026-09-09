@@ -8,11 +8,40 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-enum ProductStatus { DRAFT PUBLISHED ARCHIVED }
-enum PaymentStatus { CREATED PENDING PAID FAILED CANCELLED PAYMENT_REVIEW PAID_REVIEW }
-enum FulfilmentStatus { PROCESSING SHIPPED DELIVERED }
-enum ReservationStatus { ACTIVE CONVERTED RELEASED EXPIRED }
-enum ReviewStatus { PENDING APPROVED REJECTED }
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  PAYMENT_REVIEW
+  PAID_REVIEW
+}
+
+enum FulfilmentStatus {
+  PROCESSING
+  SHIPPED
+  DELIVERED
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CONVERTED
+  RELEASED
+  EXPIRED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
 model User {
   id           String     @id @default(cuid())
@@ -23,6 +52,7 @@ model User {
   updatedAt    DateTime   @updatedAt
   addresses    Address[]
   wishlist     Wishlist?
+  cart         Cart?
   orders       Order[]
   reviews      Review[]
 }
@@ -64,6 +94,7 @@ model Product {
   category    Category      @relation(fields: [categoryId], references: [id])
   variants    ProductVariant[]
   images      ProductImage[]
+  wishlistItems WishlistItem[]
   reviews     Review[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
