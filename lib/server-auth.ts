@@ -1,0 +1,79 @@
+import { prisma } from "@/lib/prisma";
+
+export type AuthenticatedIdentity = {
+  id: string;
+  email: string;
+};
+
+function getBearerToken(request: Request) {
+  const value = request.headers.get("authorization");
+  if (!value?.startsWith("Bearer ")) return null;
+  return value.slice("Bearer ".length).trim() || null;
+}
+
+function getCookieToken(request: Request) {
+  const header = request.headers.get("cookie");
+  if (!header) return null;
+  const cookies = new Map(header.split(";").map((part) => {
+    const separator = part.indexOf("=");
+    return separator < 0 ? [part.trim(), ""] : [part.slice(0, separator).trim(), part.slice(separator + 1).trim()];
+  }));
+  const directToken = cookies.get("nivara-access-token");
+  if (directToken) return directToken;
+  const sessionNames = [...cookies.keys()].filter((name) => /^sb-[^-]+-auth-token(?:\.\d+)?$/.test(name)).sort();
+  if (!sessionNames.length) return null;
+  const encoded = sessionNames.map((name) => cookies.get(name) ?? "").join("");
+  const candidates = [encoded, decodeURIComponent(encoded)];
+  for (const candidate of candidates) {
+    try {
+      const json = candidate.startsWith("base64-")
+        ? Buffer.from(candidate.slice("base64-".length), "base64").toString("utf8")
+        : candidate;
+      const session = JSON.parse(json) as { access_token?: string; accessToken?: string };
+      const token = session.access_token ?? session.accessToken;
+      if (token) return token;
+    } catch {
+      // The cookie may be chunked or encoded by a different Supabase client version.
+    }
+  }
+  return null;
+}
+
+export async function getAuthenticatedIdentity(request: Request): Promise<AuthenticatedIdentity | null> {
+  const token = getBearerToken(request) ?? getCookieToken(request);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!token || !supabaseUrl || !anonKey || anonKey === "replace-me") return null;
+
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return null;
+  const user = (await response.json()) as { id?: string; email?: string };
+  if (!user.id || !user.email) return null;
+
+  return { id: user.id, email: user.email };
+}
+
+export async function isAdministrator(identity: AuthenticatedIdentity) {
+  const user = await prisma.user.findUnique({
+    where: { id: identity.id },
+    select: { isAdmin: true },
+  });
+  return user?.isAdmin === true;
+}
+
+export async function ensureUserProfile(identity: AuthenticatedIdentity) {
+  return prisma.user.upsert({
+    where: { id: identity.id },
+    create: { id: identity.id, email: identity.email },
+    update: { email: identity.email },
+    select: { id: true, email: true, displayName: true, isAdmin: true },
+  });
+}

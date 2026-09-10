@@ -43,6 +43,18 @@ enum ReviewStatus {
   REJECTED
 }
 
+enum PaymentReviewAction {
+  REFUND
+  FULFIL
+  CANCEL
+}
+
+enum EmailDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -55,6 +67,10 @@ model User {
   cart         Cart?
   orders       Order[]
   reviews      Review[]
+  inventoryAdjustments InventoryAdjustment[]
+  paymentReviewResolutions PaymentReviewResolution[]
+  moderationActions ModerationAction[]
+  auditLogs     AuditLog[]
 }
 
 model Address {
@@ -107,13 +123,15 @@ model ProductVariant {
   productId   String
   name        String
   sku         String                  @unique
-  price       Int
-  compareAt   Int?
+  pricePaise  Int
+  compareAtPaise Int?
   stockOnHand Int
+  stockReserved Int                     @default(0)
   product     Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems   CartItem[]
   orderItems  OrderItem[]
   reservations InventoryReservation[]
+  inventoryAdjustments InventoryAdjustment[]
   @@index([productId])
 }
 
@@ -171,9 +189,15 @@ model Order {
   guestAccessHash   String?
   guestAccessExpiry DateTime?
   addressId         String?
-  subtotal          Int
-  deliveryFee       Int
-  total             Int
+  subtotalPaise     Int
+  deliveryFeePaise  Int
+  totalPaise        Int
+  shippingFullName  String?
+  shippingLine1     String?
+  shippingCity      String?
+  shippingState     String?
+  shippingPostalCode String?
+  shippingCountry   String?             @default("IN")
   paymentStatus     PaymentStatus         @default(CREATED)
   fulfilmentStatus  FulfilmentStatus      @default(PROCESSING)
   user              User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -182,6 +206,9 @@ model Order {
   payments          PaymentAttempt[]
   reservations      InventoryReservation[]
   shipment          Shipment?
+  paymentReviewResolution PaymentReviewResolution?
+  guestAccessAttempts GuestOrderAccessAttempt[]
+  emailDeliveries EmailDelivery[]
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   @@index([userId, createdAt])
@@ -195,7 +222,7 @@ model OrderItem {
   productName   String
   variantName   String
   sku           String
-  unitPrice     Int
+  unitPricePaise Int
   quantity      Int
   order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   variant       ProductVariant @relation(fields: [variantId], references: [id])
@@ -208,6 +235,8 @@ model PaymentAttempt {
   orderId         String
   providerOrderId String?
   providerPaymentId String?
+  idempotencyKey   String?             @unique
+  refundReference  String?
   status          PaymentStatus @default(CREATED)
   order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   events          PaymentEvent[]
@@ -219,10 +248,11 @@ model PaymentAttempt {
 model PaymentEvent {
   id            String         @id @default(cuid())
   providerEventId String       @unique
-  paymentAttemptId String
+  paymentAttemptId String?
   payloadHash   String
-  paymentAttempt PaymentAttempt @relation(fields: [paymentAttemptId], references: [id], onDelete: Cascade)
+  paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: SetNull)
   createdAt     DateTime       @default(now())
+  @@index([paymentAttemptId])
 }
 
 model InventoryReservation {
@@ -234,6 +264,7 @@ model InventoryReservation {
   expiresAt  DateTime
   order      Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
   variant    ProductVariant   @relation(fields: [variantId], references: [id])
+  @@unique([orderId, variantId])
   @@index([status, expiresAt])
   @@index([variantId, status])
 }
@@ -251,6 +282,7 @@ model Review {
   product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   orderItem    OrderItem    @relation(fields: [orderItemId], references: [id])
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moderationActions ModerationAction[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   @@index([productId, status])
@@ -263,4 +295,83 @@ model Shipment {
   trackingReference String?
   order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   updatedAt     DateTime @updatedAt
+}
+
+model InventoryAdjustment {
+  id            String         @id @default(cuid())
+  variantId     String
+  adminUserId   String
+  quantityDelta Int
+  beforeQuantity Int
+  afterQuantity  Int
+  reason        String
+  variant       ProductVariant @relation(fields: [variantId], references: [id])
+  adminUser     User           @relation(fields: [adminUserId], references: [id])
+  createdAt     DateTime       @default(now())
+  @@index([variantId, createdAt])
+}
+
+model PaymentReviewResolution {
+  id              String             @id @default(cuid())
+  orderId         String             @unique
+  adminUserId     String
+  action          PaymentReviewAction
+  reason          String
+  refundReference String?
+  order           Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  adminUser       User               @relation(fields: [adminUserId], references: [id])
+  createdAt       DateTime           @default(now())
+  @@index([adminUserId, createdAt])
+}
+
+model ModerationAction {
+  id             String       @id @default(cuid())
+  reviewId       String
+  adminUserId    String
+  previousStatus ReviewStatus
+  nextStatus     ReviewStatus
+  reason         String
+  review         Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  adminUser     User         @relation(fields: [adminUserId], references: [id])
+  createdAt      DateTime     @default(now())
+  @@index([reviewId, createdAt])
+}
+
+model GuestOrderAccessAttempt {
+  id                String   @id @default(cuid())
+  orderId           String?
+  tokenHash         String?
+  requestFingerprint String
+  successful        Boolean  @default(false)
+  order             Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  @@index([tokenHash, createdAt])
+  @@index([requestFingerprint, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model EmailDelivery {
+  id                String              @id @default(cuid())
+  orderId           String
+  kind              String
+  status            EmailDeliveryStatus @default(PENDING)
+  providerMessageId String?
+  errorMessage      String?
+  order             Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  @@unique([orderId, kind])
+  @@index([status, createdAt])
 }
