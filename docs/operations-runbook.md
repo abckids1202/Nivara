@@ -6,6 +6,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 
 1. Create the client-owned Supabase project and copy its pooled PostgreSQL URL to `DATABASE_URL` and direct connection URL to `DIRECT_URL`.
 2. Run `npx prisma migrate deploy` against the production database, then run `npm run db:seed` only when demonstration catalogue data is intentionally wanted.
+   This applies the access-rate log migration used by authentication and other sensitive endpoints.
 3. Enable Supabase Auth email/password, email confirmation, and password recovery redirects for the deployed site.
 4. Create a private Supabase service-role key and a `product-images` Storage bucket with public reads and admin-only application writes. Set `SUPABASE_STORAGE_BUCKET` if using another bucket name.
 5. Configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in Vercel. Keep the service-role key server-only.
@@ -51,4 +52,5 @@ After restoration, run `npx prisma migrate deploy`, check `/api/health`, verify 
 - Do not edit historical order snapshots to correct catalogue data.
 - Use archive status instead of deleting published products.
 - Rotate provider secrets if they appear in logs or a local file is shared.
+- Rate-limit logs contain only a hashed request fingerprint and endpoint name; do not add email, password, token, or payment details to them.
 - Record administrator reasons and refund references for every payment-review decision.

@@ -1,10 +1,7 @@
-import { createHash } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
+import { requestFingerprint } from '@/lib/request-fingerprint';
 
-export function requestFingerprint(request: Request) {
-  const source = `${request.headers.get('x-forwarded-for') ?? 'unknown'}:${request.headers.get('user-agent') ?? 'unknown'}`;
-  return createHash('sha256').update(source).digest('hex');
-}
+export { requestFingerprint } from '@/lib/request-fingerprint';
 
 export async function consumeRateLimit({
   request,
