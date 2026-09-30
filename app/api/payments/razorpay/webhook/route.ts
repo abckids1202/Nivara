@@ -50,6 +50,9 @@ export async function POST(request: Request) {
     return json({ error: 'Missing provider event ID' }, 400);
 
   try {
+    const payloadHash = createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
     const paymentId = typedPayload.payload?.payment?.entity?.id;
     const providerOrderId =
       typedPayload.payload?.payment?.entity?.order_id ??
@@ -58,17 +61,33 @@ export async function POST(request: Request) {
       ? await prisma.paymentAttempt.findFirst({ where: { providerOrderId } })
       : null;
 
-    await prisma.paymentEvent.create({
-      data: {
-        providerEventId,
-        ...(attempt ? { paymentAttemptId: attempt.id } : {}),
-        payloadHash: createHmac('sha256', webhookSecret)
-          .update(rawBody)
-          .digest('hex'),
-      },
-    });
+    let duplicate = false;
+    try {
+      await prisma.paymentEvent.create({
+        data: {
+          providerEventId,
+          ...(attempt ? { paymentAttemptId: attempt.id } : {}),
+          payloadHash,
+        },
+      });
+    } catch (error) {
+      if (
+        !(
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        )
+      )
+        throw error;
+      duplicate = true;
+      const previous = await prisma.paymentEvent.findUnique({
+        where: { providerEventId },
+        select: { payloadHash: true },
+      });
+      if (previous?.payloadHash !== payloadHash)
+        return json({ error: 'Provider event ID was reused' }, 400);
+    }
 
-    if (!attempt) return json({ received: true, matched: false });
+    if (!attempt) return json({ received: true, matched: false, duplicate });
 
     if (
       typedPayload.event === 'payment.captured' ||
@@ -86,14 +105,8 @@ export async function POST(request: Request) {
       await markPaymentFailed(attempt.id, 'CANCELLED');
     }
 
-    return json({ received: true });
+    return json({ received: true, duplicate });
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      return json({ received: true, duplicate: true });
-    }
     console.error(
       'razorpay_webhook_failed',
       error instanceof Error ? error.message : 'unknown_error',
