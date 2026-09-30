@@ -97,8 +97,22 @@ export async function POST(request: Request) {
         paymentAttemptId: attempt.id,
         providerPaymentId: paymentId,
       });
-      if (result.status === 'paid' && result.orderId)
-        await sendOrderConfirmationEmail(result.orderId);
+      if (
+        (result.status === 'paid' || result.status === 'already_paid') &&
+        result.orderId
+      ) {
+        const email = await sendOrderConfirmationEmail(result.orderId);
+        if (!email.sent) {
+          console.error('order_confirmation_email_pending', {
+            orderId: result.orderId,
+            reason: email.reason,
+          });
+          return json(
+            { error: 'Payment accepted; confirmation email will be retried' },
+            503,
+          );
+        }
+      }
     } else if (typedPayload.event === 'payment.failed') {
       await markPaymentFailed(attempt.id, 'FAILED');
     } else if (typedPayload.event === 'payment.cancelled') {
