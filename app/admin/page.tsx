@@ -69,12 +69,36 @@ type VariantForm = {
   priceRupees: string;
   compareAtRupees: string;
 };
+type AdminReport = {
+  paidOrderCount: number;
+  paidOrderTotalPaise: number;
+  paymentReviewCount: number;
+  lowStock: Array<{
+    id: string;
+    name: string;
+    sku: string;
+    stockOnHand: number;
+    stockReserved: number;
+    product: { name: string; slug: string };
+  }>;
+  adjustments: Array<{
+    id: string;
+    quantityDelta: number;
+    beforeQuantity: number;
+    afterQuantity: number;
+    reason: string;
+    createdAt: string;
+    variant: { name: string; sku: string; product: { name: string } };
+    adminUser: { email: string; displayName: string | null };
+  }>;
+};
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
 export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [report, setReport] = useState<AdminReport | null>(null);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [query, setQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
@@ -156,6 +180,14 @@ export default function AdminPage() {
     if (response.ok) setCategories(payload.data ?? []);
   }
 
+  async function loadReport() {
+    const response = await fetch('/api/admin/reports', { cache: 'no-store' });
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: AdminReport;
+    };
+    if (response.ok) setReport(payload.data ?? null);
+  }
+
   // The loaders intentionally read the current query and are invoked only when the search changes.
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
@@ -164,6 +196,7 @@ export default function AdminPage() {
       void loadOrders();
       void loadReviews();
       void loadCategories();
+      void loadReport();
     });
   }, [orderQuery]);
   // oxlint-enable react-hooks/exhaustive-deps
@@ -249,6 +282,7 @@ export default function AdminPage() {
       setNotice('Stock adjustment saved and audited.');
       setDeltas((current) => ({ ...current, [variantId]: '' }));
       await loadProducts();
+      await loadReport();
     }
   }
 
@@ -539,6 +573,115 @@ export default function AdminPage() {
                   <p className="mt-1 text-3xl font-bold">{stats.units}</p>
                 </div>
               </div>
+              {report && (
+                <section className="mt-8 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="eyebrow">Reporting</p>
+                        <h2 className="mt-2 text-xl font-semibold">
+                          Paid-order performance.
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void loadReport()}
+                        className="button-secondary"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl bg-[#f3f5f0] p-4">
+                        <p className="text-xs text-[#718078]">Paid orders</p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {report.paidOrderCount}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[#f3f5f0] p-4">
+                        <p className="text-xs text-[#718078]">Paid total</p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {formatPaise(report.paidOrderTotalPaise)}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-[#f3f5f0] p-4">
+                        <p className="text-xs text-[#718078]">Payment review</p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {report.paymentReviewCount}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-5 text-sm font-semibold">
+                      Low-stock published variants
+                    </p>
+                    <div className="mt-3 grid gap-2">
+                      {report.lowStock.length ? (
+                        report.lowStock.map((variant) => (
+                          <div
+                            key={variant.id}
+                            className="flex justify-between gap-3 rounded-lg border border-[#e5ebe2] px-3 py-2 text-sm"
+                          >
+                            <span>
+                              {variant.product.name} · {variant.name}
+                            </span>
+                            <span className="font-semibold text-[#a6503d]">
+                              {variant.stockOnHand - variant.stockReserved}{' '}
+                              available
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="rounded-lg bg-[#e7eee5] p-3 text-sm text-[#536259]">
+                          No published variants are below the low-stock
+                          threshold.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <p className="eyebrow">Audit history</p>
+                    <h2 className="mt-2 text-xl font-semibold">
+                      Recent stock adjustments.
+                    </h2>
+                    <div className="mt-5 grid gap-2">
+                      {report.adjustments.length ? (
+                        report.adjustments.slice(0, 8).map((adjustment) => (
+                          <div
+                            key={adjustment.id}
+                            className="rounded-lg border border-[#e5ebe2] p-3 text-sm"
+                          >
+                            <div className="flex justify-between gap-3">
+                              <span className="font-semibold">
+                                {adjustment.variant.product.name} ·{' '}
+                                {adjustment.variant.name}
+                              </span>
+                              <span
+                                className={
+                                  adjustment.quantityDelta > 0
+                                    ? 'text-[#536259]'
+                                    : 'text-[#a6503d]'
+                                }
+                              >
+                                {adjustment.quantityDelta > 0 ? '+' : ''}
+                                {adjustment.quantityDelta}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-[#718078]">
+                              {adjustment.reason} ·{' '}
+                              {adjustment.adminUser.displayName ??
+                                adjustment.adminUser.email}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="rounded-lg bg-[#f3f5f0] p-3 text-sm text-[#718078]">
+                          No stock adjustments recorded yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
               <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   <div>
