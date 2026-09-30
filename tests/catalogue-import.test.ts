@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { parseCatalogueCsv } from '../lib/catalogue-import.ts';
+import { sortCatalogueProducts } from '../lib/catalogue-sort.ts';
 
 const header =
   'categorySlug,categoryName,productName,productSlug,description,material,dimensions,care,status,variantName,sku,priceRupees,compareAtRupees,stockOnHand,imageUrl,imageAlt';
@@ -19,4 +20,37 @@ it('reports invalid catalogue rows without importing them', () => {
   );
   expect(result.rows).toHaveLength(0);
   expect(result.errors.length).toBeGreaterThan(0);
+});
+
+it('sorts catalogue products by rating and price before pagination', () => {
+  const products = [
+    {
+      id: 'newer',
+      createdAt: new Date('2026-01-02'),
+      variants: [{ pricePaise: 900 }],
+      reviews: [{ rating: 3 }, { rating: 3 }],
+    },
+    {
+      id: 'better',
+      createdAt: new Date('2026-01-01'),
+      variants: [{ pricePaise: 1200 }],
+      reviews: [{ rating: 5 }],
+    },
+    {
+      id: 'cheaper',
+      createdAt: new Date('2025-12-01'),
+      variants: [{ pricePaise: 500 }],
+      reviews: [],
+    },
+  ];
+  expect(sortCatalogueProducts(products, 'best').map((item) => item.id)).toEqual([
+    'better',
+    'newer',
+    'cheaper',
+  ]);
+  expect(sortCatalogueProducts(products, 'price-low').map((item) => item.id)).toEqual([
+    'cheaper',
+    'newer',
+    'better',
+  ]);
 });
