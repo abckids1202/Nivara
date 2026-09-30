@@ -40,6 +40,7 @@ Then open `http://localhost:3000`.
 - `/admin` — administration dashboard preview.
 - `/api/health` — deployment health endpoint.
 - `/api/catalogue` — public catalogue query API.
+- `/api/products/[slug]` — public published-product detail API with approved reviews.
 - `/api/checkout` — server-validated order and Razorpay-order creation.
 - `/api/payments/razorpay/webhook` — verified, idempotent payment notifications.
 - `/api/jobs/reconcile` — protected five-minute reconciliation job.
