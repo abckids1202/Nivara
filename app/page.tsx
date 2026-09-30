@@ -23,13 +23,8 @@ type FeaturedProduct = {
   stockAvailable: boolean;
 };
 
-const categories = [
-  ['Desk & study', 'desk-and-study', 'sage'],
-  ['Storage', 'storage', 'clay'],
-  ['Soft furnishings', 'soft-furnishings', 'ink'],
-  ['Planters', 'planters', 'olive'],
-  ['Kitchen', 'kitchen', 'sand'],
-] as const;
+const categoryAccents = ['sage', 'clay', 'ink', 'olive', 'sand'] as const;
+type HomepageCategory = { id: string; name: string; slug: string };
 
 function ProductCard({
   product,
@@ -98,6 +93,7 @@ function ProductCard({
 export default function Home() {
   const { addItem } = useCart();
   const [products, setProducts] = useState<FeaturedProduct[]>([]);
+  const [categories, setCategories] = useState<HomepageCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -124,6 +120,15 @@ export default function Home() {
         ),
       )
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/categories', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { data?: HomepageCategory[] } | null) =>
+        setCategories(payload?.data ?? []),
+      )
+      .catch(() => setCategories([]));
   }, []);
 
   const addToBag = async (product: FeaturedProduct) => {
@@ -232,17 +237,17 @@ export default function Home() {
             </Link>
           </div>
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            {categories.map(([name, slug, accent], index) => (
+            {categories.map((category, index) => (
               <Link
-                key={slug}
-                href={`/shop?category=${slug}`}
-                className={`category-card category-${accent} reveal`}
+                key={category.id}
+                href={`/shop?category=${category.slug}`}
+                className={`category-card category-${categoryAccents[index % categoryAccents.length]} reveal`}
               >
                 <span className="text-xs font-bold uppercase tracking-[0.14em]">
                   0{index + 1}
                 </span>
                 <span className="mt-16 block text-xl font-semibold tracking-[-0.04em]">
-                  {name}
+                  {category.name}
                 </span>
                 <span className="mt-2 block text-sm opacity-75">
                   Explore the edit

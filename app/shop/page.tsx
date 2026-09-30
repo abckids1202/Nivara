@@ -27,14 +27,7 @@ type CatalogueProduct = {
   reviewCount: number;
 };
 
-const categoryOptions = [
-  ['All pieces', ''],
-  ['Desk & study', 'desk-and-study'],
-  ['Storage', 'storage'],
-  ['Soft furnishings', 'soft-furnishings'],
-  ['Planters', 'planters'],
-  ['Kitchen', 'kitchen'],
-] as const;
+type CategoryOption = { id: string; name: string; slug: string };
 
 const formatPaise = (paise: number | null) =>
   formatInr(Math.round((paise ?? 0) / 100));
@@ -55,9 +48,18 @@ export default function ShopPage() {
     return Number.isFinite(price) && price >= 300 ? price : 2500;
   });
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    fetch('/api/categories', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { data?: CategoryOption[] } | null) =>
+        setCategoryOptions(payload?.data ?? []),
+      )
+      .catch(() => setCategoryOptions([]));
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set('q', query);
@@ -115,9 +117,9 @@ export default function ShopPage() {
 
   const selectedCategoryLabel = useMemo(
     () =>
-      categoryOptions.find(([, slug]) => slug === category)?.[0] ??
+      categoryOptions.find((option) => option.slug === category)?.name ??
       'All pieces',
-    [category],
+    [category, categoryOptions],
   );
   const add = async (product: CatalogueProduct) => {
     const variant = product.variants.find((item) => item.stockOnHand > 0);
@@ -172,9 +174,10 @@ export default function ShopPage() {
               onChange={(event) => setCategory(event.target.value)}
               className="h-11 rounded-full bg-[#f5efe6] px-4 text-sm text-[#536259] outline-none focus:ring-2 focus:ring-[#b25d49]"
             >
-              {categoryOptions.map(([label, slug]) => (
-                <option key={slug} value={slug}>
-                  {label}
+              <option value="">All pieces</option>
+              {categoryOptions.map((option) => (
+                <option key={option.id} value={option.slug}>
+                  {option.name}
                 </option>
               ))}
             </select>
