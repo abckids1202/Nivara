@@ -1,7 +1,7 @@
-import { Prisma } from "@prisma/client";
-import { createGuestOrderToken } from "@/lib/guest-token";
-import { calculateDeliveryFee } from "@/lib/money";
-import { prisma } from "@/lib/prisma";
+import { Prisma } from '@prisma/client';
+import { createGuestOrderToken } from '@/lib/guest-token';
+import { calculateDeliveryFee } from '@/lib/money';
+import { prisma } from '@/lib/prisma';
 
 export type CheckoutAddress = {
   email: string;
@@ -10,7 +10,7 @@ export type CheckoutAddress = {
   city: string;
   state: string;
   postalCode: string;
-  country: "IN";
+  country: 'IN';
 };
 
 export type CheckoutItem = {
@@ -21,7 +21,7 @@ export type CheckoutItem = {
 export class CheckoutConflict extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "CheckoutConflict";
+    this.name = 'CheckoutConflict';
   }
 }
 
@@ -35,35 +35,48 @@ export async function createPendingOrder({
   items: CheckoutItem[];
 }) {
   const guestToken = userId ? null : createGuestOrderToken();
-  const orderNumber = `NV-${Date.now()}-${Math.floor(Math.random() * 10_000).toString().padStart(4, "0")}`;
+  const orderNumber = `NV-${Date.now()}-${Math.floor(Math.random() * 10_000)
+    .toString()
+    .padStart(4, '0')}`;
 
   return prisma.$transaction(async (tx) => {
     const variantIds = [...new Set(items.map((item) => item.variantId))];
     const variants = await tx.productVariant.findMany({
-      where: { id: { in: variantIds } },
+      where: {
+        id: { in: variantIds },
+        product: { status: 'PUBLISHED' },
+      },
       include: { product: { select: { name: true } } },
     });
 
     if (variants.length !== variantIds.length) {
-      throw new CheckoutConflict("One or more selected variants are no longer available");
+      throw new CheckoutConflict(
+        'One or more selected variants are no longer available',
+      );
     }
 
-    const lockedVariants = await tx.$queryRaw<Array<{
-      id: string;
-      stockOnHand: number;
-      stockReserved: number;
-    }>>(Prisma.sql`
+    const lockedVariants = await tx.$queryRaw<
+      Array<{
+        id: string;
+        stockOnHand: number;
+        stockReserved: number;
+      }>
+    >(Prisma.sql`
       SELECT "id", "stockOnHand", "stockReserved"
       FROM "ProductVariant"
       WHERE "id" IN (${Prisma.join(variantIds)})
       FOR UPDATE
     `);
 
-    const quantityByVariant = new Map(items.map((item) => [item.variantId, item.quantity]));
+    const quantityByVariant = new Map(
+      items.map((item) => [item.variantId, item.quantity]),
+    );
     for (const variant of lockedVariants) {
       const requested = quantityByVariant.get(variant.id) ?? 0;
       if (variant.stockOnHand - variant.stockReserved < requested) {
-        throw new CheckoutConflict("A selected variant no longer has enough stock");
+        throw new CheckoutConflict(
+          'A selected variant no longer has enough stock',
+        );
       }
     }
 
@@ -98,7 +111,9 @@ export async function createPendingOrder({
         userId,
         guestEmail: userId ? null : address.email,
         guestAccessHash: guestToken?.tokenHash,
-        guestAccessExpiry: guestToken ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null,
+        guestAccessExpiry: guestToken
+          ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          : null,
         subtotalPaise,
         deliveryFeePaise,
         totalPaise: subtotalPaise + deliveryFeePaise,
@@ -116,7 +131,7 @@ export async function createPendingOrder({
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           })),
         },
-        payments: { create: { status: "CREATED" } },
+        payments: { create: { status: 'CREATED' } },
       },
       include: { payments: true },
     });
@@ -131,7 +146,7 @@ export async function createPendingOrder({
 export async function releaseReservationsForOrder(orderId: string) {
   return prisma.$transaction(async (tx) => {
     const reservations = await tx.inventoryReservation.findMany({
-      where: { orderId, status: "ACTIVE" },
+      where: { orderId, status: 'ACTIVE' },
     });
 
     for (const reservation of reservations) {
@@ -142,8 +157,8 @@ export async function releaseReservationsForOrder(orderId: string) {
     }
 
     await tx.inventoryReservation.updateMany({
-      where: { orderId, status: "ACTIVE" },
-      data: { status: "RELEASED" },
+      where: { orderId, status: 'ACTIVE' },
+      data: { status: 'RELEASED' },
     });
   });
 }
