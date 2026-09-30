@@ -30,6 +30,7 @@ type ProductRecord = {
     rating: number;
     body: string;
     displayName: string;
+    verifiedPurchase: boolean;
   }>;
 };
 
@@ -336,8 +337,13 @@ export function ProductDetail({ slug }: { slug: string }) {
                       {'★'.repeat(review.rating)}
                     </p>
                     <p className="mt-2 text-[#637268]">“{review.body}”</p>
-                    <cite className="mt-3 block not-italic font-semibold">
+                    <cite className="mt-3 flex items-center gap-2 not-italic font-semibold">
                       {review.displayName}
+                      {review.verifiedPurchase && (
+                        <span className="rounded-full bg-[#e7eee5] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#536259]">
+                          Verified purchase
+                        </span>
+                      )}
                     </cite>
                   </blockquote>
                 ))
