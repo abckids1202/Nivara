@@ -66,13 +66,20 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const response = await providerFetch(
-      `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
-      {
-        headers: { Authorization: auth },
-        cache: 'no-store',
-      },
-    );
+    let response: Response;
+    try {
+      response = await providerFetch(
+        `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
+        {
+          headers: { Authorization: auth },
+          cache: 'no-store',
+        },
+      );
+    } catch {
+      processed.review += 1;
+      await markPaymentReview(payment.id);
+      continue;
+    }
     if (!response.ok) {
       processed.review += 1;
       await markPaymentReview(payment.id);
