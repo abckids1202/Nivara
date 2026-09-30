@@ -6,9 +6,31 @@ async function lockOrderReservations(
   tx: Prisma.TransactionClient,
   orderId: string,
 ) {
+  await tx.$queryRaw(Prisma.sql`
+    SELECT "id"
+    FROM "InventoryReservation"
+    WHERE "orderId" = ${orderId}
+    FOR UPDATE
+  `);
   return tx.inventoryReservation.findMany({
     where: { orderId },
     orderBy: { id: 'asc' },
+  });
+}
+
+async function lockPaymentAttempt(
+  tx: Prisma.TransactionClient,
+  paymentAttemptId: string,
+) {
+  await tx.$queryRaw(Prisma.sql`
+    SELECT "id"
+    FROM "PaymentAttempt"
+    WHERE "id" = ${paymentAttemptId}
+    FOR UPDATE
+  `);
+  return tx.paymentAttempt.findUnique({
+    where: { id: paymentAttemptId },
+    include: { order: true },
   });
 }
 
@@ -20,10 +42,7 @@ export async function markPaymentPaid({
   providerPaymentId?: string;
 }) {
   return prisma.$transaction(async (tx) => {
-    const payment = await tx.paymentAttempt.findUnique({
-      where: { id: paymentAttemptId },
-      include: { order: true },
-    });
+    const payment = await lockPaymentAttempt(tx, paymentAttemptId);
     if (!payment) return { status: 'missing' as const };
     if (payment.status === 'PAID' && payment.order.paymentStatus === 'PAID') {
       return { status: 'already_paid' as const, orderId: payment.orderId };
@@ -103,10 +122,7 @@ export async function markPaymentFailed(
   status: 'FAILED' | 'CANCELLED',
 ) {
   return prisma.$transaction(async (tx) => {
-    const payment = await tx.paymentAttempt.findUnique({
-      where: { id: paymentAttemptId },
-      include: { order: true },
-    });
+    const payment = await lockPaymentAttempt(tx, paymentAttemptId);
     if (!payment) return { status: 'missing' as const };
     if (payment.status === 'PAID' || payment.order.paymentStatus === 'PAID')
       return { status: 'already_paid' as const, orderId: payment.orderId };
@@ -121,10 +137,11 @@ export async function markPaymentFailed(
         orderId: payment.orderId,
       };
 
-    const reservations = await tx.inventoryReservation.findMany({
-      where: { orderId: payment.orderId, status: 'ACTIVE' },
-    });
-    for (const reservation of reservations) {
+    const reservations = await lockOrderReservations(tx, payment.orderId);
+    const activeReservations = reservations.filter(
+      (reservation) => reservation.status === 'ACTIVE',
+    );
+    for (const reservation of activeReservations) {
       await tx.productVariant.update({
         where: { id: reservation.variantId },
         data: { stockReserved: { decrement: reservation.quantity } },
@@ -150,19 +167,24 @@ export async function markPaymentFailed(
 }
 
 export async function markPaymentReview(paymentAttemptId: string) {
-  const payment = await prisma.paymentAttempt.findUnique({
-    where: { id: paymentAttemptId },
-  });
-  if (!payment) return { status: 'missing' as const };
-  await prisma.$transaction([
-    prisma.paymentAttempt.update({
+  return prisma.$transaction(async (tx) => {
+    const payment = await lockPaymentAttempt(tx, paymentAttemptId);
+    if (!payment) return { status: 'missing' as const };
+    if (payment.status === 'PAID' || payment.order.paymentStatus === 'PAID')
+      return { status: 'already_paid' as const, orderId: payment.orderId };
+    if (
+      payment.status === 'PAYMENT_REVIEW' &&
+      payment.order.paymentStatus === 'PAYMENT_REVIEW'
+    )
+      return { status: 'payment_review' as const, orderId: payment.orderId };
+    await tx.paymentAttempt.update({
       where: { id: paymentAttemptId },
       data: { status: 'PAYMENT_REVIEW' },
-    }),
-    prisma.order.update({
+    });
+    await tx.order.update({
       where: { id: payment.orderId },
       data: { paymentStatus: 'PAYMENT_REVIEW' },
-    }),
-  ]);
-  return { status: 'payment_review' as const, orderId: payment.orderId };
+    });
+    return { status: 'payment_review' as const, orderId: payment.orderId };
+  });
 }

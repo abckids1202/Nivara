@@ -146,6 +146,12 @@ export async function createPendingOrder({
 
 export async function releaseReservationsForOrder(orderId: string) {
   return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "InventoryReservation"
+      WHERE "orderId" = ${orderId}
+      FOR UPDATE
+    `);
     const reservations = await tx.inventoryReservation.findMany({
       where: { orderId, status: 'ACTIVE' },
     });
