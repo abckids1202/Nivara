@@ -25,9 +25,11 @@ async function requireAdmin(request: Request) {
   return { identity } as const;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!process.env.DATABASE_URL)
     return unavailable('Catalogue database is not configured');
+  const access = await requireAdmin(request);
+  if ('response' in access) return access.response;
   return json({
     data: await prisma.category.findMany({
       orderBy: { name: 'asc' },
