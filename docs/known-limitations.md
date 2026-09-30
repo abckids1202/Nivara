@@ -34,6 +34,7 @@ This document separates the implemented practice MVP from the work that still re
 ## Operational safeguards
 
 - Payment state is changed by verified Razorpay webhooks or protected reconciliation, never by a browser redirect.
+- Failed or cancelled authenticated orders can retry payment against the same order; a new order is not created.
 - Inventory reservations are transactionally locked and expire through the protected reconciliation job.
 - Authentication and guest-order access use hashed request fingerprints for rate limiting; old access logs are retained for 30 days.
 - Secrets are supplied through environment variables and are not intended for source control or browser responses.

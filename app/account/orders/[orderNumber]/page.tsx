@@ -48,6 +48,90 @@ export default function OrderDetailPage({
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+  const [notice, setNotice] = useState('');
+  async function retryPayment() {
+    setRetrying(true);
+    setError('');
+    try {
+      const { orderNumber } = await params;
+      const response = await fetch(
+        `/api/orders/${encodeURIComponent(orderNumber)}/retry-payment`,
+        { method: 'POST' },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        data?: {
+          orderNumber: string;
+          razorpayOrderId: string;
+          keyId: string;
+          amountPaise: number;
+          currency: string;
+        };
+        error?: string;
+      };
+      if (!response.ok || !result.data)
+        throw new Error(result.error ?? 'Payment retry could not be started.');
+      if (!window.Razorpay) {
+        const existing = document.querySelector<HTMLScriptElement>(
+          'script[data-razorpay="true"]',
+        );
+        if (existing) {
+          await new Promise<void>((resolve, reject) => {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener(
+              'error',
+              () => reject(new Error('Razorpay checkout could not load')),
+              { once: true },
+            );
+          });
+        } else {
+          await new Promise<void>((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.dataset.razorpay = 'true';
+            script.onload = () => resolve();
+            script.onerror = () =>
+              reject(new Error('Razorpay checkout could not load'));
+            document.body.appendChild(script);
+          });
+        }
+      }
+      if (!window.Razorpay) throw new Error('Razorpay checkout is unavailable');
+      const checkout = new window.Razorpay({
+        key: result.data.keyId,
+        amount: result.data.amountPaise,
+        currency: result.data.currency,
+        name: 'Nivara',
+        description: `Order ${result.data.orderNumber}`,
+        order_id: result.data.razorpayOrderId,
+        handler: () => {
+          setNotice('Payment submitted. It will update after server verification.');
+          setOrder((current) =>
+            current ? { ...current, paymentStatus: 'PENDING' } : current,
+          );
+        },
+        modal: {
+          ondismiss: () =>
+            setError('Checkout was closed. The order remains unpaid.'),
+        },
+      });
+      checkout.on('payment.failed', (paymentError) =>
+        setError(
+          paymentError.error?.description ??
+            'Payment failed. You can retry again from this order.',
+        ),
+      );
+      checkout.open();
+    } catch (reason: unknown) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'Payment retry could not be started.',
+      );
+    } finally {
+      setRetrying(false);
+    }
+  }
   useEffect(() => {
     let active = true;
     void params
@@ -93,6 +177,14 @@ export default function OrderDetailPage({
       <StoreHeader compact />
       <main className="min-h-screen bg-[#f8f4ee] px-5 py-10 text-[#27362d] lg:px-8 lg:py-16">
         <div className="mx-auto max-w-[1000px]">
+          {notice && (
+            <output
+              aria-live="polite"
+              className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[#314338] px-5 py-3 text-sm font-semibold text-white shadow-xl"
+            >
+              {notice}
+            </output>
+          )}
           <Link
             href="/account"
             className="inline-flex items-center gap-2 text-sm font-bold text-[#a6503d]"
@@ -190,6 +282,17 @@ export default function OrderDetailPage({
                         <span className="block text-[#718078]">Payment</span>
                         <strong>{label(order.paymentStatus)}</strong>
                       </div>
+                      {(order.paymentStatus === 'FAILED' ||
+                        order.paymentStatus === 'CANCELLED') && (
+                        <button
+                          type="button"
+                          onClick={() => void retryPayment()}
+                          disabled={retrying}
+                          className="button-primary mt-2 w-full disabled:opacity-60"
+                        >
+                          {retrying ? 'Preparing payment…' : 'Retry payment'}
+                        </button>
+                      )}
                       <div>
                         <span className="block text-[#718078]">Fulfilment</span>
                         <strong>{label(order.fulfilmentStatus)}</strong>
