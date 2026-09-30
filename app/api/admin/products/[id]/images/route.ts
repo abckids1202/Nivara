@@ -8,6 +8,7 @@ import {
 } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { providerFetch } from '@/lib/provider-fetch';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -37,7 +38,7 @@ function storagePathForImage(url: string, config: ReturnType<typeof storageConfi
 }
 
 async function deleteStorageObject(path: string, config: NonNullable<ReturnType<typeof storageConfig>>) {
-  const response = await fetch(
+  const response = await providerFetch(
     `${config.url}/storage/v1/object/${config.bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,
     {
       method: 'DELETE',
@@ -80,7 +81,7 @@ export async function POST(
   const extension =
     file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
   const path = `${product.slug}/${randomUUID()}.${extension}`;
-  const upload = await fetch(
+  const upload = await providerFetch(
     `${config.url}/storage/v1/object/${config.bucket}/${path}`,
     {
       method: 'POST',

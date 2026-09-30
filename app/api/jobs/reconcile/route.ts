@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { json, unauthorized, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { releaseReservationsForOrder } from '@/lib/checkout';
+import { providerFetch } from '@/lib/provider-fetch';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const response = await fetch(
+    const response = await providerFetch(
       `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
       {
         headers: { Authorization: auth },

@@ -4,6 +4,7 @@ import { consumeRateLimit } from '@/lib/access-rate';
 import { badRequest, conflict, json, unavailable } from '@/lib/http';
 import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
+import { providerFetch } from '@/lib/provider-fetch';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -38,7 +39,7 @@ export async function POST(
     return badRequest('This order could not be retried');
   }
   try {
-    const response = await fetch('https://api.razorpay.com/v1/orders', {
+    const response = await providerFetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: { Authorization: auth.authorization, 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount: pending.totalPaise, currency: 'INR', receipt: pending.orderNumber }),
