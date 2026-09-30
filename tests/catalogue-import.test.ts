@@ -22,25 +22,28 @@ it('reports invalid catalogue rows without importing them', () => {
   expect(result.errors.length).toBeGreaterThan(0);
 });
 
-it('sorts catalogue products by rating and price before pagination', () => {
+it('sorts catalogue products by paid sales and price before pagination', () => {
   const products = [
     {
       id: 'newer',
       createdAt: new Date('2026-01-02'),
       variants: [{ pricePaise: 900 }],
       reviews: [{ rating: 3 }, { rating: 3 }],
+      paidQuantity: 2,
     },
     {
       id: 'better',
       createdAt: new Date('2026-01-01'),
       variants: [{ pricePaise: 1200 }],
       reviews: [{ rating: 5 }],
+      paidQuantity: 8,
     },
     {
       id: 'cheaper',
       createdAt: new Date('2025-12-01'),
       variants: [{ pricePaise: 500 }],
       reviews: [],
+      paidQuantity: 0,
     },
   ];
   expect(sortCatalogueProducts(products, 'best').map((item) => item.id)).toEqual([
