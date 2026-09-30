@@ -13,6 +13,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 6. Configure Razorpay test keys and webhook secret. Point the webhook to `/api/payments/razorpay/webhook` and set `CRON_SECRET`.
 7. Configure Resend and verify the client sender domain before sending real order mail.
 8. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
+   The same job retains rate-limit and guest-access-attempt records for 30 days, then removes older entries.
 
 ## Acceptance sequence
 

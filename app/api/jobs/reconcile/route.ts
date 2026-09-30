@@ -29,6 +29,12 @@ export async function GET(request: Request) {
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay credentials are not configured');
 
+  const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const [deletedRateLogs, deletedGuestAttempts] = await prisma.$transaction([
+    prisma.accessRateLog.deleteMany({ where: { createdAt: { lt: retentionCutoff } } }),
+    prisma.guestOrderAccessAttempt.deleteMany({ where: { createdAt: { lt: retentionCutoff } } }),
+  ]);
+
   const expiredReservations = await prisma.inventoryReservation.findMany({
     where: { status: 'ACTIVE', expiresAt: { lt: new Date() } },
     include: {
@@ -38,7 +44,14 @@ export async function GET(request: Request) {
     },
     take: 100,
   });
-  const processed = { paid: 0, released: 0, review: 0, skipped: 0 };
+  const processed = {
+    paid: 0,
+    released: 0,
+    review: 0,
+    skipped: 0,
+    deletedRateLogs: deletedRateLogs.count,
+    deletedGuestAttempts: deletedGuestAttempts.count,
+  };
   const processedOrders = new Set<string>();
 
   for (const reservation of expiredReservations) {
