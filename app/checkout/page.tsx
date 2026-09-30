@@ -14,9 +14,45 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
+  const [paymentPending, setPaymentPending] = useState(false);
   const subtotal = items.reduce((sum, item) => sum + item.variant.pricePaise * item.quantity, 0);
   const delivery = subtotal >= 99_900 ? 0 : 7_900;
   const total = subtotal + delivery;
+
+  async function openHostedCheckout(details: { orderNumber: string; razorpayOrderId: string; keyId: string; amountPaise: number; currency: string }) {
+    if (!window.Razorpay) {
+      await new Promise<void>((resolve, reject) => {
+        const existing = document.querySelector<HTMLScriptElement>('script[data-razorpay="true"]');
+        if (existing) {
+          existing.addEventListener("load", () => resolve(), { once: true });
+          existing.addEventListener("error", () => reject(new Error("Razorpay checkout could not load")), { once: true });
+          return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.dataset.razorpay = "true";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Razorpay checkout could not load"));
+        document.body.appendChild(script);
+      });
+    }
+    if (!window.Razorpay) throw new Error("Razorpay checkout is unavailable");
+    const checkout = new window.Razorpay({
+      key: details.keyId,
+      amount: details.amountPaise,
+      currency: details.currency,
+      name: "Nivara",
+      description: `Order ${details.orderNumber}`,
+      order_id: details.razorpayOrderId,
+      handler: () => {
+        setPaymentPending(true);
+        setOrderNumber(details.orderNumber);
+      },
+      modal: { ondismiss: () => setError("Checkout was closed. Your order remains unpaid until a verified payment is received.") },
+    });
+    checkout.on("payment.failed", (response) => setError(response.error?.description ?? "Payment failed. You can retry from the checkout page."));
+    checkout.open();
+  }
 
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,13 +77,19 @@ export default function CheckoutPage() {
         items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
       }),
     });
-    const payload = await response.json().catch(() => ({})) as { orderNumber?: string; error?: string };
-    if (!response.ok) setError(payload.error ?? "Checkout could not be started");
-    else setOrderNumber(payload.orderNumber ?? "");
-    setBusy(false);
+    const payload = await response.json().catch(() => ({})) as { orderNumber?: string; razorpayOrderId?: string; keyId?: string; amountPaise?: number; currency?: string; error?: string };
+    try {
+      if (!response.ok) setError(payload.error ?? "Checkout could not be started");
+      else if (payload.orderNumber && payload.razorpayOrderId && payload.keyId && payload.amountPaise && payload.currency) await openHostedCheckout({ orderNumber: payload.orderNumber, razorpayOrderId: payload.razorpayOrderId, keyId: payload.keyId, amountPaise: payload.amountPaise, currency: payload.currency });
+      else setOrderNumber(payload.orderNumber ?? "");
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "Checkout could not be opened");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (orderNumber) return <><StoreHeader compact /><main className="grid min-h-[calc(100vh-4rem)] place-items-center bg-[#f8f4ee] px-5 text-[#27362d]"><div className="max-w-md rounded-[2rem] bg-[#fffaf3] p-8 text-center shadow-[0_18px_55px_rgba(52,64,53,0.1)]"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#dce9d9] text-[#314338]"><Check /></span><p className="eyebrow mt-6 justify-center">Order created</p><h1 className="mt-3 font-display text-4xl tracking-[-0.06em]">Payment handoff ready.</h1><p className="mt-4 text-sm leading-6 text-[#637268]">Order {orderNumber} is waiting for verified Razorpay test payment. A browser redirect will never mark it paid.</p><Link href="/" className="button-primary mt-7">Return home</Link></div></main></>;
+  if (orderNumber) return <><StoreHeader compact /><main className="grid min-h-[calc(100vh-4rem)] place-items-center bg-[#f8f4ee] px-5 text-[#27362d]"><div className="max-w-md rounded-[2rem] bg-[#fffaf3] p-8 text-center shadow-[0_18px_55px_rgba(52,64,53,0.1)]"><span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#dce9d9] text-[#314338]"><Check /></span><p className="eyebrow mt-6 justify-center">{paymentPending ? "Payment submitted" : "Order created"}</p><h1 className="mt-3 font-display text-4xl tracking-[-0.06em]">Payment is being verified.</h1><p className="mt-4 text-sm leading-6 text-[#637268]">Order {orderNumber} is not considered paid by the browser. Razorpay webhooks must verify the payment on the server first.</p><Link href="/" className="button-primary mt-7">Return home</Link></div></main></>;
 
   if (loading) return <><StoreHeader compact /><main className="min-h-screen bg-[#f8f4ee] px-5 py-12 text-[#27362d] lg:px-8"><div className="mx-auto max-w-[1120px]"><div className="skeleton-card h-16 w-full" /><div className="mt-8 grid gap-8 lg:grid-cols-2"><div className="skeleton-card h-96" /><div className="skeleton-card h-96" /></div></div></main></>;
   if (cartError || !items.length) return <><StoreHeader compact /><main className="grid min-h-[calc(100vh-4rem)] place-items-center bg-[#f8f4ee] px-5 text-center text-[#27362d]"><div><p className="eyebrow justify-center">Your bag is quiet</p><h1 className="mt-3 font-display text-4xl tracking-[-0.06em]">Add something before checkout.</h1><p className="mt-4 text-sm text-[#718078]">{cartError || "Browse the collection and choose a piece for your home."}</p><Link href="/shop" className="button-primary mt-7">Browse the collection</Link></div></main></>;

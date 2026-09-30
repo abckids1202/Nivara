@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { ArrowRight, Heart, LogOut, Package, ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SyntheticEvent } from "react";
+import { useCart } from "@/components/cart-provider";
 
 type Mode = "login" | "signup" | "reset";
 
 export default function AccountPage() {
+  const { refresh: refreshCart } = useCart();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,6 +17,19 @@ export default function AccountPage() {
   const [message, setMessage] = useState("");
   const [signedIn, setSignedIn] = useState(false);
   const strength = useMemo(() => [password.length >= 8, /[A-Z]/.test(password), /\d/.test(password), /[^A-Za-z0-9]/.test(password)].filter(Boolean).length, [password]);
+
+  useEffect(() => {
+    fetch("/api/account/profile", { cache: "no-store" })
+      .then(async (response) => response.ok ? await response.json() as { data?: { email?: string } } : null)
+      .then((result) => {
+        if (result?.data?.email) {
+          setEmail(result.data.email);
+          setSignedIn(true);
+          void refreshCart();
+        }
+      })
+      .catch(() => undefined);
+  }, [refreshCart]);
 
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,7 +45,12 @@ export default function AccountPage() {
       if (!response.ok) throw new Error(result.error ?? "Something went wrong. Please try again.");
       if (mode === "reset") setMessage("If that address is registered, a reset link is on its way.");
       else if (mode === "signup" && result.data?.needsVerification) setMessage("Check your email to verify your Nivara account.");
-      else { setSignedIn(true); setMessage("You’re signed in."); }
+      else {
+        await fetch("/api/cart/merge", { method: "POST" });
+        await refreshCart();
+        setSignedIn(true);
+        setMessage("You’re signed in.");
+      }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Something went wrong. Please try again."); }
     finally { setBusy(false); }
   }
