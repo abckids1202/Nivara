@@ -280,9 +280,7 @@ export default function AccountPage() {
             </button>
           </div>
           {message && (
-            <output
-              className="mt-6 rounded-xl bg-[#e7eee5] px-4 py-3 text-sm text-[#536259]"
-            >
+            <output className="mt-6 rounded-xl bg-[#e7eee5] px-4 py-3 text-sm text-[#536259]">
               {message}
             </output>
           )}
@@ -346,7 +344,12 @@ export default function AccountPage() {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="font-semibold">{order.orderNumber}</p>
+                        <Link
+                          href={`/account/orders/${encodeURIComponent(order.orderNumber)}`}
+                          className="font-semibold text-[#a6503d] hover:underline"
+                        >
+                          {order.orderNumber}
+                        </Link>
                         <p className="text-sm text-[#718078]">
                           {new Date(order.createdAt).toLocaleDateString(
                             'en-IN',
@@ -786,9 +789,7 @@ function ReviewForm({ item }: { item: OrderItem }) {
           {busy ? 'Submitting…' : 'Submit review'}
         </button>
         {message && (
-          <output className="text-xs text-[#637268]">
-            {message}
-          </output>
+          <output className="text-xs text-[#637268]">{message}</output>
         )}
       </div>
     </form>
