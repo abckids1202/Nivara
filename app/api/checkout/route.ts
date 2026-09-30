@@ -6,6 +6,7 @@ import {
 import { badRequest, json, unavailable } from '@/lib/http';
 import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
+import { providerFetch } from '@/lib/provider-fetch';
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL) {
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
       return unavailable('Razorpay test credentials are not configured');
     }
 
-    const razorpayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+    const razorpayResponse = await providerFetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
         Authorization: `Basic ${Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString('base64')}`,
