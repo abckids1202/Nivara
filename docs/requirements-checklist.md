@@ -49,6 +49,6 @@
 - [x] Environment-variable template without secrets.
 - [x] Setup, deployment, backup, and restoration instructions.
 - [ ] Secure administrator account handoff.
-- [ ] Known limitations and unfinished work list.
+- [x] Known limitations and unfinished work list in `docs/known-limitations.md`.
 - [ ] Purchase, fulfilment, and review-approval walkthrough.
 - [ ] Fourteen-day defect-fixing period for agreed requirements.
