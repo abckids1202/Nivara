@@ -22,6 +22,7 @@ type AdminProduct = {
   slug: string;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   category: { name: string };
+  images: Array<{ id: string; url: string; altText: string }>;
   variants: Array<{
     id: string;
     name: string;
@@ -101,6 +102,10 @@ export default function AdminPage() {
   const [variantForms, setVariantForms] = useState<Record<string, VariantForm>>(
     {},
   );
+  const [imageFiles, setImageFiles] = useState<
+    Record<string, File | undefined>
+  >({});
+  const [imageAlt, setImageAlt] = useState<Record<string, string>>({});
 
   async function loadProducts() {
     setLoading(true);
@@ -378,6 +383,44 @@ export default function AdminPage() {
       response.ok
         ? 'Variant created. Update its price and SKU.'
         : (payload.error ?? 'Variant could not be created.'),
+    );
+    if (response.ok) await loadProducts();
+  }
+
+  async function uploadImage(productId: string) {
+    const file = imageFiles[productId];
+    if (!file) {
+      setNotice('Choose an image first.');
+      return;
+    }
+    const form = new FormData();
+    form.set('file', file);
+    form.set('altText', imageAlt[productId] ?? '');
+    const response = await fetch(`/api/admin/products/${productId}/images`, {
+      method: 'POST',
+      body: form,
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    setNotice(
+      response.ok
+        ? 'Product image uploaded.'
+        : (payload.error ?? 'Image upload failed.'),
+    );
+    if (response.ok) {
+      setImageFiles((current) => ({ ...current, [productId]: undefined }));
+      await loadProducts();
+    }
+  }
+
+  async function deleteImage(productId: string, imageId: string) {
+    const response = await fetch(
+      `/api/admin/products/${productId}/images?imageId=${encodeURIComponent(imageId)}`,
+      { method: 'DELETE' },
+    );
+    setNotice(
+      response.ok ? 'Product image removed.' : 'Image could not be removed.',
     );
     if (response.ok) await loadProducts();
   }
@@ -741,6 +784,63 @@ export default function AdminPage() {
                           </div>
                           {expandedId === product.id && (
                             <div className="mt-4 grid gap-3 border-t border-[#e5ebe2] pt-4">
+                              <div className="rounded-xl bg-[#e7eee5] p-3">
+                                <p className="text-sm font-semibold">
+                                  Product images
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-3">
+                                  {product.images.map((image) => (
+                                    <div key={image.id} className="relative">
+                                      <img
+                                        src={image.url}
+                                        alt={image.altText}
+                                        className="h-20 w-20 rounded-lg object-cover"
+                                      />
+                                      <button
+                                        type="button"
+                                        aria-label={`Remove ${image.altText}`}
+                                        onClick={() =>
+                                          void deleteImage(product.id, image.id)
+                                        }
+                                        className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-[#a6503d] text-xs font-bold text-white"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    onChange={(event) =>
+                                      setImageFiles((current) => ({
+                                        ...current,
+                                        [product.id]: event.target.files?.[0],
+                                      }))
+                                    }
+                                    className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-2 py-2 text-xs"
+                                  />
+                                  <input
+                                    value={imageAlt[product.id] ?? ''}
+                                    onChange={(event) =>
+                                      setImageAlt((current) => ({
+                                        ...current,
+                                        [product.id]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="Image alt text"
+                                    className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => void uploadImage(product.id)}
+                                    className="button-secondary"
+                                  >
+                                    Upload image
+                                  </button>
+                                </div>
+                              </div>
                               {product.variants.map((variant) => (
                                 <div
                                   key={variant.id}
