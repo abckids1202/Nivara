@@ -29,6 +29,27 @@ function storageConfig() {
     : null;
 }
 
+function storagePathForImage(url: string, config: ReturnType<typeof storageConfig>) {
+  if (!config) return null;
+  const marker = `/storage/v1/object/public/${config.bucket}/`;
+  if (!url.startsWith(`${config.url}${marker}`)) return null;
+  return decodeURIComponent(url.slice(`${config.url}${marker}`.length));
+}
+
+async function deleteStorageObject(path: string, config: NonNullable<ReturnType<typeof storageConfig>>) {
+  const response = await fetch(
+    `${config.url}/storage/v1/object/${config.bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${config.key}`,
+        apikey: config.key,
+      },
+    },
+  );
+  return response.ok || response.status === 404;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -74,13 +95,19 @@ export async function POST(
   );
   if (!upload.ok)
     return unavailable('Supabase Storage could not save the image');
-  const image = await prisma.productImage.create({
-    data: {
-      productId: product.id,
-      url: `${config.url}/storage/v1/object/public/${config.bucket}/${path}`,
-      altText: altText || product.name,
-    },
-  });
+  let image;
+  try {
+    image = await prisma.productImage.create({
+      data: {
+        productId: product.id,
+        url: `${config.url}/storage/v1/object/public/${config.bucket}/${path}`,
+        altText: altText || product.name,
+      },
+    });
+  } catch {
+    await deleteStorageObject(path, config).catch(() => undefined);
+    return unavailable('Image metadata could not be saved');
+  }
   await prisma.auditLog.create({
     data: {
       actorId: access.identity.id,
@@ -108,6 +135,10 @@ export async function DELETE(
     where: { id: imageId, productId: id },
   });
   if (!image) return json({ error: 'Image not found' }, 404);
+  const config = storageConfig();
+  const path = storagePathForImage(image.url, config);
+  if (path && config && !(await deleteStorageObject(path, config)))
+    return unavailable('Supabase Storage could not remove the image');
   await prisma.productImage.delete({ where: { id: image.id } });
   await prisma.auditLog.create({
     data: {
@@ -115,7 +146,7 @@ export async function DELETE(
       action: 'product.image.deleted',
       entityType: 'ProductImage',
       entityId: image.id,
-      details: { productId: id },
+      details: { productId: id, path },
     },
   });
   return json({ deleted: true });
