@@ -183,7 +183,7 @@ export async function prepareRetryPayment({
         guestAccessExpiry: guestAccessHash ? { gt: new Date() } : undefined,
         paymentStatus: { in: ['FAILED', 'CANCELLED'] },
       },
-      include: { items: true },
+      include: { items: true, reservations: true },
     });
     if (!order) throw new CheckoutConflict('This order is not eligible for payment retry');
 
@@ -212,13 +212,25 @@ export async function prepareRetryPayment({
 
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     for (const item of order.items) {
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: { stockReserved: { increment: item.quantity } },
-      });
+      const reservation = order.reservations.find(
+        (candidate) => candidate.variantId === item.variantId,
+      );
+      if (reservation?.status !== 'ACTIVE') {
+        await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: { stockReserved: { increment: item.quantity } },
+        });
+      }
       await tx.inventoryReservation.upsert({
-        where: { orderId_variantId: { orderId: order.id, variantId: item.variantId } },
-        create: { orderId: order.id, variantId: item.variantId, quantity: item.quantity, expiresAt },
+        where: {
+          orderId_variantId: { orderId: order.id, variantId: item.variantId },
+        },
+        create: {
+          orderId: order.id,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          expiresAt,
+        },
         update: { quantity: item.quantity, expiresAt, status: 'ACTIVE' },
       });
     }
