@@ -27,6 +27,13 @@ test('catalogue filters remain represented in the URL', async ({ page }) => {
   await expect(page).toHaveURL(/availability=available/);
 });
 
+test('header search opens an accessible live-search form', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Search the collection' }).click();
+  await expect(page.getByPlaceholder('Search products, rooms, materials')).toBeVisible();
+  await expect(page.getByRole('search')).toBeVisible();
+});
+
 test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await page.goto('/checkout');
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
