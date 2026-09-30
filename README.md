@@ -23,8 +23,11 @@ For Windows CMD:
 cd /d C:\path\to\nivara-store
 npm install
 copy .env.example .env
+npm run db:seed
 npm run dev
 ```
+
+`npm run db:seed` is safe to run repeatedly. It upserts the demonstration catalogue, categories, variants, and placeholder product images; it requires a reachable `DATABASE_URL`.
 
 Then open `http://localhost:3000`.
 
