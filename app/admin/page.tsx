@@ -5,11 +5,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   Package,
+  Plus,
+  Save,
   Search,
   ShieldCheck,
   ShoppingBag,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import type { SyntheticEvent } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
 import { formatInr } from '@/lib/demo-data';
 
@@ -48,12 +51,30 @@ type AdminReview = {
   body: string;
   product: { name: string };
 };
+type AdminCategory = { id: string; name: string; slug: string };
+type ProductForm = {
+  name: string;
+  slug: string;
+  description: string;
+  material: string;
+  dimensions: string;
+  care: string;
+  categoryId: string;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+};
+type VariantForm = {
+  name: string;
+  sku: string;
+  priceRupees: string;
+  compareAtRupees: string;
+};
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
 export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [query, setQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -65,6 +86,21 @@ export default function AdminPage() {
   const [tracking, setTracking] = useState<
     Record<string, { courierName: string; trackingReference: string }>
   >({});
+  const [editingProductId, setEditingProductId] = useState('');
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [productForm, setProductForm] = useState<ProductForm>({
+    name: '',
+    slug: '',
+    description: '',
+    material: '',
+    dimensions: '',
+    care: '',
+    categoryId: '',
+    status: 'DRAFT',
+  });
+  const [variantForms, setVariantForms] = useState<Record<string, VariantForm>>(
+    {},
+  );
 
   async function loadProducts() {
     setLoading(true);
@@ -105,6 +141,16 @@ export default function AdminPage() {
     if (response.ok) setReviews(payload.data ?? []);
   }
 
+  async function loadCategories() {
+    const response = await fetch('/api/admin/categories', {
+      cache: 'no-store',
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: AdminCategory[];
+    };
+    if (response.ok) setCategories(payload.data ?? []);
+  }
+
   // The loaders intentionally read the current query and are invoked only when the search changes.
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
@@ -112,6 +158,7 @@ export default function AdminPage() {
       void loadProducts();
       void loadOrders();
       void loadReviews();
+      void loadCategories();
     });
   }, [orderQuery]);
   // oxlint-enable react-hooks/exhaustive-deps
@@ -198,6 +245,141 @@ export default function AdminPage() {
       setDeltas((current) => ({ ...current, [variantId]: '' }));
       await loadProducts();
     }
+  }
+
+  function beginCreate() {
+    setShowProductForm(true);
+    setEditingProductId('');
+    setProductForm({
+      name: '',
+      slug: '',
+      description: '',
+      material: '',
+      dimensions: '',
+      care: '',
+      categoryId: categories[0]?.id ?? '',
+      status: 'DRAFT',
+    });
+  }
+
+  function beginEdit(product: AdminProduct) {
+    setShowProductForm(true);
+    setEditingProductId(product.id);
+    setProductForm({
+      name: product.name,
+      slug: product.slug,
+      description: '',
+      material: '',
+      dimensions: '',
+      care: '',
+      categoryId:
+        categories.find((category) => category.name === product.category.name)
+          ?.id ?? '',
+      status: product.status,
+    });
+    setExpandedId(product.id);
+  }
+
+  async function saveProduct(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = editingProductId
+      ? {
+          name: productForm.name,
+          slug: productForm.slug,
+          status: productForm.status,
+          ...(productForm.categoryId
+            ? { categoryId: productForm.categoryId }
+            : {}),
+          ...(productForm.description.length >= 10
+            ? { description: productForm.description }
+            : {}),
+          ...(productForm.material ? { material: productForm.material } : {}),
+          ...(productForm.dimensions
+            ? { dimensions: productForm.dimensions }
+            : {}),
+          ...(productForm.care ? { care: productForm.care } : {}),
+        }
+      : {
+          ...productForm,
+          material: productForm.material || undefined,
+          dimensions: productForm.dimensions || undefined,
+          care: productForm.care || undefined,
+        };
+    const response = await fetch(
+      editingProductId
+        ? `/api/admin/products/${editingProductId}`
+        : '/api/admin/products',
+      {
+        method: editingProductId ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    );
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    if (!response.ok) setNotice(payload.error ?? 'Product could not be saved');
+    else {
+      setNotice(
+        editingProductId
+          ? 'Product updated.'
+          : 'Product created. Add a variant before publishing.',
+      );
+      setEditingProductId('');
+      setShowProductForm(false);
+      await loadProducts();
+    }
+  }
+
+  async function saveVariant(productId: string, variantId: string) {
+    const form = variantForms[variantId];
+    if (!form) return;
+    const response = await fetch(
+      `/api/admin/products/${productId}/variants/${variantId}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          sku: form.sku,
+          priceRupees: Number(form.priceRupees),
+          compareAtRupees: form.compareAtRupees
+            ? Number(form.compareAtRupees)
+            : null,
+        }),
+      },
+    );
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    setNotice(
+      response.ok
+        ? 'Variant updated.'
+        : (payload.error ?? 'Variant could not be updated.'),
+    );
+    if (response.ok) await loadProducts();
+  }
+
+  async function createVariant(productId: string) {
+    const response = await fetch(`/api/admin/products/${productId}/variants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Standard',
+        sku: `NIV-${Date.now()}`,
+        priceRupees: 0,
+        stockOnHand: 0,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    setNotice(
+      response.ok
+        ? 'Variant created. Update its price and SKU.'
+        : (payload.error ?? 'Variant could not be created.'),
+    );
+    if (response.ok) await loadProducts();
   }
 
   async function updateOrder(order: AdminOrder) {
@@ -335,7 +517,152 @@ export default function AdminPage() {
                       className="h-11 w-full rounded-full border border-[#d8e0d5] bg-[#f3f5f0] pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-[#c6674f]"
                     />
                   </label>
+                  <button
+                    type="button"
+                    onClick={beginCreate}
+                    className="button-primary"
+                  >
+                    <Plus size={16} /> New product
+                  </button>
                 </div>
+                {showProductForm ? (
+                  <form
+                    onSubmit={saveProduct}
+                    className="mt-6 grid gap-3 rounded-xl bg-[#f3f5f0] p-4 sm:grid-cols-2"
+                  >
+                    <p className="eyebrow sm:col-span-2">
+                      {editingProductId ? 'Edit product' : 'New product'}
+                    </p>
+                    <input
+                      required
+                      value={productForm.name}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Product name"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    />
+                    <input
+                      required
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      value={productForm.slug}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          slug: event.target.value,
+                        })
+                      }
+                      placeholder="product-slug"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    />
+                    <select
+                      required
+                      value={productForm.categoryId}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          categoryId: event.target.value,
+                        })
+                      }
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    >
+                      <option value="">Choose category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={productForm.status}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          status: event.target.value as ProductForm['status'],
+                        })
+                      }
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    >
+                      <option value="DRAFT">Draft</option>
+                      <option value="PUBLISHED">Published</option>
+                      <option value="ARCHIVED">Archived</option>
+                    </select>
+                    <textarea
+                      required
+                      minLength={10}
+                      value={productForm.description}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          description: event.target.value,
+                        })
+                      }
+                      placeholder="Description"
+                      className="min-h-24 rounded-lg border border-[#d8e0d5] bg-white px-3 py-2 text-sm sm:col-span-2"
+                    />
+                    <input
+                      value={productForm.material}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          material: event.target.value,
+                        })
+                      }
+                      placeholder="Material"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    />
+                    <input
+                      value={productForm.dimensions}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          dimensions: event.target.value,
+                        })
+                      }
+                      placeholder="Dimensions"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
+                    />
+                    <input
+                      value={productForm.care}
+                      onChange={(event) =>
+                        setProductForm({
+                          ...productForm,
+                          care: event.target.value,
+                        })
+                      }
+                      placeholder="Care information"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm sm:col-span-2"
+                    />
+                    <div className="flex gap-2 sm:col-span-2">
+                      <button type="submit" className="button-primary">
+                        <Save size={15} /> Save product
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProductId('');
+                          setShowProductForm(false);
+                          setProductForm({
+                            name: '',
+                            slug: '',
+                            description: '',
+                            material: '',
+                            dimensions: '',
+                            care: '',
+                            categoryId: '',
+                            status: 'DRAFT',
+                          });
+                        }}
+                        className="button-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : null}
                 {loading ? (
                   <div className="mt-6 grid gap-3">
                     {[1, 2, 3].map((item) => (
@@ -370,6 +697,13 @@ export default function AdminPage() {
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => beginEdit(product)}
+                                className="button-secondary"
+                              >
+                                Edit product
+                              </button>
                               <button
                                 type="button"
                                 onClick={() =>
@@ -424,6 +758,95 @@ export default function AdminPage() {
                                       reserved)
                                     </p>
                                   </div>
+                                  <div className="grid gap-2 sm:grid-cols-4">
+                                    <input
+                                      aria-label={`Name for ${variant.name}`}
+                                      value={
+                                        variantForms[variant.id]?.name ??
+                                        variant.name
+                                      }
+                                      onChange={(event) =>
+                                        setVariantForms((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            name: event.target.value,
+                                            sku:
+                                              current[variant.id]?.sku ??
+                                              variant.sku,
+                                            priceRupees:
+                                              current[variant.id]
+                                                ?.priceRupees ??
+                                              String(variant.pricePaise / 100),
+                                            compareAtRupees:
+                                              current[variant.id]
+                                                ?.compareAtRupees ?? '',
+                                          },
+                                        }))
+                                      }
+                                      className="h-9 rounded-full border border-[#d8e0d5] bg-white px-3 text-xs"
+                                    />
+                                    <input
+                                      aria-label={`SKU for ${variant.name}`}
+                                      value={
+                                        variantForms[variant.id]?.sku ??
+                                        variant.sku
+                                      }
+                                      onChange={(event) =>
+                                        setVariantForms((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            name:
+                                              current[variant.id]?.name ??
+                                              variant.name,
+                                            sku: event.target.value,
+                                            priceRupees:
+                                              current[variant.id]
+                                                ?.priceRupees ??
+                                              String(variant.pricePaise / 100),
+                                            compareAtRupees:
+                                              current[variant.id]
+                                                ?.compareAtRupees ?? '',
+                                          },
+                                        }))
+                                      }
+                                      className="h-9 rounded-full border border-[#d8e0d5] bg-white px-3 text-xs"
+                                    />
+                                    <input
+                                      aria-label={`Price for ${variant.name}`}
+                                      inputMode="decimal"
+                                      value={
+                                        variantForms[variant.id]?.priceRupees ??
+                                        String(variant.pricePaise / 100)
+                                      }
+                                      onChange={(event) =>
+                                        setVariantForms((current) => ({
+                                          ...current,
+                                          [variant.id]: {
+                                            name:
+                                              current[variant.id]?.name ??
+                                              variant.name,
+                                            sku:
+                                              current[variant.id]?.sku ??
+                                              variant.sku,
+                                            priceRupees: event.target.value,
+                                            compareAtRupees:
+                                              current[variant.id]
+                                                ?.compareAtRupees ?? '',
+                                          },
+                                        }))
+                                      }
+                                      className="h-9 rounded-full border border-[#d8e0d5] bg-white px-3 text-xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void saveVariant(product.id, variant.id)
+                                      }
+                                      className="rounded-full bg-[#314338] px-3 py-2 text-xs font-semibold text-white"
+                                    >
+                                      Save variant
+                                    </button>
+                                  </div>
                                   <div className="flex items-center gap-2">
                                     <label
                                       className="sr-only"
@@ -456,6 +879,13 @@ export default function AdminPage() {
                                   </div>
                                 </div>
                               ))}
+                              <button
+                                type="button"
+                                onClick={() => void createVariant(product.id)}
+                                className="button-secondary justify-center"
+                              >
+                                <Plus size={15} /> Add variant
+                              </button>
                             </div>
                           )}
                         </article>
