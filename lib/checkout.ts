@@ -176,11 +176,27 @@ export async function prepareRetryPayment({
   if (!userId && !guestAccessHash)
     throw new CheckoutConflict('An order owner is required for payment retry');
   return prisma.$transaction(async (tx) => {
+    const ownerWhere = {
+      orderNumber,
+      ...(userId ? { userId } : { guestAccessHash }),
+      guestAccessExpiry: guestAccessHash ? { gt: new Date() } : undefined,
+    };
+    const candidate = await tx.order.findFirst({
+      where: ownerWhere,
+      select: { id: true },
+    });
+    if (!candidate) throw new CheckoutConflict('This order is not eligible for payment retry');
+
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "Order"
+      WHERE "id" = ${candidate.id}
+      FOR UPDATE
+    `);
+
     const order = await tx.order.findFirst({
       where: {
-        orderNumber,
-        ...(userId ? { userId } : { guestAccessHash }),
-        guestAccessExpiry: guestAccessHash ? { gt: new Date() } : undefined,
+        id: candidate.id,
         paymentStatus: { in: ['FAILED', 'CANCELLED'] },
       },
       include: { items: true, reservations: true },
