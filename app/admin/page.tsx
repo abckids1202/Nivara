@@ -92,6 +92,20 @@ type AdminReport = {
     adminUser: { email: string; displayName: string | null };
   }>;
 };
+type PaymentReviewOrder = {
+  id: string;
+  orderNumber: string;
+  guestEmail: string | null;
+  paymentStatus: string;
+  totalPaise: number;
+  items: Array<{ productName: string; quantity: number }>;
+  payments: Array<{ providerPaymentId: string | null }>;
+  paymentReviewResolution: {
+    action: string;
+    reason: string;
+    refundReference: string | null;
+  } | null;
+};
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
 export default function AdminPage() {
@@ -99,6 +113,9 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [report, setReport] = useState<AdminReport | null>(null);
+  const [paymentReviews, setPaymentReviews] = useState<PaymentReviewOrder[]>(
+    [],
+  );
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [query, setQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
@@ -188,6 +205,16 @@ export default function AdminPage() {
     if (response.ok) setReport(payload.data ?? null);
   }
 
+  async function loadPaymentReviews() {
+    const response = await fetch('/api/admin/orders/payment-review', {
+      cache: 'no-store',
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      data?: PaymentReviewOrder[];
+    };
+    if (response.ok) setPaymentReviews(payload.data ?? []);
+  }
+
   // The loaders intentionally read the current query and are invoked only when the search changes.
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
@@ -197,6 +224,7 @@ export default function AdminPage() {
       void loadReviews();
       void loadCategories();
       void loadReport();
+      void loadPaymentReviews();
     });
   }, [orderQuery]);
   // oxlint-enable react-hooks/exhaustive-deps
@@ -503,6 +531,48 @@ export default function AdminPage() {
     else {
       setNotice(`Review ${status.toLowerCase()}.`);
       await loadReviews();
+    }
+  }
+
+  async function resolvePaymentReview(
+    order: PaymentReviewOrder,
+    action: 'REFUND' | 'FULFIL' | 'CANCEL',
+  ) {
+    const reason = window.prompt(
+      'Resolution reason',
+      action === 'REFUND'
+        ? 'Captured payment requires manual refund.'
+        : action === 'FULFIL'
+          ? 'Captured payment confirmed and stock is available.'
+          : 'Payment review cancelled by administrator.',
+    );
+    if (!reason) return;
+    const refundReference =
+      action === 'REFUND'
+        ? (window.prompt('Razorpay refund reference (optional)', '') ?? '')
+        : '';
+    const response = await fetch('/api/admin/orders/payment-review', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId: order.id,
+        action,
+        reason,
+        refundReference: refundReference || undefined,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    setNotice(
+      response.ok
+        ? `${order.orderNumber} resolved.`
+        : (payload.error ?? 'Payment review could not be resolved.'),
+    );
+    if (response.ok) {
+      await loadPaymentReviews();
+      await loadOrders();
+      await loadReport();
     }
   }
 
@@ -1136,6 +1206,82 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
+              </section>
+              <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
+                <p className="eyebrow">Payment exceptions</p>
+                <h2 className="mt-2 text-xl font-semibold">
+                  Resolve uncertain payments.
+                </h2>
+                <div className="mt-6 grid gap-3">
+                  {paymentReviews.length === 0 ? (
+                    <p className="rounded-xl bg-[#f3f5f0] p-5 text-sm text-[#718078]">
+                      No orders need payment review.
+                    </p>
+                  ) : (
+                    paymentReviews.map((order) => (
+                      <article
+                        key={order.id}
+                        className="rounded-xl border border-[#e5ebe2] p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-semibold">
+                              {order.orderNumber} ·{' '}
+                              {formatPaise(order.totalPaise)}
+                            </p>
+                            <p className="mt-1 text-sm text-[#718078]">
+                              {order.guestEmail ?? 'Account customer'} ·{' '}
+                              {order.paymentStatus}
+                            </p>
+                            <p className="mt-2 text-xs text-[#8b998e]">
+                              {order.items
+                                .map(
+                                  (item) =>
+                                    `${item.productName} × ${item.quantity}`,
+                                )
+                                .join(', ')}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void resolvePaymentReview(order, 'REFUND')
+                              }
+                              className="button-secondary"
+                            >
+                              Record refund
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void resolvePaymentReview(order, 'FULFIL')
+                              }
+                              className="button-secondary"
+                            >
+                              Fulfil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void resolvePaymentReview(order, 'CANCEL')
+                              }
+                              className="button-secondary text-[#a6503d]"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                        {order.payments[0]?.providerPaymentId && (
+                          <p className="mt-3 text-xs text-[#718078]">
+                            Provider payment:{' '}
+                            {order.payments[0].providerPaymentId}
+                          </p>
+                        )}
+                      </article>
+                    ))
+                  )}
+                </div>
               </section>
               <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
