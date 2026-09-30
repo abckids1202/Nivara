@@ -350,6 +350,14 @@ model GuestOrderAccessAttempt {
   @@index([requestFingerprint, createdAt])
 }
 
+model AccessRateLog {
+  id                String   @id @default(cuid())
+  endpoint          String
+  requestFingerprint String
+  createdAt         DateTime @default(now())
+  @@index([endpoint, requestFingerprint, createdAt])
+}
+
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
