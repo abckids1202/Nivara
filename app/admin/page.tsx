@@ -147,6 +147,8 @@ export default function AdminPage() {
     Record<string, File | undefined>
   >({});
   const [imageAlt, setImageAlt] = useState<Record<string, string>>({});
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({ name: '', slug: '' });
 
   async function loadProducts() {
     setLoading(true);
@@ -195,6 +197,28 @@ export default function AdminPage() {
       data?: AdminCategory[];
     };
     if (response.ok) setCategories(payload.data ?? []);
+  }
+
+  async function createCategory(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await fetch('/api/admin/categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(categoryForm),
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
+    setNotice(
+      response.ok
+        ? 'Category created.'
+        : (payload.error ?? 'Category could not be created.'),
+    );
+    if (response.ok) {
+      setCategoryForm({ name: '', slug: '' });
+      setShowCategoryForm(false);
+      await loadCategories();
+    }
   }
 
   async function loadReport() {
@@ -752,6 +776,75 @@ export default function AdminPage() {
                   </div>
                 </section>
               )}
+              <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="eyebrow">Categories</p>
+                    <h2 className="mt-2 text-xl font-semibold">
+                      Organize the collection.
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryForm((value) => !value)}
+                    className="button-secondary"
+                  >
+                    <Plus size={15} />{' '}
+                    {showCategoryForm ? 'Close' : 'New category'}
+                  </button>
+                </div>
+                {showCategoryForm && (
+                  <form
+                    onSubmit={createCategory}
+                    className="mt-5 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                  >
+                    <input
+                      required
+                      minLength={2}
+                      value={categoryForm.name}
+                      onChange={(event) =>
+                        setCategoryForm({
+                          ...categoryForm,
+                          name: event.target.value,
+                        })
+                      }
+                      placeholder="Category name"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-[#f3f5f0] px-3 text-sm"
+                    />
+                    <input
+                      required
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      value={categoryForm.slug}
+                      onChange={(event) =>
+                        setCategoryForm({
+                          ...categoryForm,
+                          slug: event.target.value,
+                        })
+                      }
+                      placeholder="category-slug"
+                      className="h-10 rounded-lg border border-[#d8e0d5] bg-[#f3f5f0] px-3 text-sm"
+                    />
+                    <button type="submit" className="button-primary">
+                      Create
+                    </button>
+                  </form>
+                )}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {categories.map((category) => (
+                    <span
+                      key={category.id}
+                      className="rounded-full bg-[#e7eee5] px-3 py-2 text-xs font-semibold text-[#536259]"
+                    >
+                      {category.name} · {category.slug}
+                    </span>
+                  ))}
+                  {categories.length === 0 && (
+                    <p className="text-sm text-[#718078]">
+                      No categories available.
+                    </p>
+                  )}
+                </div>
+              </section>
               <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                   <div>
