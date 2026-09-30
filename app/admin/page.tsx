@@ -52,7 +52,7 @@ type AdminReview = {
   body: string;
   product: { name: string };
 };
-type AdminCategory = { id: string; name: string; slug: string };
+type AdminCategory = { id: string; name: string; slug: string; _count?: { products: number } };
 type ProductForm = {
   name: string;
   slug: string;
@@ -149,6 +149,7 @@ export default function AdminPage() {
   const [imageAlt, setImageAlt] = useState<Record<string, string>>({});
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '' });
+  const [editingCategoryId, setEditingCategoryId] = useState('');
 
   async function loadProducts() {
     setLoading(true);
@@ -201,24 +202,36 @@ export default function AdminPage() {
 
   async function createCategory(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch('/api/admin/categories', {
-      method: 'POST',
+    const response = await fetch(
+      editingCategoryId ? `/api/admin/categories/${editingCategoryId}` : '/api/admin/categories',
+      {
+      method: editingCategoryId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(categoryForm),
-    });
+      },
+    );
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
     setNotice(
       response.ok
-        ? 'Category created.'
+        ? editingCategoryId ? 'Category updated.' : 'Category created.'
         : (payload.error ?? 'Category could not be created.'),
     );
     if (response.ok) {
       setCategoryForm({ name: '', slug: '' });
+      setEditingCategoryId('');
       setShowCategoryForm(false);
       await loadCategories();
     }
+  }
+
+  async function deleteCategory(category: AdminCategory) {
+    if (!window.confirm(`Delete ${category.name}? Categories with products cannot be deleted.`)) return;
+    const response = await fetch(`/api/admin/categories/${category.id}`, { method: 'DELETE' });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    setNotice(response.ok ? 'Category deleted.' : (payload.error ?? 'Category could not be deleted.'));
+    if (response.ok) await loadCategories();
   }
 
   async function loadReport() {
@@ -825,7 +838,7 @@ export default function AdminPage() {
                       className="h-10 rounded-lg border border-[#d8e0d5] bg-[#f3f5f0] px-3 text-sm"
                     />
                     <button type="submit" className="button-primary">
-                      Create
+                      {editingCategoryId ? 'Save' : 'Create'}
                     </button>
                   </form>
                 )}
@@ -833,9 +846,11 @@ export default function AdminPage() {
                   {categories.map((category) => (
                     <span
                       key={category.id}
-                      className="rounded-full bg-[#e7eee5] px-3 py-2 text-xs font-semibold text-[#536259]"
+                      className="flex items-center gap-2 rounded-full bg-[#e7eee5] px-3 py-2 text-xs font-semibold text-[#536259]"
                     >
-                      {category.name} · {category.slug}
+                      <span>{category.name} · {category.slug} · {category._count?.products ?? 0} products</span>
+                      <button type="button" className="underline" onClick={() => { setEditingCategoryId(category.id); setCategoryForm({ name: category.name, slug: category.slug }); setShowCategoryForm(true); }}>Edit</button>
+                      <button type="button" className="text-[#a84b3e] underline" onClick={() => deleteCategory(category)}>Delete</button>
                     </span>
                   ))}
                   {categories.length === 0 && (
