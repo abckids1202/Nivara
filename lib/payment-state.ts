@@ -22,6 +22,17 @@ async function lockPaymentAttempt(
   tx: Prisma.TransactionClient,
   paymentAttemptId: string,
 ) {
+  const reference = await tx.paymentAttempt.findUnique({
+    where: { id: paymentAttemptId },
+    select: { orderId: true },
+  });
+  if (!reference) return null;
+  await tx.$queryRaw(Prisma.sql`
+    SELECT "id"
+    FROM "Order"
+    WHERE "id" = ${reference.orderId}
+    FOR UPDATE
+  `);
   await tx.$queryRaw(Prisma.sql`
     SELECT "id"
     FROM "PaymentAttempt"

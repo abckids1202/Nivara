@@ -148,6 +148,12 @@ export async function releaseReservationsForOrder(orderId: string) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`
       SELECT "id"
+      FROM "Order"
+      WHERE "id" = ${orderId}
+      FOR UPDATE
+    `);
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
       FROM "InventoryReservation"
       WHERE "orderId" = ${orderId}
       FOR UPDATE
