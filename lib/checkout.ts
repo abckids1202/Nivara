@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { createGuestOrderToken } from '@/lib/guest-token';
 import { calculateDeliveryFee } from '@/lib/money';
 import { prisma } from '@/lib/prisma';
@@ -160,5 +161,66 @@ export async function releaseReservationsForOrder(orderId: string) {
       where: { orderId, status: 'ACTIVE' },
       data: { status: 'RELEASED' },
     });
+  });
+}
+
+export async function prepareRetryPayment({
+  orderNumber,
+  userId,
+}: {
+  orderNumber: string;
+  userId: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: {
+        orderNumber,
+        userId,
+        paymentStatus: { in: ['FAILED', 'CANCELLED'] },
+      },
+      include: { items: true },
+    });
+    if (!order) throw new CheckoutConflict('This order is not eligible for payment retry');
+
+    const variantIds = [...new Set(order.items.map((item) => item.variantId))];
+    const variants = await tx.productVariant.findMany({
+      where: { id: { in: variantIds }, product: { status: 'PUBLISHED' } },
+      select: { id: true, stockOnHand: true, stockReserved: true },
+    });
+    if (variants.length !== variantIds.length)
+      throw new CheckoutConflict('One or more order items are no longer available');
+
+    const lockedVariants = await tx.$queryRaw<
+      Array<{ id: string; stockOnHand: number; stockReserved: number }>
+    >(Prisma.sql`
+      SELECT "id", "stockOnHand", "stockReserved"
+      FROM "ProductVariant"
+      WHERE "id" IN (${Prisma.join(variantIds)})
+      FOR UPDATE
+    `);
+    const byVariant = new Map(lockedVariants.map((variant) => [variant.id, variant]));
+    for (const item of order.items) {
+      const variant = byVariant.get(item.variantId);
+      if (!variant || variant.stockOnHand - variant.stockReserved < item.quantity)
+        throw new CheckoutConflict('A selected order item no longer has enough stock');
+    }
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    for (const item of order.items) {
+      await tx.productVariant.update({
+        where: { id: item.variantId },
+        data: { stockReserved: { increment: item.quantity } },
+      });
+      await tx.inventoryReservation.upsert({
+        where: { orderId_variantId: { orderId: order.id, variantId: item.variantId } },
+        create: { orderId: order.id, variantId: item.variantId, quantity: item.quantity, expiresAt },
+        update: { quantity: item.quantity, expiresAt, status: 'ACTIVE' },
+      });
+    }
+    const payment = await tx.paymentAttempt.create({
+      data: { orderId: order.id, status: 'CREATED', idempotencyKey: randomUUID() },
+    });
+    await tx.order.update({ where: { id: order.id }, data: { paymentStatus: 'PENDING' } });
+    return { orderId: order.id, orderNumber: order.orderNumber, totalPaise: order.totalPaise, paymentAttemptId: payment.id };
   });
 }
