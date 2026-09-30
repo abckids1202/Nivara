@@ -3,6 +3,7 @@ export type SortableCatalogueProduct = {
   createdAt: Date;
   variants: Array<{ pricePaise: number }>;
   reviews: Array<{ rating: number }>;
+  paidQuantity: number;
 };
 
 function averageRating(product: SortableCatalogueProduct) {
@@ -23,6 +24,8 @@ export function sortCatalogueProducts(
 ) {
   return [...products].sort((left, right) => {
     if (sort === 'best') {
+      const salesDifference = right.paidQuantity - left.paidQuantity;
+      if (salesDifference !== 0) return salesDifference;
       const ratingDifference = averageRating(right) - averageRating(left);
       if (ratingDifference !== 0) return ratingDifference;
       const reviewDifference = right.reviews.length - left.reviews.length;

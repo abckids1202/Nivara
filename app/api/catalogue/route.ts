@@ -50,14 +50,34 @@ export async function GET(request: Request) {
     select: {
       id: true,
       createdAt: true,
-      variants: { select: { pricePaise: true } },
+      variants: {
+        select: {
+          pricePaise: true,
+          orderItems: {
+            where: { order: { paymentStatus: 'PAID' } },
+            select: { quantity: true },
+          },
+        },
+      },
       reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
     },
   });
   const normalizedSort = allowedSorts.has(sort) ? sort : 'newest';
-  const orderedIds = sortCatalogueProducts(candidates, normalizedSort).map(
-    (product) => product.id,
-  );
+  const orderedIds = sortCatalogueProducts(
+    candidates.map((product) => ({
+      ...product,
+      paidQuantity: product.variants.reduce(
+        (sum, variant) =>
+          sum +
+          variant.orderItems.reduce(
+            (quantity, item) => quantity + item.quantity,
+            0,
+          ),
+        0,
+      ),
+    })),
+    normalizedSort,
+  ).map((product) => product.id);
   const pageIds = orderedIds.slice(
     (page - 1) * pageSize,
     page * pageSize,

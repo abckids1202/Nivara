@@ -204,7 +204,7 @@ export default function ShopPage() {
               className="h-11 rounded-full bg-[#f5efe6] px-4 text-sm text-[#536259] outline-none focus:ring-2 focus:ring-[#b25d49]"
             >
               <option value="newest">Newest</option>
-              <option value="best">Best rated</option>
+              <option value="best">Best sellers</option>
               <option value="price-low">Price: low to high</option>
               <option value="price-high">Price: high to low</option>
             </select>
