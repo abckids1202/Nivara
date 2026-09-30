@@ -1,5 +1,4 @@
-import { markPaymentPaid } from '@/lib/payment-state';
-import { releaseReservationsForOrder } from '@/lib/checkout';
+import { cancelPaymentReview, markPaymentPaid } from '@/lib/payment-state';
 import {
   badRequest,
   forbidden,
@@ -66,22 +65,14 @@ export async function PATCH(request: Request) {
         'Stock is no longer available; resolve this order by refund or cancellation',
       );
   } else {
-    await releaseReservationsForOrder(order.id);
-    await prisma.$transaction(async (tx) => {
-      await tx.paymentAttempt.update({
-        where: { id: payment.id },
-        data: {
-          status: 'CANCELLED',
-          ...(parsed.data.refundReference
-            ? { refundReference: parsed.data.refundReference }
-            : {}),
-        },
-      });
-      await tx.order.update({
-        where: { id: order.id },
-        data: { paymentStatus: 'CANCELLED' },
-      });
+    const result = await cancelPaymentReview({
+      paymentAttemptId: payment.id,
+      orderId: order.id,
+      refundReference: parsed.data.refundReference,
     });
+    if (result.status === 'missing') return json({ error: 'Payment not found' }, 404);
+    if (result.status === 'not_review')
+      return badRequest('This order is no longer waiting for payment review');
   }
 
   const resolution = await prisma.$transaction(async (tx) => {

@@ -199,3 +199,57 @@ export async function markPaymentReview(paymentAttemptId: string) {
     return { status: 'payment_review' as const, orderId: payment.orderId };
   });
 }
+
+export async function cancelPaymentReview({
+  paymentAttemptId,
+  orderId,
+  refundReference,
+}: {
+  paymentAttemptId: string;
+  orderId: string;
+  refundReference?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "Order"
+      WHERE "id" = ${orderId}
+      FOR UPDATE
+    `);
+    const payment = await lockPaymentAttempt(tx, paymentAttemptId);
+    if (!payment || payment.orderId !== orderId)
+      return { status: 'missing' as const };
+    if (
+      payment.order.paymentStatus !== 'PAYMENT_REVIEW' &&
+      payment.order.paymentStatus !== 'PAID_REVIEW'
+    )
+      return { status: 'not_review' as const, orderId };
+
+    const reservations = await lockOrderReservations(tx, orderId);
+    const activeReservations = reservations.filter(
+      (reservation) => reservation.status === 'ACTIVE',
+    );
+    for (const reservation of activeReservations) {
+      await tx.productVariant.update({
+        where: { id: reservation.variantId },
+        data: { stockReserved: { decrement: reservation.quantity } },
+      });
+    }
+    await tx.inventoryReservation.updateMany({
+      where: { orderId, status: 'ACTIVE' },
+      data: { status: 'RELEASED' },
+    });
+    await tx.paymentAttempt.update({
+      where: { id: paymentAttemptId },
+      data: {
+        status: 'CANCELLED',
+        ...(refundReference ? { refundReference } : {}),
+      },
+    });
+    await tx.order.update({
+      where: { id: orderId },
+      data: { paymentStatus: 'CANCELLED' },
+    });
+    return { status: 'cancelled' as const, orderId };
+  });
+}
