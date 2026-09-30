@@ -6,6 +6,7 @@ import {
   STANDARD_DELIVERY_FEE_PAISE,
 } from '../lib/money.ts';
 import { canConvertReservation } from '../lib/payment-rules.ts';
+import { checkoutRequestSchema } from '../lib/schemas.ts';
 
 describe('money and reservation rules', () => {
   it('charges standard delivery below the free-shipping threshold', () => {
@@ -40,5 +41,22 @@ describe('money and reservation rules', () => {
     expect(
     canConvertReservation({ status: 'RELEASED', stockOnHand: 5, quantity: 1 }),
     ).toBe(false);
+  });
+
+  it('rejects duplicate variants in a checkout request', () => {
+    const result = checkoutRequestSchema.safeParse({
+      email: 'shopper@example.com',
+      fullName: 'Test Shopper',
+      line1: '12 Market Street',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      postalCode: '400001',
+      country: 'IN',
+      items: [
+        { variantId: 'variant-1', quantity: 1 },
+        { variantId: 'variant-1', quantity: 2 },
+      ],
+    });
+    expect(result.success).toBe(false);
   });
 });
