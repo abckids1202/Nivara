@@ -14,7 +14,7 @@
 - [x] Connected Razorpay test checkout and server-side order creation; live provider verification remains deployment work.
 - [x] Account registration, email verification, login, password reset, profile, addresses, wishlist, and order history backed by Supabase/Auth and PostgreSQL routes.
 - [x] Guest order access using a hashed, expiring, rate-limited token limited to one order.
-- [ ] Support, FAQ, shipping, returns, privacy, and terms content pages.
+- [x] Support, FAQ, shipping, returns, privacy, and terms content pages (production contact details still require client approval).
 
 ## Administration
 
