@@ -4,8 +4,11 @@ import Link from "next/link";
 import { ArrowUp, ChevronRight, Menu, Moon, Search, ShoppingBag, Sun, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { products } from "@/lib/demo-data";
+import { useCart } from "@/components/cart-provider";
 
 export function StoreHeader({ cartCount = 0, compact = false }: { cartCount?: number; compact?: boolean }) {
+  const cart = useCart();
+  const displayedCartCount = cartCount || cart.count;
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -43,7 +46,7 @@ export function StoreHeader({ cartCount = 0, compact = false }: { cartCount?: nu
           <button type="button" aria-label="Search the collection" aria-expanded={searchOpen} onClick={() => setSearchOpen((open) => !open)} className="icon-button"><Search size={18} /></button>
           <Link href="/account" aria-label="Your account" className="icon-button hidden sm:grid"><span aria-hidden="true" className="text-sm font-semibold">◌</span></Link>
           <button type="button" aria-label={dark ? "Switch to light mode" : "Switch to dark mode"} onClick={toggleTheme} className="icon-button hidden sm:grid">{dark ? <Sun size={17} /> : <Moon size={17} />}</button>
-          <Link href="/checkout" aria-label={`Bag with ${cartCount} items`} className="icon-button relative"><ShoppingBag size={18} />{cartCount > 0 && <span className="cart-badge">{cartCount}</span>}</Link>
+          <Link href="/checkout" aria-label={`Bag with ${displayedCartCount} items`} className="icon-button relative"><ShoppingBag size={18} />{displayedCartCount > 0 && <span className="cart-badge">{displayedCartCount}</span>}</Link>
           <button type="button" aria-label={mobileOpen ? "Close menu" : "Open menu"} aria-expanded={mobileOpen} onClick={() => setMobileOpen((open) => !open)} className="icon-button md:hidden">{mobileOpen ? <X size={18} /> : <Menu size={18} />}</button>
         </div>
       </div>

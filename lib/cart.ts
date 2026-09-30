@@ -34,5 +34,6 @@ export async function findOrCreateCart(identity: AuthenticatedIdentity | null, g
 }
 
 export function cartCookieHeader(value: string) {
-  return `${CART_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax; Secure`;
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${CART_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${secure}`;
 }
