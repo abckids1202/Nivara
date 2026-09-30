@@ -34,6 +34,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .category-sand { background: #c1a985; color: #27362d; }
 .product-image { aspect-ratio: .88; }
 .product-detail-image { min-height: 520px; }
+.skeleton-card { aspect-ratio: .88; border-radius: 1.5rem; background: linear-gradient(110deg, #e8e0d4 8%, #f3ede5 18%, #e8e0d4 33%); background-size: 200% 100%; animation: skeleton-shimmer 1.4s linear infinite; }
 ::selection { background: #e4a18f; color: #27362d; }
 .announcement-bar { border-bottom: 1px solid #ded7cc; background: #e7eee5; padding: .5rem 1rem; color: #44574a; font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-align: center; }
 .site-nav { position: sticky; top: 0; z-index: 30; border-bottom: 1px solid rgb(229 221 210 / 80%); background: rgb(248 244 238 / 86%); backdrop-filter: blur(16px); transition: background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -68,6 +69,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .page-transition { animation: page-in 360ms ease both; }
 @keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes skeleton-shimmer { to { background-position-x: -200%; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } .reveal { opacity: 1; transform: none; } }
 html.dark .site-nav, html.dark .site-nav-scrolled { border-color: #35483a; background: rgb(23 34 27 / 94%); }
 html.dark .search-panel, html.dark .mobile-nav { border-color: #35483a; background: #202e25; }
