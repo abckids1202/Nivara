@@ -1,28 +1,24 @@
 import { createHmac } from 'node:crypto';
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { expect, it } from 'vitest';
 import { razorpaySignatureMatches } from '../lib/razorpay-webhook.ts';
 
 const body = JSON.stringify({ id: 'evt_123', event: 'payment.captured' });
 const secret = 'webhook-secret';
 const signature = createHmac('sha256', secret).update(body).digest('hex');
 
-void test('accepts a valid Razorpay webhook signature', () => {
-  assert.equal(razorpaySignatureMatches(body, signature, secret), true);
-  assert.equal(
+it('accepts a valid Razorpay webhook signature', () => {
+  expect(razorpaySignatureMatches(body, signature, secret)).toBe(true);
+  expect(
     razorpaySignatureMatches(body, signature.toUpperCase(), secret),
-    true,
-  );
+  ).toBe(true);
 });
 
-void test('rejects tampered, wrong-secret, and malformed signatures', () => {
-  assert.equal(razorpaySignatureMatches(`${body} `, signature, secret), false);
-  assert.equal(
+it('rejects tampered, wrong-secret, and malformed signatures', () => {
+  expect(razorpaySignatureMatches(`${body} `, signature, secret)).toBe(false);
+  expect(
     razorpaySignatureMatches(body, signature, 'wrong-secret'),
-    false,
-  );
-  assert.equal(
+  ).toBe(false);
+  expect(
     razorpaySignatureMatches(body, 'not-a-signature', secret),
-    false,
-  );
+  ).toBe(false);
 });

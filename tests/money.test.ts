@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { describe, expect, it } from 'vitest';
 import {
   calculateDeliveryFee,
   calculateOrderTotal,
@@ -8,42 +7,38 @@ import {
 } from '../lib/money.ts';
 import { canConvertReservation } from '../lib/payment-rules.ts';
 
-void test('charges standard delivery below the free-shipping threshold', () => {
-  assert.equal(
+describe('money and reservation rules', () => {
+  it('charges standard delivery below the free-shipping threshold', () => {
+    expect(
     calculateDeliveryFee(FREE_SHIPPING_THRESHOLD_PAISE - 1),
-    STANDARD_DELIVERY_FEE_PAISE,
-  );
-  assert.equal(calculateOrderTotal(50_000), 57_900);
-});
+    ).toBe(STANDARD_DELIVERY_FEE_PAISE);
+    expect(calculateOrderTotal(50_000)).toBe(57_900);
+  });
 
-void test('waives delivery at the free-shipping threshold', () => {
-  assert.equal(calculateDeliveryFee(FREE_SHIPPING_THRESHOLD_PAISE), 0);
-  assert.equal(
+  it('waives delivery at the free-shipping threshold', () => {
+    expect(calculateDeliveryFee(FREE_SHIPPING_THRESHOLD_PAISE)).toBe(0);
+    expect(
     calculateOrderTotal(FREE_SHIPPING_THRESHOLD_PAISE),
-    FREE_SHIPPING_THRESHOLD_PAISE,
-  );
-});
+    ).toBe(FREE_SHIPPING_THRESHOLD_PAISE);
+  });
 
-void test('rejects invalid money values', () => {
-  assert.throws(() => calculateDeliveryFee(-1), /non-negative integer/);
-  assert.throws(() => calculateDeliveryFee(10.5), /non-negative integer/);
-});
+  it('rejects invalid money values', () => {
+    expect(() => calculateDeliveryFee(-1)).toThrow(/non-negative integer/);
+    expect(() => calculateDeliveryFee(10.5)).toThrow(/non-negative integer/);
+  });
 
-void test('converts only active reservations with enough physical stock', () => {
-  assert.equal(
+  it('converts only active reservations with enough physical stock', () => {
+    expect(
     canConvertReservation({ status: 'ACTIVE', stockOnHand: 1, quantity: 1 }),
-    true,
-  );
-  assert.equal(
+    ).toBe(true);
+    expect(
     canConvertReservation({ status: 'ACTIVE', stockOnHand: 0, quantity: 1 }),
-    false,
-  );
-  assert.equal(
+    ).toBe(false);
+    expect(
     canConvertReservation({ status: 'EXPIRED', stockOnHand: 1, quantity: 1 }),
-    false,
-  );
-  assert.equal(
+    ).toBe(false);
+    expect(
     canConvertReservation({ status: 'RELEASED', stockOnHand: 5, quantity: 1 }),
-    false,
-  );
+    ).toBe(false);
+  });
 });
