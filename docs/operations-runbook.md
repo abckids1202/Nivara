@@ -27,7 +27,7 @@ Run the following with seeded data and Razorpay test credentials:
 6. Use the admin workspace to update fulfilment and tracking, then mark the order delivered.
 7. Submit a customer review, confirm it is pending, approve it as admin, and confirm only the approved review affects the product average.
 8. Test a failed, cancelled, expired, and late payment. Resolve uncertain orders through the payment-review queue and record any manual refund reference.
-   For an authenticated failed or cancelled order, use `POST /api/orders/{orderNumber}/retry-payment`; it reuses the original order and creates a fresh payment attempt after rechecking stock.
+   For an authenticated failed or cancelled order, use `POST /api/orders/{orderNumber}/retry-payment`; for a valid guest link use `POST /api/guest-orders/{token}/retry-payment`. Both reuse the original order and create a fresh payment attempt after rechecking stock.
 
 The repository includes `npm run test:e2e` for desktop/mobile storefront checks and `npm run test` for deterministic business rules. Provider-backed acceptance requires the client credentials above.
 

@@ -167,15 +167,20 @@ export async function releaseReservationsForOrder(orderId: string) {
 export async function prepareRetryPayment({
   orderNumber,
   userId,
+  guestAccessHash,
 }: {
   orderNumber: string;
-  userId: string;
+  userId?: string;
+  guestAccessHash?: string;
 }) {
+  if (!userId && !guestAccessHash)
+    throw new CheckoutConflict('An order owner is required for payment retry');
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findFirst({
       where: {
         orderNumber,
-        userId,
+        ...(userId ? { userId } : { guestAccessHash }),
+        guestAccessExpiry: guestAccessHash ? { gt: new Date() } : undefined,
         paymentStatus: { in: ['FAILED', 'CANCELLED'] },
       },
       include: { items: true },
