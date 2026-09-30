@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "oxlint",
     "test": "node --experimental-strip-types --test tests/money.test.ts tests/catalogue-import.test.ts tests/guest-token.test.ts",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

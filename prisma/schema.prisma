@@ -56,7 +56,8 @@ enum EmailDeliveryStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
+  // Must match the UUID issued by Supabase Auth.
+  id           String     @id
   email        String     @unique
   displayName  String?
   isAdmin      Boolean    @default(false)
