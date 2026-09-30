@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "oxlint",
-    "test": "node --experimental-strip-types --test tests/money.test.ts tests/catalogue-import.test.ts tests/guest-token.test.ts",
+    "test": "node --experimental-strip-types --test tests/money.test.ts tests/catalogue-import.test.ts tests/guest-token.test.ts tests/razorpay-webhook.test.ts",
     "format": "oxfmt",
     "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
