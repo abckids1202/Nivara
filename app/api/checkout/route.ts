@@ -3,7 +3,7 @@ import {
   createPendingOrder,
   releaseReservationsForOrder,
 } from '@/lib/checkout';
-import { badRequest, json, unavailable } from '@/lib/http';
+import { badRequest, noStore, unavailable } from '@/lib/http';
 import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       maxAttempts: 20,
     }))
   )
-    return json(
+    return noStore(
       { error: 'Too many checkout attempts. Please try again later.' },
       429,
     );
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       }),
     ]);
 
-    return json(
+    return noStore(
       {
         orderNumber: pending.order.orderNumber,
         razorpayOrderId: razorpayOrder.id,
