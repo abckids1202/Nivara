@@ -510,6 +510,7 @@ export default function AccountPage() {
               >
                 <input
                   required
+                  aria-label="Address label"
                   placeholder="Label (e.g. Home)"
                   value={address.label}
                   onChange={(event) =>
@@ -519,6 +520,7 @@ export default function AccountPage() {
                 />
                 <input
                   required
+                  aria-label="Full name"
                   placeholder="Full name"
                   value={address.fullName}
                   onChange={(event) =>
@@ -528,6 +530,7 @@ export default function AccountPage() {
                 />
                 <input
                   required
+                  aria-label="Address line"
                   placeholder="Address line"
                   value={address.line1}
                   onChange={(event) =>
@@ -537,6 +540,7 @@ export default function AccountPage() {
                 />
                 <input
                   required
+                  aria-label="City"
                   placeholder="City"
                   value={address.city}
                   onChange={(event) =>
@@ -546,6 +550,7 @@ export default function AccountPage() {
                 />
                 <input
                   required
+                  aria-label="State"
                   placeholder="State"
                   value={address.state}
                   onChange={(event) =>
@@ -555,6 +560,7 @@ export default function AccountPage() {
                 />
                 <input
                   required
+                  aria-label="PIN code"
                   pattern="[0-9]{6}"
                   placeholder="PIN code"
                   value={address.postalCode}
@@ -777,6 +783,7 @@ function ReviewForm({ item }: { item: OrderItem }) {
       <p className="text-sm font-semibold">Review {item.productName}</p>
       <div className="mt-3 flex gap-1">
         <select
+          aria-label="Review rating"
           value={rating}
           onChange={(event) => setRating(Number(event.target.value))}
           className={inputClass}
@@ -789,6 +796,7 @@ function ReviewForm({ item }: { item: OrderItem }) {
         </select>
         <input
           required
+          aria-label="Review display name"
           minLength={2}
           maxLength={40}
           placeholder="Name"
@@ -799,6 +807,7 @@ function ReviewForm({ item }: { item: OrderItem }) {
       </div>
       <textarea
         required
+        aria-label="Review text"
         minLength={10}
         maxLength={2000}
         placeholder="How did it feel in your home?"
