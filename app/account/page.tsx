@@ -754,6 +754,7 @@ function ReviewForm({ item }: { item: OrderItem }) {
   const [displayName, setDisplayName] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -771,13 +772,20 @@ function ReviewForm({ item }: { item: OrderItem }) {
     const result = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
-    setMessage(
-      response.ok
-        ? 'Review submitted for moderation.'
-        : (result.error ?? 'Review could not be submitted.'),
-    );
+    if (response.ok) setSubmitted(true);
+    else setMessage(result.error ?? 'Review could not be submitted.');
     setBusy(false);
   }
+  if (submitted)
+    return (
+      <output
+        aria-live="polite"
+        className="mt-5 block rounded-xl bg-[#e7eee5] p-4 text-sm text-[#536259]"
+      >
+        Review submitted for moderation. Thank you for sharing how it feels in
+        your home.
+      </output>
+    );
   return (
     <form onSubmit={submit} className="mt-5 rounded-xl bg-[#f8f4ee] p-4">
       <p className="text-sm font-semibold">Review {item.productName}</p>
