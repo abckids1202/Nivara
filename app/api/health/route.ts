@@ -31,6 +31,11 @@ export async function GET() {
       process.env.RESEND_FROM_EMAIL &&
       !process.env.RESEND_FROM_EMAIL.includes('example.com'),
   );
+  const supportConfigured = Boolean(
+    emailConfigured &&
+      process.env.SUPPORT_EMAIL &&
+      !process.env.SUPPORT_EMAIL.includes('example.com'),
+  );
   const cronConfigured = Boolean(
     process.env.CRON_SECRET &&
       process.env.CRON_SECRET !== 'replace-me-server-only',
@@ -43,6 +48,7 @@ export async function GET() {
     authConfigured,
     storageConfigured,
     emailConfigured,
+    supportConfigured,
     cronConfigured,
     ready:
       database === 'connected' &&
@@ -50,6 +56,7 @@ export async function GET() {
       paymentsConfigured &&
       storageConfigured &&
       emailConfigured &&
+      supportConfigured &&
       cronConfigured,
   } as const;
   return json(response, response.status === 'ok' ? 200 : 503);

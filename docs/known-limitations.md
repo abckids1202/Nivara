@@ -28,7 +28,7 @@ This document separates the implemented practice MVP from the work that still re
 ## Demonstration limitations
 
 - The repository includes seed/demo data and a storefront browser test suite, but no provider-backed purchase has been completed without client credentials.
-- The support form currently confirms that a message was prepared; it does not send email until a client-approved support destination is connected.
+- Support messages use Resend when `SUPPORT_EMAIL` and the client sender domain are configured; until then the form reports that support messaging is unavailable.
 - The default sender, contact details, policies, and `nivara.example` fallback URL are placeholders until production configuration is supplied.
 
 ## Operational safeguards
