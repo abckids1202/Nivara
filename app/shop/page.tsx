@@ -3,7 +3,14 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Heart, Search, SlidersHorizontal, Star } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Search,
+  SlidersHorizontal,
+  Star,
+} from 'lucide-react';
 import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
@@ -49,8 +56,14 @@ export default function ShopPage() {
     const price = Number(searchParams.get('maxPrice'));
     return Number.isFinite(price) && price >= 300 ? price : 2500;
   });
+  const [page, setPage] = useState(() => {
+    const value = Number(searchParams.get('page'));
+    return Number.isInteger(value) && value > 0 ? value : 1;
+  });
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [pages, setPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -69,17 +82,19 @@ export default function ShopPage() {
     if (availability !== 'all') params.set('availability', availability);
     if (sort !== 'newest') params.set('sort', sort);
     if (maxPrice !== 2500) params.set('maxPrice', String(maxPrice));
+    if (page > 1) params.set('page', String(page));
     window.history.replaceState(
       {},
       '',
       `/shop${params.toString() ? `?${params}` : ''}`,
     );
-  }, [availability, category, maxPrice, query, sort]);
+  }, [availability, category, maxPrice, page, query, sort]);
 
   useEffect(() => {
     const controller = new AbortController();
     const params = new URLSearchParams({
       pageSize: '48',
+      page: String(page),
       sort,
       maxPricePaise: String(maxPrice * 100),
     });
@@ -95,10 +110,16 @@ export default function ShopPage() {
       .then(async (response) => {
         const payload = (await response.json().catch(() => ({}))) as {
           data?: CatalogueProduct[];
+          pages?: number;
+          total?: number;
           error?: string;
         };
         if (!response.ok)
           throw new Error(payload.error ?? 'Catalogue could not be loaded');
+        const nextPages = Math.max(1, payload.pages ?? 1);
+        setPages(nextPages);
+        setTotal(payload.total ?? 0);
+        if (page > nextPages) setPage(nextPages);
         return payload.data ?? [];
       })
       .then(setProducts)
@@ -111,11 +132,13 @@ export default function ShopPage() {
             : 'Catalogue could not be loaded',
         );
         setProducts([]);
+        setPages(1);
+        setTotal(0);
       })
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [availability, category, maxPrice, query, sort]);
+  }, [availability, category, maxPrice, page, query, sort]);
 
   const selectedCategoryLabel = useMemo(
     () =>
@@ -164,7 +187,10 @@ export default function ShopPage() {
               <span className="sr-only">Search products</span>
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
                 placeholder="Search the collection"
                 className="h-11 w-full rounded-full bg-[#f5efe6] pl-10 pr-4 text-sm outline-none ring-[#b25d49] placeholder:text-[#9b9084] focus:ring-2"
               />
@@ -175,7 +201,10 @@ export default function ShopPage() {
             <select
               id="category"
               value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              onChange={(event) => {
+                setCategory(event.target.value);
+                setPage(1);
+              }}
               className="h-11 rounded-full bg-[#f5efe6] px-4 text-sm text-[#536259] outline-none focus:ring-2 focus:ring-[#b25d49]"
             >
               <option value="">All pieces</option>
@@ -191,7 +220,10 @@ export default function ShopPage() {
             <select
               id="availability"
               value={availability}
-              onChange={(event) => setAvailability(event.target.value)}
+              onChange={(event) => {
+                setAvailability(event.target.value);
+                setPage(1);
+              }}
               className="h-11 rounded-full bg-[#f5efe6] px-4 text-sm text-[#536259] outline-none focus:ring-2 focus:ring-[#b25d49]"
             >
               <option value="all">All availability</option>
@@ -204,7 +236,10 @@ export default function ShopPage() {
             <select
               id="sort"
               value={sort}
-              onChange={(event) => setSort(event.target.value)}
+              onChange={(event) => {
+                setSort(event.target.value);
+                setPage(1);
+              }}
               className="h-11 rounded-full bg-[#f5efe6] px-4 text-sm text-[#536259] outline-none focus:ring-2 focus:ring-[#b25d49]"
             >
               <option value="newest">Newest</option>
@@ -215,7 +250,9 @@ export default function ShopPage() {
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[#718078]">
             <p>
-              {loading ? 'Loading collection…' : `${products.length} pieces`}
+              {loading
+                ? 'Loading collection…'
+                : `${products.length} of ${total} pieces`}
             </p>
             <label className="flex items-center gap-3">
               Up to {formatInr(maxPrice)}
@@ -225,7 +262,10 @@ export default function ShopPage() {
                 max="2500"
                 step="50"
                 value={maxPrice}
-                onChange={(event) => setMaxPrice(Number(event.target.value))}
+                onChange={(event) => {
+                  setMaxPrice(Number(event.target.value));
+                  setPage(1);
+                }}
                 className="accent-[#a6503d]"
                 aria-label="Maximum price"
               />
@@ -238,6 +278,7 @@ export default function ShopPage() {
                 setAvailability('all');
                 setSort('newest');
                 setMaxPrice(2500);
+                setPage(1);
               }}
               className="inline-flex items-center gap-2 font-semibold text-[#a6503d]"
             >
@@ -354,6 +395,40 @@ export default function ShopPage() {
                 );
               })}
             </div>
+          )}
+          {!error && !loading && pages > 1 && (
+            <nav
+              aria-label="Catalogue pagination"
+              className="mt-12 flex items-center justify-center gap-4"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPage((current) => Math.max(1, current - 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={page === 1}
+                aria-label="Go to previous page"
+                className="inline-flex items-center gap-2 rounded-full border border-[#d8cec1] px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft size={16} /> Previous
+              </button>
+              <span aria-live="polite" className="text-sm text-[#718078]">
+                Page {page} of {pages}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPage((current) => Math.min(pages, current + 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={page === pages}
+                aria-label="Go to next page"
+                className="inline-flex items-center gap-2 rounded-full border border-[#d8cec1] px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next <ChevronRight size={16} />
+              </button>
+            </nav>
           )}
         </div>
       </div>
