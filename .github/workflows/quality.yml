@@ -33,6 +33,9 @@ jobs:
       - name: Audit admin authorization
         run: npm run check:admin-auth
 
+      - name: Audit secret exposure
+        run: npm run check:secrets
+
       - name: Unit tests
         run: npm run test
 
