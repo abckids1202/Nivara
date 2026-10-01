@@ -3,7 +3,13 @@ import { expect, test } from '@playwright/test';
 test('homepage exposes the main shopping journey', async ({
   page,
 }, testInfo) => {
-  await page.goto('/');
+  const response = await page.goto('/');
+  expect(response).not.toBeNull();
+  expect(response?.headers()['x-content-type-options']).toBe('nosniff');
+  expect(response?.headers()['x-frame-options']).toBe('DENY');
+  expect(response?.headers()['referrer-policy']).toBe(
+    'strict-origin-when-cross-origin',
+  );
   await expect(page).toHaveTitle(/Nivara/);
   await expect(page.getByRole('link', { name: 'Nivara home' })).toBeVisible();
   if (testInfo.project.name === 'mobile') {
