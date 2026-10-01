@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { formatInr } from '@/lib/demo-data';
 import { MagneticLink, StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
+import { isSellable } from '@/lib/inventory';
 
 type FeaturedProduct = {
   id: string;
@@ -18,6 +19,7 @@ type FeaturedProduct = {
     pricePaise: number;
     compareAtPaise: number | null;
     stockOnHand: number;
+    stockReserved: number;
   }>;
   minPricePaise: number | null;
   stockAvailable: boolean;
@@ -34,7 +36,9 @@ function ProductCard({
   onAdd: () => void;
 }) {
   const variant =
-    product.variants.find((item) => item.stockOnHand > 0) ??
+    product.variants.find(
+      (item) => isSellable(item.stockOnHand, item.stockReserved),
+    ) ??
     product.variants[0];
   return (
     <article className="group reveal">
@@ -132,7 +136,9 @@ export default function Home() {
   }, []);
 
   const addToBag = async (product: FeaturedProduct) => {
-    const variant = product.variants.find((item) => item.stockOnHand > 0);
+    const variant = product.variants.find(
+      (item) => isSellable(item.stockOnHand, item.stockReserved),
+    );
     if (!variant) return;
     try {
       await addItem(variant.id);

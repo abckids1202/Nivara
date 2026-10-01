@@ -1,5 +1,6 @@
 import { json, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
+import { isSellable } from '@/lib/inventory';
 
 export async function GET(
   _request: Request,
@@ -23,6 +24,7 @@ export async function GET(
           pricePaise: true,
           compareAtPaise: true,
           stockOnHand: true,
+          stockReserved: true,
         },
       },
       reviews: {
@@ -62,7 +64,7 @@ export async function GET(
         ? Math.min(...product.variants.map((variant) => variant.pricePaise))
         : null,
       stockAvailable: product.variants.some(
-        (variant) => variant.stockOnHand > 0,
+        (variant) => isSellable(variant.stockOnHand, variant.stockReserved),
       ),
       rating: ratings.length
         ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length

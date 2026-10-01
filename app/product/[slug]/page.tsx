@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ProductDetail } from '@/components/product-detail';
 import { prisma } from '@/lib/prisma';
+import { isSellable } from '@/lib/inventory';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nivara.example';
 
@@ -14,7 +15,9 @@ async function getSeoProduct(slug: string) {
         slug: true,
         description: true,
         images: { orderBy: { sortOrder: 'asc' }, select: { url: true } },
-        variants: { select: { pricePaise: true, stockOnHand: true } },
+        variants: {
+          select: { pricePaise: true, stockOnHand: true, stockReserved: true },
+        },
         reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
       },
     });
@@ -78,7 +81,7 @@ export default async function ProductPage({
           highPrice: prices.length ? Math.max(...prices) / 100 : undefined,
           offerCount: product.variants.length,
           availability: product.variants.some(
-            (variant) => variant.stockOnHand > 0,
+            (variant) => isSellable(variant.stockOnHand, variant.stockReserved),
           )
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',

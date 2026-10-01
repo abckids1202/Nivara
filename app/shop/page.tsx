@@ -7,6 +7,7 @@ import { Heart, Search, SlidersHorizontal, Star } from 'lucide-react';
 import { formatInr } from '@/lib/demo-data';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
+import { isSellable } from '@/lib/inventory';
 
 type CatalogueProduct = {
   id: string;
@@ -20,6 +21,7 @@ type CatalogueProduct = {
     pricePaise: number;
     compareAtPaise: number | null;
     stockOnHand: number;
+    stockReserved: number;
   }>;
   minPricePaise: number | null;
   stockAvailable: boolean;
@@ -122,7 +124,9 @@ export default function ShopPage() {
     [category, categoryOptions],
   );
   const add = async (product: CatalogueProduct) => {
-    const variant = product.variants.find((item) => item.stockOnHand > 0);
+    const variant = product.variants.find(
+      (item) => isSellable(item.stockOnHand, item.stockReserved),
+    );
     if (!variant) return;
     try {
       await addItem(variant.id);

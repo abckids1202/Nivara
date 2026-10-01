@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { unavailable, json } from '@/lib/http';
 import { sortCatalogueProducts } from '@/lib/catalogue-sort';
+import { isSellable } from '@/lib/inventory';
 
 const allowedSorts = new Set(['newest', 'best', 'price-low', 'price-high']);
 
@@ -34,10 +35,6 @@ export async function GET(request: Request) {
     });
   }
   if (category) filters.push({ category: { slug: category } });
-  if (availability === 'available')
-    filters.push({ variants: { some: { stockOnHand: { gt: 0 } } } });
-  if (availability === 'soldout')
-    filters.push({ variants: { every: { stockOnHand: { lte: 0 } } } });
   if (Number.isFinite(maxPricePaise) && maxPricePaise > 0) {
     filters.push({
       variants: { some: { pricePaise: { lte: maxPricePaise } } },
@@ -53,6 +50,8 @@ export async function GET(request: Request) {
       variants: {
         select: {
           pricePaise: true,
+          stockOnHand: true,
+          stockReserved: true,
           orderItems: {
             where: { order: { paymentStatus: 'PAID' } },
             select: { quantity: true },
@@ -62,9 +61,20 @@ export async function GET(request: Request) {
       reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
     },
   });
+  const availabilityFiltered = candidates.filter((product) => {
+    if (availability === 'available')
+      return product.variants.some(
+        (variant) => isSellable(variant.stockOnHand, variant.stockReserved),
+      );
+    if (availability === 'soldout')
+      return product.variants.every(
+        (variant) => !isSellable(variant.stockOnHand, variant.stockReserved),
+      );
+    return true;
+  });
   const normalizedSort = allowedSorts.has(sort) ? sort : 'newest';
   const orderedIds = sortCatalogueProducts(
-    candidates.map((product) => ({
+    availabilityFiltered.map((product) => ({
       ...product,
       paidQuantity: product.variants.reduce(
         (sum, variant) =>
@@ -93,6 +103,7 @@ export async function GET(request: Request) {
           pricePaise: true,
           compareAtPaise: true,
           stockOnHand: true,
+          stockReserved: true,
         },
       },
       reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
@@ -120,7 +131,7 @@ export async function GET(request: Request) {
         variants: product.variants,
         minPricePaise: prices.length ? Math.min(...prices) : null,
         stockAvailable: product.variants.some(
-          (variant) => variant.stockOnHand > 0,
+          (variant) => isSellable(variant.stockOnHand, variant.stockReserved),
         ),
         rating: ratings.length
           ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length

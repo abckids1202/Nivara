@@ -6,6 +6,7 @@ import { ArrowLeft, Check, Heart, Minus, Plus, Star } from 'lucide-react';
 import { formatInr } from '@/lib/demo-data';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
+import { sellableStock } from '@/lib/inventory';
 
 type ProductRecord = {
   id: string;
@@ -22,6 +23,7 @@ type ProductRecord = {
     pricePaise: number;
     compareAtPaise: number | null;
     stockOnHand: number;
+    stockReserved: number;
   }>;
   rating: number | null;
   reviewCount: number;
@@ -118,7 +120,10 @@ export function ProductDetail({ slug }: { slug: string }) {
   const variant =
     product.variants.find((item) => item.id === selectedVariantId) ??
     product.variants[0];
-  const soldOut = !variant || variant.stockOnHand <= 0;
+  const availableQuantity = variant
+    ? sellableStock(variant.stockOnHand, variant.stockReserved)
+    : 0;
+  const soldOut = !variant || availableQuantity <= 0;
   const image = product.images[0];
 
   const addToBag = async () => {
@@ -256,7 +261,7 @@ export function ProductDetail({ slug }: { slug: string }) {
                     aria-label="Increase quantity"
                     onClick={() =>
                       setQuantity((value) =>
-                        Math.min(variant?.stockOnHand || 1, value + 1),
+                        Math.min(availableQuantity || 1, value + 1),
                       )
                     }
                     className="grid h-12 w-11 place-items-center"
