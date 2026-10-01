@@ -9,6 +9,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasAllowedImageSignature } from '@/lib/image-validation';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -78,6 +79,9 @@ export async function POST(
     return badRequest('Use a JPG, PNG, or WebP image');
   if (file.size <= 0 || file.size > MAX_IMAGE_BYTES)
     return badRequest('Images must be smaller than 5 MB');
+  const imageBytes = new Uint8Array(await file.arrayBuffer());
+  if (!hasAllowedImageSignature(file.type, imageBytes))
+    return badRequest('The image file contents do not match its type');
   const extension =
     file.type === 'image/jpeg' ? 'jpg' : file.type.split('/')[1];
   const path = `${product.slug}/${randomUUID()}.${extension}`;
@@ -91,7 +95,7 @@ export async function POST(
         'Content-Type': file.type,
         'x-upsert': 'false',
       },
-      body: await file.arrayBuffer(),
+      body: imageBytes,
     },
   );
   if (!upload.ok)
