@@ -193,7 +193,6 @@ export default function AdminPage() {
       );
     else {
       setProducts(payload.data ?? []);
-      setError('');
     }
     setLoading(false);
   }
@@ -363,6 +362,7 @@ export default function AdminPage() {
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
     queueMicrotask(() => {
+      setError('');
       void loadProducts();
       void loadOrders();
       void loadReviews();
@@ -758,16 +758,17 @@ export default function AdminPage() {
               </Link>
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  setError('');
                   void Promise.all([
-                    loadProducts(),
-                    loadOrders(),
-                    loadReviews(),
-                    loadCategories(),
-                    loadReport(),
-                    loadPaymentReviews(),
-                  ])
-                }
+                      loadProducts(),
+                      loadOrders(),
+                      loadReviews(),
+                      loadCategories(),
+                      loadReport(),
+                      loadPaymentReviews(),
+                    ]);
+                }}
                 className="button-primary ml-3 mt-5"
               >
                 Try again
