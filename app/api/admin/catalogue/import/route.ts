@@ -22,7 +22,12 @@ export async function POST(request: Request) {
   const dryRun = new URL(request.url).searchParams.get('dryRun') !== 'false';
   if (parsed.errors.length)
     return badRequest('Catalogue contains invalid rows', parsed.errors);
-  if (dryRun) return json({ dryRun: true, rowCount: parsed.rows.length });
+  if (dryRun)
+    return json({
+      dryRun: true,
+      rowCount: parsed.rows.length,
+      preview: parsed.rows,
+    });
 
   try {
     await prisma.$transaction(async (tx) => {
