@@ -66,15 +66,33 @@ export default function ShopPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryReload, setCategoryReload] = useState(0);
   const [notice, setNotice] = useState('');
   useEffect(() => {
     fetch('/api/categories', { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { data?: CategoryOption[] } | null) =>
-        setCategoryOptions(payload?.data ?? []),
-      )
-      .catch(() => setCategoryOptions([]));
-  }, []);
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as {
+          data?: CategoryOption[];
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(payload.error ?? 'Categories could not be loaded');
+        return payload.data ?? [];
+      })
+      .then((nextCategories) => {
+        setCategoryOptions(nextCategories);
+        setCategoryError('');
+      })
+      .catch((reason: unknown) => {
+        setCategoryOptions([]);
+        setCategoryError(
+          reason instanceof Error
+            ? reason.message
+            : 'Categories could not be loaded',
+        );
+      });
+  }, [categoryReload]);
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set('q', query);
@@ -248,6 +266,21 @@ export default function ShopPage() {
               <option value="price-high">Price: high to low</option>
             </select>
           </div>
+          {categoryError && (
+            <div
+              role="alert"
+              className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#f7ddd5] p-4 text-sm text-[#8f3f31]"
+            >
+              <span>{categoryError}</span>
+              <button
+                type="button"
+                onClick={() => setCategoryReload((value) => value + 1)}
+                className="rounded-full border border-[#c98271] px-4 py-2 font-semibold hover:bg-[#f1cfc5]"
+              >
+                Try again
+              </button>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[#718078]">
             <p>
               {loading

@@ -100,6 +100,8 @@ export default function Home() {
   const [categories, setCategories] = useState<HomepageCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [categoryReload, setCategoryReload] = useState(0);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -128,12 +130,28 @@ export default function Home() {
 
   useEffect(() => {
     fetch('/api/categories', { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { data?: HomepageCategory[] } | null) =>
-        setCategories(payload?.data ?? []),
-      )
-      .catch(() => setCategories([]));
-  }, []);
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as {
+          data?: HomepageCategory[];
+          error?: string;
+        };
+        if (!response.ok)
+          throw new Error(payload.error ?? 'Categories could not be loaded');
+        return payload.data ?? [];
+      })
+      .then((nextCategories) => {
+        setCategories(nextCategories);
+        setCategoryError('');
+      })
+      .catch((reason: unknown) => {
+        setCategories([]);
+        setCategoryError(
+          reason instanceof Error
+            ? reason.message
+            : 'Categories could not be loaded',
+        );
+      });
+  }, [categoryReload]);
 
   const addToBag = async (product: FeaturedProduct) => {
     const variant = product.variants.find(
@@ -242,6 +260,21 @@ export default function Home() {
               View all <ArrowRight size={15} />
             </Link>
           </div>
+          {categoryError && (
+            <div
+              role="alert"
+              className="mt-7 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#f7ddd5] p-5 text-sm text-[#8f3f31]"
+            >
+              <span>{categoryError}</span>
+              <button
+                type="button"
+                onClick={() => setCategoryReload((value) => value + 1)}
+                className="rounded-full border border-[#c98271] px-4 py-2 font-semibold hover:bg-[#f1cfc5]"
+              >
+                Try again
+              </button>
+            </div>
+          )}
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {categories.map((category, index) => (
               <Link
