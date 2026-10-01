@@ -7,6 +7,7 @@ import { formatInr } from '@/lib/demo-data';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { sellableStock } from '@/lib/inventory';
+import { trackEvent } from '@/lib/analytics';
 
 type ProductRecord = {
   id: string;
@@ -66,6 +67,7 @@ export function ProductDetail({ slug }: { slug: string }) {
         if (!data) throw new Error('Product not found');
         setProduct(data);
         setSelectedVariantId(data.variants[0]?.id ?? '');
+        trackEvent('ProductView', { slug });
       })
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === 'AbortError')
