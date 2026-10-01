@@ -70,9 +70,10 @@ export async function PATCH(request: Request) {
     `);
     const order = await tx.order.findUnique({
       where: { id: body.orderId },
-      select: { fulfilmentStatus: true },
+      select: { fulfilmentStatus: true, paymentStatus: true },
     });
     if (!order) return { kind: 'not-found' as const };
+    if (order.paymentStatus !== 'PAID') return { kind: 'unpaid' as const };
 
     const currentRank = fulfilmentRank[order.fulfilmentStatus];
     const nextRank = fulfilmentRank[parsed.data.status];
@@ -122,5 +123,7 @@ export async function PATCH(request: Request) {
     return badRequest('Fulfilment status cannot move backwards');
   if (result.kind === 'skipped')
     return badRequest('Fulfilment status must move one stage at a time');
+  if (result.kind === 'unpaid')
+    return badRequest('Fulfilment requires verified captured payment');
   return json({ data: result.order });
 }
