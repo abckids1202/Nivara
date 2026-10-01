@@ -65,3 +65,23 @@ export async function supabaseUpdatePassword({
   };
   return { ok: response.ok, data };
 }
+
+export async function supabaseLogout(accessToken: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!hasConfiguredValue(url, ['your-project']) || !hasConfiguredValue(anonKey))
+    return false;
+  try {
+    const response = await providerFetch(`${url}/auth/v1/logout`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
