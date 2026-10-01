@@ -3,6 +3,7 @@ import './globals.css';
 import { ExperienceTools } from '@/components/experience-tools';
 import { CartProvider } from '@/components/cart-provider';
 import { AuthSessionRefresh } from '@/components/auth-session-refresh';
+import { ConnectionStatus } from '@/components/connection-status';
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <CartProvider>
+          <ConnectionStatus />
           <ExperienceTools />
           <AuthSessionRefresh />
           {children}
