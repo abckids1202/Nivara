@@ -74,6 +74,51 @@ test('password reset page explains how to request an expired link', async ({
   ).toBeVisible();
 });
 
+test('account dashboard exposes recovery when an account request fails', async ({
+  page,
+}) => {
+  await page.route('**/api/account/profile', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { email: 'customer@example.com' } }),
+    }),
+  );
+  await page.route('**/api/account/orders', (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Orders are temporarily unavailable.' }),
+    }),
+  );
+  await page.route('**/api/account/addresses', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+
+  await page.goto('/account');
+  await expect(
+    page.getByRole('heading', { name: 'Welcome back.' }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole('alert')
+      .filter({ hasText: 'Some account details could not be loaded.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+  await expect(page.getByText('Loading your account details…')).toHaveCount(0);
+});
+
 test('offline connection state is announced accessibly', async ({ page }) => {
   await page.goto('/');
   await expect(
