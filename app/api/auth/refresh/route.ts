@@ -11,6 +11,10 @@ function readRefreshToken(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const refreshToken = readRefreshToken(request);
+  if (!refreshToken)
+    return NextResponse.json({ error: 'No refresh session' }, { status: 401 });
+
   if (
     !(await consumeRateLimit({
       request,
@@ -22,9 +26,6 @@ export async function POST(request: Request) {
       { error: 'Too many refresh attempts' },
       { status: 429 },
     );
-  const refreshToken = readRefreshToken(request);
-  if (!refreshToken)
-    return NextResponse.json({ error: 'No refresh session' }, { status: 401 });
   const result = await supabaseAuthRequest('token?grant_type=refresh_token', {
     refresh_token: refreshToken,
   });
