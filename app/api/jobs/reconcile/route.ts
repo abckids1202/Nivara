@@ -8,11 +8,12 @@ import { json, unauthorized, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { releaseReservationsForOrder } from '@/lib/checkout';
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !secret) return null;
+  if (!hasConfiguredValue(keyId) || !hasConfiguredValue(secret)) return null;
   return `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`;
 }
 

@@ -8,6 +8,7 @@ import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { consumeRateLimit } from '@/lib/access-rate';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export async function POST(request: Request) {
   if (
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
       items: input.items,
     });
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    if (
+      !hasConfiguredValue(process.env.RAZORPAY_KEY_ID) ||
+      !hasConfiguredValue(process.env.RAZORPAY_KEY_SECRET)
+    ) {
       await releaseReservationsForOrder(pending.order.id);
       return unavailable('Razorpay test credentials are not configured');
     }

@@ -1,4 +1,5 @@
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export type SupabaseSession = {
   access_token?: string;
@@ -12,7 +13,8 @@ export async function supabaseAuthRequest(
 ) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey || anonKey === 'replace-me') return null;
+  if (!hasConfiguredValue(url, ['your-project']) || !hasConfiguredValue(anonKey))
+    return null;
   let response: Response;
   try {
     response = await providerFetch(`${url}/auth/v1/${path}`, {
@@ -40,7 +42,8 @@ export async function supabaseUpdatePassword({
 }) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey || anonKey === 'replace-me') return null;
+  if (!hasConfiguredValue(url, ['your-project']) || !hasConfiguredValue(anonKey))
+    return null;
   let response: Response;
   try {
     response = await providerFetch(`${url}/auth/v1/user`, {

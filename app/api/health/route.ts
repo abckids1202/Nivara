@@ -1,11 +1,6 @@
 import { json } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-
-function hasConfiguredValue(value: string | undefined, markers: string[] = []) {
-  if (!value?.trim()) return false;
-  const normalized = value.toLowerCase();
-  return !markers.some((marker) => normalized.includes(marker));
-}
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export async function GET() {
   let database = 'not_configured';
