@@ -19,6 +19,7 @@
     "check:env": "node --experimental-strip-types scripts/check-env.ts --production",
     "check:secrets": "node --experimental-strip-types scripts/check-secrets.ts",
     "check:admin-auth": "node --experimental-strip-types scripts/check-admin-auth.ts",
+    "check:quality": "node --experimental-strip-types scripts/check-quality.ts",
     "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
