@@ -61,3 +61,15 @@ test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await page.goto('/checkout');
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
 });
+
+test('offline connection state is announced accessibly', async ({ page }) => {
+  await page.goto('/');
+  await expect(
+    page.getByRole('button', { name: 'Search the collection' }),
+  ).toBeVisible();
+  await page.context().setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  const offlineStatuses = page.getByRole('status');
+  await expect(offlineStatuses.first()).toContainText(/offline/i);
+  await page.context().setOffline(false);
+});
