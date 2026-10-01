@@ -119,6 +119,17 @@ type PaymentReviewOrder = {
 };
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
+function adminLoadError(
+  response: Response,
+  payload: { error?: string },
+  fallback: string,
+) {
+  if (response.ok) return null;
+  if (response.status === 401 || response.status === 403)
+    return 'Administrator authentication is required to manage the store.';
+  return payload.error ?? fallback;
+}
+
 export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -194,16 +205,22 @@ export default function AdminPage() {
     );
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminOrder[];
+      error?: string;
     };
-    if (response.ok) setOrders(payload.data ?? []);
+    const failure = adminLoadError(response, payload, 'Orders could not be loaded');
+    if (failure) setError(failure);
+    else setOrders(payload.data ?? []);
   }
 
   async function loadReviews() {
     const response = await fetch('/api/admin/reviews', { cache: 'no-store' });
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminReview[];
+      error?: string;
     };
-    if (response.ok) setReviews(payload.data ?? []);
+    const failure = adminLoadError(response, payload, 'Reviews could not be loaded');
+    if (failure) setError(failure);
+    else setReviews(payload.data ?? []);
   }
 
   async function loadCategories() {
@@ -212,8 +229,11 @@ export default function AdminPage() {
     });
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminCategory[];
+      error?: string;
     };
-    if (response.ok) setCategories(payload.data ?? []);
+    const failure = adminLoadError(response, payload, 'Categories could not be loaded');
+    if (failure) setError(failure);
+    else setCategories(payload.data ?? []);
   }
 
   async function createCategory(event: SyntheticEvent<HTMLFormElement>) {
@@ -254,8 +274,11 @@ export default function AdminPage() {
     const response = await fetch('/api/admin/reports', { cache: 'no-store' });
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminReport;
+      error?: string;
     };
-    if (response.ok) setReport(payload.data ?? null);
+    const failure = adminLoadError(response, payload, 'Reports could not be loaded');
+    if (failure) setError(failure);
+    else setReport(payload.data ?? null);
   }
 
   async function loadPaymentReviews() {
@@ -264,8 +287,15 @@ export default function AdminPage() {
     });
     const payload = (await response.json().catch(() => ({}))) as {
       data?: PaymentReviewOrder[];
+      error?: string;
     };
-    if (response.ok) setPaymentReviews(payload.data ?? []);
+    const failure = adminLoadError(
+      response,
+      payload,
+      'Payment-review orders could not be loaded',
+    );
+    if (failure) setError(failure);
+    else setPaymentReviews(payload.data ?? []);
   }
 
   async function previewCatalogue() {
@@ -728,7 +758,16 @@ export default function AdminPage() {
               </Link>
               <button
                 type="button"
-                onClick={() => void loadProducts()}
+                onClick={() =>
+                  void Promise.all([
+                    loadProducts(),
+                    loadOrders(),
+                    loadReviews(),
+                    loadCategories(),
+                    loadReport(),
+                    loadPaymentReviews(),
+                  ])
+                }
                 className="button-primary ml-3 mt-5"
               >
                 Try again
