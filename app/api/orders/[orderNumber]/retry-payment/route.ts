@@ -1,5 +1,5 @@
 import { CheckoutConflict, prepareRetryPayment, releaseReservationsForOrder } from '@/lib/checkout';
-import { badRequest, conflict, json, unauthorized, unavailable } from '@/lib/http';
+import { badRequest, conflict, json, noStore, unauthorized, unavailable } from '@/lib/http';
 import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
@@ -52,10 +52,14 @@ export async function POST(
       prisma.paymentAttempt.update({ where: { id: pending.paymentAttemptId }, data: { providerOrderId: razorpayOrder.id, status: 'PENDING' } }),
       prisma.order.update({ where: { id: pending.orderId }, data: { paymentStatus: 'PENDING' } }),
     ]);
-    return json({ data: { orderNumber: pending.orderNumber, razorpayOrderId: razorpayOrder.id, keyId: auth.keyId, amountPaise: pending.totalPaise, currency: 'INR' } });
+    return noStore({ data: { orderNumber: pending.orderNumber, razorpayOrderId: razorpayOrder.id, keyId: auth.keyId, amountPaise: pending.totalPaise, currency: 'INR' } });
   } catch (error) {
     await markPaymentFailed(pending.paymentAttemptId, 'FAILED').catch(() => undefined);
     await releaseReservationsForOrder(pending.orderId).catch(() => undefined);
-    return unavailable(error instanceof Error ? error.message : 'Payment retry is unavailable');
+    console.error(
+      'account_payment_retry_failed',
+      error instanceof Error ? error.message : 'unknown_error',
+    );
+    return unavailable('Payment retry is unavailable');
   }
 }
