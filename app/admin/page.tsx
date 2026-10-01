@@ -14,7 +14,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 
 type AdminProduct = {
   id: string;

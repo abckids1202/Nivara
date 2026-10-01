@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Package, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 
 type OrderDetail = {
   orderNumber: string;

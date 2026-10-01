@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Heart, Minus, Plus, Star } from 'lucide-react';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { sellableStock } from '@/lib/inventory';

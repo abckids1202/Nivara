@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Heart, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 import { MagneticLink, StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { isSellable } from '@/lib/inventory';
