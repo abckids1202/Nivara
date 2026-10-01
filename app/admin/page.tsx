@@ -53,6 +53,17 @@ type AdminReview = {
   product: { name: string };
 };
 type AdminCategory = { id: string; name: string; slug: string; _count?: { products: number } };
+type CataloguePreview = {
+  rowCount: number;
+  preview: Array<{
+    productName: string;
+    productSlug: string;
+    variantName: string;
+    sku: string;
+    priceRupees: number;
+    stockOnHand: number;
+  }>;
+};
 type ProductForm = {
   name: string;
   slug: string;
@@ -150,6 +161,11 @@ export default function AdminPage() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ name: '', slug: '' });
   const [editingCategoryId, setEditingCategoryId] = useState('');
+  const [catalogueCsv, setCatalogueCsv] = useState('');
+  const [catalogueFileName, setCatalogueFileName] = useState('');
+  const [cataloguePreview, setCataloguePreview] =
+    useState<CataloguePreview | null>(null);
+  const [catalogueBusy, setCatalogueBusy] = useState(false);
 
   async function loadProducts() {
     setLoading(true);
@@ -250,6 +266,67 @@ export default function AdminPage() {
       data?: PaymentReviewOrder[];
     };
     if (response.ok) setPaymentReviews(payload.data ?? []);
+  }
+
+  async function previewCatalogue() {
+    if (!catalogueCsv.trim()) {
+      setNotice('Choose a CSV file before previewing.');
+      return;
+    }
+    setCatalogueBusy(true);
+    const response = await fetch('/api/admin/catalogue/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: catalogueCsv,
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      preview?: CataloguePreview['preview'];
+      rowCount?: number;
+    };
+    if (!response.ok) {
+      setCataloguePreview(null);
+      setNotice(payload.error ?? 'Catalogue preview failed.');
+    } else {
+      setCataloguePreview({
+        rowCount: payload.rowCount ?? 0,
+        preview: payload.preview ?? [],
+      });
+      setNotice('Catalogue preview validated.');
+    }
+    setCatalogueBusy(false);
+  }
+
+  async function importCatalogue() {
+    if (!catalogueCsv.trim() || !cataloguePreview) return;
+    if (
+      !window.confirm(
+        `Import ${cataloguePreview.rowCount} validated catalogue rows? Existing matching products and SKUs will be updated.`,
+      )
+    )
+      return;
+    setCatalogueBusy(true);
+    const response = await fetch('/api/admin/catalogue/import?dryRun=false', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: catalogueCsv,
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      imported?: number;
+    };
+    setNotice(
+      response.ok
+        ? `${payload.imported ?? 0} catalogue rows imported.`
+        : (payload.error ?? 'Catalogue import failed.'),
+    );
+    if (response.ok) {
+      setCatalogueCsv('');
+      setCatalogueFileName('');
+      setCataloguePreview(null);
+      await Promise.all([loadProducts(), loadCategories()]);
+    }
+    setCatalogueBusy(false);
   }
 
   // The loaders intentionally read the current query and are invoked only when the search changes.
@@ -789,6 +866,93 @@ export default function AdminPage() {
                   </div>
                 </section>
               )}
+              <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
+                <p className="eyebrow">Catalogue import</p>
+                <h2 className="mt-2 text-xl font-semibold">
+                  Preview before updating products.
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#718078]">
+                  Upload the approved CSV, validate it without writing to the
+                  database, then confirm the import. Matching SKUs update their
+                  existing variants; reserved stock is protected server-side.
+                </p>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <label className="grid gap-2 text-sm font-semibold">
+                    CSV file
+                    <input
+                      type="file"
+                      accept=".csv,text/csv"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        setCatalogueFileName(file.name);
+                        setCataloguePreview(null);
+                        void file.text().then(setCatalogueCsv);
+                      }}
+                      className="block max-w-full text-sm font-normal file:mr-3 file:rounded-full file:border-0 file:bg-[#e7eee5] file:px-4 file:py-2 file:font-semibold file:text-[#314338]"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!catalogueCsv || catalogueBusy}
+                    onClick={() => void previewCatalogue()}
+                    className="button-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {catalogueBusy ? 'Checking…' : 'Preview CSV'}
+                  </button>
+                  {cataloguePreview && (
+                    <button
+                      type="button"
+                      disabled={catalogueBusy}
+                      onClick={() => void importCatalogue()}
+                      className="button-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Import validated rows
+                    </button>
+                  )}
+                </div>
+                {catalogueFileName && (
+                  <p className="mt-3 text-xs text-[#718078]">
+                    Selected: {catalogueFileName}
+                  </p>
+                )}
+                {cataloguePreview && (
+                  <div className="mt-5 overflow-x-auto rounded-xl border border-[#e5ebe2]">
+                    <p className="border-b border-[#e5ebe2] bg-[#f3f5f0] px-4 py-3 text-sm font-semibold">
+                      {cataloguePreview.rowCount} rows validated successfully
+                    </p>
+                    <table className="w-full min-w-[640px] text-left text-xs">
+                      <thead className="text-[#718078]">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Product</th>
+                          <th className="px-4 py-3 font-semibold">Variant</th>
+                          <th className="px-4 py-3 font-semibold">SKU</th>
+                          <th className="px-4 py-3 font-semibold">Price</th>
+                          <th className="px-4 py-3 font-semibold">Stock</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cataloguePreview.preview.slice(0, 8).map((row) => (
+                          <tr key={row.sku} className="border-t border-[#eef1eb]">
+                            <td className="px-4 py-3 font-semibold">
+                              {row.productName}
+                            </td>
+                            <td className="px-4 py-3">{row.variantName}</td>
+                            <td className="px-4 py-3">{row.sku}</td>
+                            <td className="px-4 py-3">₹{row.priceRupees}</td>
+                            <td className="px-4 py-3">{row.stockOnHand}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {cataloguePreview.rowCount > 8 && (
+                      <p className="border-t border-[#e5ebe2] px-4 py-3 text-xs text-[#718078]">
+                        Showing the first 8 rows.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </section>
               <section className="mt-8 rounded-2xl bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
