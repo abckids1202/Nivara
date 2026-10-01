@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requestFingerprint } from '@/lib/request-fingerprint';
 
@@ -17,10 +18,31 @@ export async function consumeRateLimit({
   if (!process.env.DATABASE_URL) return true;
   const fingerprint = requestFingerprint(request);
   const since = new Date(Date.now() - windowMs);
-  const attempts = await prisma.accessRateLog.count({
-    where: { endpoint, requestFingerprint: fingerprint, createdAt: { gt: since } },
-  });
-  if (attempts >= maxAttempts) return false;
-  await prisma.accessRateLog.create({ data: { endpoint, requestFingerprint: fingerprint } });
-  return true;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const attempts = await tx.accessRateLog.count({
+            where: {
+              endpoint,
+              requestFingerprint: fingerprint,
+              createdAt: { gt: since },
+            },
+          });
+          if (attempts >= maxAttempts) return false;
+          await tx.accessRateLog.create({
+            data: { endpoint, requestFingerprint: fingerprint },
+          });
+          return true;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      const serializationConflict =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034';
+      if (!serializationConflict || attempt === 1) throw error;
+    }
+  }
+  return false;
 }
