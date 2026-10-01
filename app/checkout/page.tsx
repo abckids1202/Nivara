@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatInr } from '@/lib/demo-data';
 import { StoreHeader } from '@/components/experience-tools';
@@ -23,12 +23,46 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [guestAccessToken, setGuestAccessToken] = useState('');
   const [paymentPending, setPaymentPending] = useState(false);
+  const purchaseTracked = useRef(false);
   const subtotal = items.reduce(
     (sum, item) => sum + item.variant.pricePaise * item.quantity,
     0,
   );
   const delivery = subtotal >= 99_900 ? 0 : 7_900;
   const total = subtotal + delivery;
+
+  useEffect(() => {
+    if (!orderNumber || purchaseTracked.current) return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: number | undefined;
+    const checkPayment = async () => {
+      const endpoint = guestAccessToken
+        ? `/api/guest-orders/${encodeURIComponent(guestAccessToken)}`
+        : `/api/orders/${encodeURIComponent(orderNumber)}`;
+      const response = await fetch(endpoint, { cache: 'no-store' }).catch(
+        () => null,
+      );
+      const payload = (await response?.json().catch(() => ({}))) as {
+        paymentStatus?: string;
+        data?: { paymentStatus?: string };
+      };
+      const paymentStatus = payload.paymentStatus ?? payload.data?.paymentStatus;
+      if (!cancelled && paymentStatus === 'PAID') {
+        purchaseTracked.current = true;
+        trackEvent('Purchase');
+        return;
+      }
+      attempts += 1;
+      if (!cancelled && attempts < 10)
+        timer = window.setTimeout(() => void checkPayment(), 3000);
+    };
+    void checkPayment();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [guestAccessToken, orderNumber]);
 
   async function openHostedCheckout(details: {
     orderNumber: string;
