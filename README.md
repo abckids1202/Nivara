@@ -60,6 +60,18 @@ npm run test
 npm run build
 ```
 
+Run the complete local release gate before sharing a preview or deploying. It
+also runs the secret scan, administrator authorization audit, Prisma schema
+validation, and desktop/mobile browser acceptance tests:
+
+```cmd
+npm run check:quality
+```
+
+This gate does not replace provider-backed acceptance. After it passes, the
+client-owned Supabase, Razorpay, Resend, Storage, and Vercel configuration must
+still be verified with the test payment journey in the operations runbook.
+
 For a client-owned Supabase project, validate the schema, generate the Prisma
 client, apply committed migrations, and then seed only demonstration data when
 that is explicitly intended:
