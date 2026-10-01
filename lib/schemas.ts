@@ -11,6 +11,12 @@ export const authCredentialsSchema = z.object({
 
 export const passwordResetSchema = z.object({ email: z.string().email() });
 
+export const passwordUpdateSchema = z.object({
+  accessToken: z.string().min(20).max(4096),
+  refreshToken: z.string().min(20).max(4096).optional(),
+  password: z.string().min(8).max(128),
+});
+
 export const supportRequestSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().email(),

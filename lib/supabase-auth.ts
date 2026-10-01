@@ -30,3 +30,35 @@ export async function supabaseAuthRequest(
   };
   return { ok: response.ok, data };
 }
+
+export async function supabaseUpdatePassword({
+  accessToken,
+  password,
+}: {
+  accessToken: string;
+  password: string;
+}) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey || anonKey === 'replace-me') return null;
+  let response: Response;
+  try {
+    response = await providerFetch(`${url}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ password }),
+      cache: 'no-store',
+    });
+  } catch {
+    return null;
+  }
+  const data = (await response.json().catch(() => ({}))) as SupabaseSession & {
+    error_description?: string;
+    msg?: string;
+  };
+  return { ok: response.ok, data };
+}
