@@ -2,6 +2,12 @@ export function json<T>(payload: T, status = 200) {
   return Response.json(payload, { status });
 }
 
+export function noStore<T>(payload: T, status = 200) {
+  const response = json(payload, status);
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+}
+
 export function badRequest(message: string, details?: unknown) {
   return json({ error: message, details }, 400);
 }

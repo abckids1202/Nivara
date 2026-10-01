@@ -2,7 +2,7 @@ import { consumeRateLimit } from '@/lib/access-rate';
 import { createHash } from 'node:crypto';
 import { requestFingerprint } from '@/lib/request-fingerprint';
 import { prisma } from '@/lib/prisma';
-import { json, unavailable } from '@/lib/http';
+import { noStore, unavailable } from '@/lib/http';
 
 export async function GET(
   request: Request,
@@ -18,7 +18,7 @@ export async function GET(
       maxAttempts: 10,
     }))
   )
-    return json({ error: 'Too many access attempts' }, 429);
+    return noStore({ error: 'Too many access attempts' }, 429);
 
   const fingerprint = requestFingerprint(request);
   const { token } = await params;
@@ -40,9 +40,9 @@ export async function GET(
     },
   });
   if (!valid || !order)
-    return json({ error: 'Order link is invalid or expired' }, 404);
+    return noStore({ error: 'Order link is invalid or expired' }, 404);
 
-  return json({
+  return noStore({
     orderNumber: order.orderNumber,
     paymentStatus: order.paymentStatus,
     fulfilmentStatus: order.fulfilmentStatus,
