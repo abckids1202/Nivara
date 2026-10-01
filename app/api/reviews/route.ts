@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { z } from 'zod';
+import { logServerError } from '@/lib/safe-logging';
 
 const reviewSchema = z.object({
   productId: z.string().min(1),
@@ -86,10 +87,7 @@ export async function POST(request: Request) {
     });
     return json({ data: review }, 201);
   } catch (error) {
-    console.error(
-      'review_create_failed',
-      error instanceof Error ? error.message : 'unknown_error',
-    );
+    logServerError('review_create_failed', error);
     return badRequest('A review may already exist for this order item');
   }
 }
