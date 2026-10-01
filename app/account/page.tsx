@@ -79,6 +79,7 @@ export default function AccountPage() {
   const [addresses, setAddresses] = useState<AccountAddress[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [dashboardError, setDashboardError] = useState('');
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [address, setAddress] = useState({
     label: '',
@@ -101,27 +102,37 @@ export default function AccountPage() {
 
   async function loadDashboard() {
     setDashboardLoading(true);
-    const results = await Promise.all([
-      fetch('/api/account/orders', { cache: 'no-store' }),
-      fetch('/api/account/addresses', { cache: 'no-store' }),
-      fetch('/api/wishlist', { cache: 'no-store' }),
-    ]);
-    const [ordersResponse, addressesResponse, wishlistResponse] = results;
-    if (ordersResponse.ok)
+    setDashboardError('');
+    try {
+      const results = await Promise.all([
+        fetch('/api/account/orders', { cache: 'no-store' }),
+        fetch('/api/account/addresses', { cache: 'no-store' }),
+        fetch('/api/wishlist', { cache: 'no-store' }),
+      ]);
+      const [ordersResponse, addressesResponse, wishlistResponse] = results;
+      if (!ordersResponse.ok || !addressesResponse.ok || !wishlistResponse.ok)
+        throw new Error('Some account details could not be loaded.');
+
       setOrders(
         ((await ordersResponse.json()) as { data?: AccountOrder[] }).data ?? [],
       );
-    if (addressesResponse.ok)
       setAddresses(
         ((await addressesResponse.json()) as { data?: AccountAddress[] })
           .data ?? [],
       );
-    if (wishlistResponse.ok)
       setWishlist(
         ((await wishlistResponse.json()) as { data?: WishlistItem[] }).data ??
           [],
       );
-    setDashboardLoading(false);
+    } catch (reason: unknown) {
+      setDashboardError(
+        reason instanceof Error
+          ? reason.message
+          : 'Your account details could not be loaded.',
+      );
+    } finally {
+      setDashboardLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -326,6 +337,21 @@ export default function AccountPage() {
             <output className="mt-8 block text-sm text-[#718078]">
               Loading your account details…
             </output>
+          )}
+          {dashboardError && !dashboardLoading && (
+            <div
+              role="alert"
+              className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#f7ddd5] p-5 text-sm text-[#8f3f31]"
+            >
+              <span>{dashboardError}</span>
+              <button
+                type="button"
+                onClick={() => void loadDashboard()}
+                className="rounded-full border border-[#c98271] px-4 py-2 font-semibold text-[#8f3f31] hover:bg-[#f1cfc5]"
+              >
+                Try again
+              </button>
+            </div>
           )}
           <section
             id="orders"
