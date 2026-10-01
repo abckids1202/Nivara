@@ -19,13 +19,38 @@ export async function GET() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'replace-me',
   );
+  const storageConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY !== 'replace-me-server-only' &&
+      process.env.SUPABASE_STORAGE_BUCKET,
+  );
+  const emailConfigured = Boolean(
+    process.env.RESEND_API_KEY &&
+      process.env.RESEND_API_KEY !== 'replace-me' &&
+      process.env.RESEND_FROM_EMAIL &&
+      !process.env.RESEND_FROM_EMAIL.includes('example.com'),
+  );
+  const cronConfigured = Boolean(
+    process.env.CRON_SECRET &&
+      process.env.CRON_SECRET !== 'replace-me-server-only',
+  );
   const response = {
     service: 'nivara-store',
     status: database === 'connected' ? 'ok' : 'degraded',
     database,
     paymentsConfigured,
     authConfigured,
-    ready: database === 'connected' && authConfigured && paymentsConfigured,
+    storageConfigured,
+    emailConfigured,
+    cronConfigured,
+    ready:
+      database === 'connected' &&
+      authConfigured &&
+      paymentsConfigured &&
+      storageConfigured &&
+      emailConfigured &&
+      cronConfigured,
   } as const;
   return json(response, response.status === 'ok' ? 200 : 503);
 }
