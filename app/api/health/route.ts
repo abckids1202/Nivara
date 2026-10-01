@@ -1,6 +1,12 @@
 import { json } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 
+function hasConfiguredValue(value: string | undefined, markers: string[] = []) {
+  if (!value?.trim()) return false;
+  const normalized = value.toLowerCase();
+  return !markers.some((marker) => normalized.includes(marker));
+}
+
 export async function GET() {
   let database = 'not_configured';
   if (process.env.DATABASE_URL) {
@@ -12,37 +18,49 @@ export async function GET() {
     }
   }
   const paymentsConfigured = Boolean(
-    process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET,
+    hasConfiguredValue(process.env.RAZORPAY_KEY_ID, ['replace-me']) &&
+      hasConfiguredValue(process.env.RAZORPAY_KEY_SECRET, ['replace-me']) &&
+      hasConfiguredValue(process.env.RAZORPAY_WEBHOOK_SECRET, ['replace-me']),
   );
   const authConfigured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== 'replace-me',
+    hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_URL, [
+      'your-project',
+    ]) &&
+      hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, [
+        'replace-me',
+      ]),
   );
   const storageConfigured = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY !== 'replace-me-server-only' &&
-      process.env.SUPABASE_STORAGE_BUCKET,
+    hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_URL, [
+      'your-project',
+    ]) &&
+      hasConfiguredValue(process.env.SUPABASE_SERVICE_ROLE_KEY, [
+        'replace-me',
+      ]) &&
+      hasConfiguredValue(process.env.SUPABASE_STORAGE_BUCKET, ['replace-me']),
   );
   const emailConfigured = Boolean(
-    process.env.RESEND_API_KEY &&
-      process.env.RESEND_API_KEY !== 'replace-me' &&
-      process.env.RESEND_FROM_EMAIL &&
-      !process.env.RESEND_FROM_EMAIL.includes('example.com'),
+    hasConfiguredValue(process.env.RESEND_API_KEY, ['replace-me']) &&
+      hasConfiguredValue(process.env.RESEND_FROM_EMAIL, ['example.com']),
   );
   const supportConfigured = Boolean(
     emailConfigured &&
-      process.env.SUPPORT_EMAIL &&
-      !process.env.SUPPORT_EMAIL.includes('example.com'),
+      hasConfiguredValue(process.env.SUPPORT_EMAIL, ['example.com']),
   );
   const cronConfigured = Boolean(
-    process.env.CRON_SECRET &&
-      process.env.CRON_SECRET !== 'replace-me-server-only',
+    hasConfiguredValue(process.env.CRON_SECRET, ['replace-me']),
   );
+  const ready =
+    database === 'connected' &&
+    authConfigured &&
+    paymentsConfigured &&
+    storageConfigured &&
+    emailConfigured &&
+    supportConfigured &&
+    cronConfigured;
   const response = {
     service: 'nivara-store',
-    status: database === 'connected' ? 'ok' : 'degraded',
+    status: ready ? 'ok' : 'degraded',
     database,
     paymentsConfigured,
     authConfigured,
@@ -50,14 +68,7 @@ export async function GET() {
     emailConfigured,
     supportConfigured,
     cronConfigured,
-    ready:
-      database === 'connected' &&
-      authConfigured &&
-      paymentsConfigured &&
-      storageConfigured &&
-      emailConfigured &&
-      supportConfigured &&
-      cronConfigured,
+    ready,
   } as const;
-  return json(response, response.status === 'ok' ? 200 : 503);
+  return json(response, ready ? 200 : 503);
 }
