@@ -1017,6 +1017,7 @@ export default function AdminPage() {
                   >
                     <input
                       required
+                      aria-label="Category name"
                       minLength={2}
                       value={categoryForm.name}
                       onChange={(event) =>
@@ -1030,6 +1031,7 @@ export default function AdminPage() {
                     />
                     <input
                       required
+                      aria-label="Category slug"
                       pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                       value={categoryForm.slug}
                       onChange={(event) =>
@@ -1103,6 +1105,7 @@ export default function AdminPage() {
                     </p>
                     <input
                       required
+                      aria-label="Product name"
                       value={productForm.name}
                       onChange={(event) =>
                         setProductForm({
@@ -1115,6 +1118,7 @@ export default function AdminPage() {
                     />
                     <input
                       required
+                      aria-label="Product slug"
                       pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                       value={productForm.slug}
                       onChange={(event) =>
@@ -1128,6 +1132,7 @@ export default function AdminPage() {
                     />
                     <select
                       required
+                      aria-label="Product category"
                       value={productForm.categoryId}
                       onChange={(event) =>
                         setProductForm({
@@ -1145,6 +1150,7 @@ export default function AdminPage() {
                       ))}
                     </select>
                     <select
+                      aria-label="Product status"
                       value={productForm.status}
                       onChange={(event) =>
                         setProductForm({
@@ -1160,6 +1166,7 @@ export default function AdminPage() {
                     </select>
                     <textarea
                       required
+                      aria-label="Product description"
                       minLength={10}
                       value={productForm.description}
                       onChange={(event) =>
@@ -1172,6 +1179,7 @@ export default function AdminPage() {
                       className="min-h-24 rounded-lg border border-[#d8e0d5] bg-white px-3 py-2 text-sm sm:col-span-2"
                     />
                     <input
+                      aria-label="Product material"
                       value={productForm.material}
                       onChange={(event) =>
                         setProductForm({
@@ -1183,6 +1191,7 @@ export default function AdminPage() {
                       className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
                     />
                     <input
+                      aria-label="Product dimensions"
                       value={productForm.dimensions}
                       onChange={(event) =>
                         setProductForm({
@@ -1194,6 +1203,7 @@ export default function AdminPage() {
                       className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-3 text-sm"
                     />
                     <input
+                      aria-label="Product care information"
                       value={productForm.care}
                       onChange={(event) =>
                         setProductForm({
@@ -1337,6 +1347,7 @@ export default function AdminPage() {
                                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                                   <input
                                     type="file"
+                                    aria-label={`Image file for ${product.name}`}
                                     accept="image/jpeg,image/png,image/webp"
                                     onChange={(event) =>
                                       setImageFiles((current) => ({
@@ -1347,6 +1358,7 @@ export default function AdminPage() {
                                     className="h-10 rounded-lg border border-[#d8e0d5] bg-white px-2 py-2 text-xs"
                                   />
                                   <input
+                                    aria-label={`Image alt text for ${product.name}`}
                                     value={imageAlt[product.id] ?? ''}
                                     onChange={(event) =>
                                       setImageAlt((current) => ({
