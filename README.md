@@ -60,6 +60,21 @@ npm run test
 npm run build
 ```
 
+For a client-owned Supabase project, validate the schema, generate the Prisma
+client, apply committed migrations, and then seed only demonstration data when
+that is explicitly intended:
+
+```cmd
+npm run db:validate
+npm run db:generate
+npm run db:migrate
+npm run db:seed
+```
+
+Run `db:seed` only against a non-production or intentionally seeded database.
+Production catalogue data should be imported through the protected admin CSV
+dry-run/import flow after the client approves the content.
+
 With local placeholder database variables, validate the Prisma schema with:
 
 ```cmd
