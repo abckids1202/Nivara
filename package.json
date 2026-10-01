@@ -16,6 +16,7 @@
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
+    "check:env": "node --experimental-strip-types scripts/check-env.ts --production",
     "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
