@@ -40,7 +40,7 @@
 - [x] Only approved reviews affect the public average.
 - [x] Administrators cannot rewrite rating or review body.
 - [ ] Upload type and size restrictions when review photos are added later.
-- [ ] No secrets in frontend code and no unnecessary sensitive data in logs.
+- [x] No secrets in frontend code and no unnecessary sensitive data in logs; `npm run check:secrets` audits tracked source and client modules in CI.
 
 ## Handover
 
