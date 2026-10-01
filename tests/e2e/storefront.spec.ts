@@ -33,6 +33,67 @@ test('catalogue filters remain represented in the URL', async ({ page }) => {
   await expect(page).toHaveURL(/availability=available/);
 });
 
+test('product-card wishlist prompts unauthenticated shoppers to sign in', async ({
+  page,
+}) => {
+  await page.route('**/api/catalogue**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'product-1',
+            name: 'Arc desk organizer',
+            slug: 'arc-desk-organizer',
+            category: { name: 'Desk & study', slug: 'desk-study' },
+            image: null,
+            variants: [
+              {
+                id: 'variant-1',
+                pricePaise: 64900,
+                compareAtPaise: null,
+                stockOnHand: 5,
+                stockReserved: 0,
+              },
+            ],
+            minPricePaise: 64900,
+            stockAvailable: true,
+          },
+        ],
+        page: 1,
+        pageSize: 4,
+        total: 1,
+        pages: 1,
+      }),
+    }),
+  );
+  await page.route('**/api/categories', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    }),
+  );
+
+  await page.goto('/');
+  const saveButton = page.getByRole('button', {
+    name: 'Save Arc desk organizer to wishlist',
+  });
+  await expect(saveButton).toBeVisible();
+  await saveButton.click();
+  await expect(
+    page.getByText('Sign in to save pieces to your wishlist.', { exact: true }),
+  ).toBeVisible();
+});
+
 test('header search opens an accessible live-search form', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search the collection' }).click();
