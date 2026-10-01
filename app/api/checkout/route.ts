@@ -7,8 +7,20 @@ import { badRequest, json, unavailable } from '@/lib/http';
 import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
+import { consumeRateLimit } from '@/lib/access-rate';
 
 export async function POST(request: Request) {
+  if (
+    !(await consumeRateLimit({
+      request,
+      endpoint: 'checkout.create',
+      maxAttempts: 20,
+    }))
+  )
+    return json(
+      { error: 'Too many checkout attempts. Please try again later.' },
+      429,
+    );
   if (!process.env.DATABASE_URL) {
     return unavailable('Checkout database is not configured');
   }
