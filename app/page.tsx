@@ -31,9 +31,13 @@ type HomepageCategory = { id: string; name: string; slug: string };
 function ProductCard({
   product,
   onAdd,
+  wishlisted,
+  onToggleWishlist,
 }: {
   product: FeaturedProduct;
   onAdd: () => void;
+  wishlisted: boolean;
+  onToggleWishlist: () => void;
 }) {
   const variant =
     product.variants.find(
@@ -56,10 +60,19 @@ function ProductCard({
         </span>
         <button
           type="button"
-          aria-label={`Save ${product.name} to wishlist`}
+          aria-label={
+            wishlisted
+              ? `Remove ${product.name} from wishlist`
+              : `Save ${product.name} to wishlist`
+          }
+          onClick={onToggleWishlist}
           className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-[#fffaf3]/90 text-[#314338] transition hover:scale-110"
         >
-          <Heart size={16} strokeWidth={1.8} />
+          <Heart
+            size={16}
+            strokeWidth={1.8}
+            fill={wishlisted ? 'currentColor' : 'none'}
+          />
         </button>
         {product.stockAvailable && variant && (
           <button
@@ -102,6 +115,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [categoryReload, setCategoryReload] = useState(0);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -153,6 +167,19 @@ export default function Home() {
       });
   }, [categoryReload]);
 
+  useEffect(() => {
+    fetch('/api/wishlist', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return [];
+        const payload = (await response.json()) as {
+          data?: Array<{ productId: string }>;
+        };
+        return payload.data?.map((item) => item.productId) ?? [];
+      })
+      .then((ids) => setWishlistIds(new Set(ids)))
+      .catch(() => undefined);
+  }, []);
+
   const addToBag = async (product: FeaturedProduct) => {
     const variant = product.variants.find(
       (item) => isSellable(item.stockOnHand, item.stockReserved),
@@ -167,6 +194,37 @@ export default function Home() {
           ? reason.message
           : 'Your bag could not be updated.',
       );
+    }
+    window.setTimeout(() => setNotice(''), 2600);
+  };
+
+  const toggleWishlist = async (product: FeaturedProduct) => {
+    const saved = wishlistIds.has(product.id);
+    const response = await fetch(
+      saved
+        ? `/api/wishlist?productId=${encodeURIComponent(product.id)}`
+        : '/api/wishlist',
+      {
+        method: saved ? 'DELETE' : 'POST',
+        headers: saved ? undefined : { 'Content-Type': 'application/json' },
+        body: saved ? undefined : JSON.stringify({ productId: product.id }),
+      },
+    );
+    if (response.status === 401) {
+      setNotice('Sign in to save pieces to your wishlist.');
+    } else if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setNotice(payload.error ?? 'Wishlist could not be updated.');
+    } else {
+      setWishlistIds((current) => {
+        const next = new Set(current);
+        if (saved) next.delete(product.id);
+        else next.add(product.id);
+        return next;
+      });
+      setNotice(saved ? `${product.name} removed from your wishlist.` : `${product.name} saved.`);
     }
     window.setTimeout(() => setNotice(''), 2600);
   };
@@ -337,6 +395,8 @@ export default function Home() {
                 key={product.id}
                 product={product}
                 onAdd={() => void addToBag(product)}
+                wishlisted={wishlistIds.has(product.id)}
+                onToggleWishlist={() => void toggleWishlist(product)}
               />
             ))}
           </div>

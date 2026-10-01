@@ -68,6 +68,7 @@ export default function ShopPage() {
   const [error, setError] = useState('');
   const [categoryError, setCategoryError] = useState('');
   const [categoryReload, setCategoryReload] = useState(0);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
   useEffect(() => {
     fetch('/api/categories', { cache: 'no-store' })
@@ -93,6 +94,18 @@ export default function ShopPage() {
         );
       });
   }, [categoryReload]);
+  useEffect(() => {
+    fetch('/api/wishlist', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return [];
+        const payload = (await response.json()) as {
+          data?: Array<{ productId: string }>;
+        };
+        return payload.data?.map((item) => item.productId) ?? [];
+      })
+      .then((ids) => setWishlistIds(new Set(ids)))
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     const params = new URLSearchParams();
     if (query) params.set('q', query);
@@ -178,6 +191,37 @@ export default function ShopPage() {
           ? reason.message
           : 'Your bag could not be updated.',
       );
+    }
+    window.setTimeout(() => setNotice(''), 2400);
+  };
+
+  const toggleWishlist = async (product: CatalogueProduct) => {
+    const saved = wishlistIds.has(product.id);
+    const response = await fetch(
+      saved
+        ? `/api/wishlist?productId=${encodeURIComponent(product.id)}`
+        : '/api/wishlist',
+      {
+        method: saved ? 'DELETE' : 'POST',
+        headers: saved ? undefined : { 'Content-Type': 'application/json' },
+        body: saved ? undefined : JSON.stringify({ productId: product.id }),
+      },
+    );
+    if (response.status === 401) {
+      setNotice('Sign in to save pieces to your wishlist.');
+    } else if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setNotice(payload.error ?? 'Wishlist could not be updated.');
+    } else {
+      setWishlistIds((current) => {
+        const next = new Set(current);
+        if (saved) next.delete(product.id);
+        else next.add(product.id);
+        return next;
+      });
+      setNotice(saved ? `${product.name} removed from your wishlist.` : `${product.name} saved.`);
     }
     window.setTimeout(() => setNotice(''), 2400);
   };
@@ -384,10 +428,18 @@ export default function ShopPage() {
                       </span>
                       <button
                         type="button"
-                        aria-label={`Save ${product.name}`}
+                        aria-label={
+                          wishlistIds.has(product.id)
+                            ? `Remove ${product.name} from wishlist`
+                            : `Save ${product.name} to wishlist`
+                        }
+                        onClick={() => void toggleWishlist(product)}
                         className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-[#fffaf3]/90"
                       >
-                        <Heart size={16} />
+                        <Heart
+                          size={16}
+                          fill={wishlistIds.has(product.id) ? 'currentColor' : 'none'}
+                        />
                       </button>
                       {product.stockAvailable && (
                         <button
