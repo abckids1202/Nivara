@@ -34,6 +34,23 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   await expect(page.getByRole('search')).toBeVisible();
 });
 
+test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
+  await page.goto('/');
+  const searchButton = page.getByRole('button', { name: 'Search the collection' });
+  await searchButton.focus();
+  await expect(searchButton).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('search')).toBeVisible();
+
+  if (testInfo.project.name === 'mobile') {
+    const menuButton = page.getByRole('button', { name: 'Open menu' });
+    await menuButton.focus();
+    await expect(menuButton).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible();
+  }
+});
+
 test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await page.goto('/checkout');
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
