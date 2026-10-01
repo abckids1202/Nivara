@@ -5,7 +5,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 ## First deployment
 
 1. Create the client-owned Supabase project and copy its pooled PostgreSQL URL to `DATABASE_URL` and direct connection URL to `DIRECT_URL`.
-2. Run `npx prisma migrate deploy` against the production database, then run `npm run db:seed` only when demonstration catalogue data is intentionally wanted.
+2. From the release commit, run `npm run db:validate`, `npm run db:generate`, and `npm run db:migrate` against the production database. Run `npm run db:seed` only when demonstration catalogue data is intentionally wanted; use the protected CSV import flow for approved production catalogue data.
    This applies the access-rate log migration used by authentication and other sensitive endpoints.
 3. Enable Supabase Auth email/password, email confirmation, and password recovery redirects for the deployed site.
 4. Create a private Supabase service-role key and a `product-images` Storage bucket with public reads and admin-only application writes. Set `SUPABASE_STORAGE_BUCKET` if using another bucket name.

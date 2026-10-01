@@ -13,6 +13,9 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "format": "oxfmt",
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
     "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
