@@ -4,6 +4,7 @@ import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
+import { consumeRateLimit } from '@/lib/access-rate';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -20,6 +21,14 @@ export async function POST(
   if (!process.env.DATABASE_URL) return unavailable('Payment retry database is not configured');
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
+  if (
+    !(await consumeRateLimit({
+      request,
+      endpoint: 'account-payment-retry',
+      maxAttempts: 5,
+    }))
+  )
+    return json({ error: 'Too many payment retry attempts' }, 429);
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay test credentials are not configured');
   const { orderNumber } = await params;
