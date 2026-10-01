@@ -6,6 +6,7 @@ import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { logServerError } from '@/lib/safe-logging';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -57,10 +58,7 @@ export async function POST(
   } catch (error) {
     await markPaymentFailed(pending.paymentAttemptId, 'FAILED').catch(() => undefined);
     await releaseReservationsForOrder(pending.orderId).catch(() => undefined);
-    console.error(
-      'account_payment_retry_failed',
-      error instanceof Error ? error.message : 'unknown_error',
-    );
+    logServerError('account_payment_retry_failed', error);
     return unavailable('Payment retry is unavailable');
   }
 }

@@ -6,6 +6,7 @@ import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { logServerError } from '@/lib/safe-logging';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -56,10 +57,7 @@ export async function POST(
   } catch (error) {
     await markPaymentFailed(pending.paymentAttemptId, 'FAILED').catch(() => undefined);
     await releaseReservationsForOrder(pending.orderId).catch(() => undefined);
-    console.error(
-      'guest_payment_retry_failed',
-      error instanceof Error ? error.message : 'unknown_error',
-    );
+    logServerError('guest_payment_retry_failed', error);
     return unavailable('Payment retry is unavailable');
   }
 }

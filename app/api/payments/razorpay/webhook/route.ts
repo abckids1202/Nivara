@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { json, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { razorpaySignatureMatches } from '@/lib/razorpay-webhook';
+import { logServerError, safeErrorMessage } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -103,10 +104,7 @@ export async function POST(request: Request) {
       ) {
         const email = await sendOrderConfirmationEmail(result.orderId);
         if (!email.sent) {
-          console.error('order_confirmation_email_pending', {
-            orderId: result.orderId,
-            reason: email.reason,
-          });
+          console.error('order_confirmation_email_pending', safeErrorMessage(email.reason));
           return json(
             { error: 'Payment accepted; confirmation email will be retried' },
             503,
@@ -121,10 +119,7 @@ export async function POST(request: Request) {
 
     return json({ received: true, duplicate });
   } catch (error) {
-    console.error(
-      'razorpay_webhook_failed',
-      error instanceof Error ? error.message : 'unknown_error',
-    );
+    logServerError('razorpay_webhook_failed', error);
     return json({ error: 'Webhook processing failed' }, 500);
   }
 }

@@ -9,6 +9,7 @@ import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { logServerError } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   if (
@@ -103,10 +104,7 @@ export async function POST(request: Request) {
     if (error instanceof CheckoutConflict) return badRequest(error.message);
     if (pending)
       await releaseReservationsForOrder(pending.order.id).catch(() => undefined);
-    console.error(
-      'checkout_create_failed',
-      error instanceof Error ? error.message : 'unknown_error',
-    );
+    logServerError('checkout_create_failed', error);
     return unavailable('Checkout is temporarily unavailable');
   }
 }
