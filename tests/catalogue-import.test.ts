@@ -22,6 +22,14 @@ it('reports invalid catalogue rows without importing them', () => {
   expect(result.errors.length).toBeGreaterThan(0);
 });
 
+it('reports duplicate SKUs before import', () => {
+  const row =
+    'organise,Organise,Desk organiser,desk-organiser,A useful piece thoughtfully made,Oak,24 x 12 cm,Wipe clean,PUBLISHED,Natural,NIV-001,1499,,8,,Desk organiser';
+  const result = parseCatalogueCsv(`${header}\n${row}\n${row}`);
+  expect(result.rows).toHaveLength(1);
+  expect(result.errors).toContain('Row 3: duplicate SKU NIV-001');
+});
+
 it('sorts catalogue products by paid sales and price before pagination', () => {
   const products = [
     {
