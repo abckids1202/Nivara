@@ -36,6 +36,12 @@ jobs:
       - name: Audit secret exposure
         run: npm run check:secrets
 
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/nivara
+          DIRECT_URL: postgresql://placeholder:placeholder@localhost:5432/nivara
+        run: npm run db:validate
+
       - name: Unit tests
         run: npm run test
 
