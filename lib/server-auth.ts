@@ -58,10 +58,14 @@ function getCookieToken(request: Request) {
   return null;
 }
 
+export function getAccessToken(request: Request) {
+  return getBearerToken(request) ?? getCookieToken(request);
+}
+
 export async function getAuthenticatedIdentity(
   request: Request,
 ): Promise<AuthenticatedIdentity | null> {
-  const token = getBearerToken(request) ?? getCookieToken(request);
+  const token = getAccessToken(request);
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
