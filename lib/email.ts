@@ -1,10 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export async function sendOrderConfirmationEmail(orderId: string) {
   const apiKey = process.env.RESEND_API_KEY;
   const sender = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !sender)
+  if (
+    !hasConfiguredValue(apiKey) ||
+    !hasConfiguredValue(sender, ['example.com'])
+  )
     return { sent: false as const, reason: 'email_provider_not_configured' };
 
   const order = await prisma.order.findUnique({

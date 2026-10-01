@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasAllowedImageSignature } from '@/lib/image-validation';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -26,7 +27,9 @@ function storageConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'product-images';
-  return url && key && key !== 'replace-me-server-only'
+  return hasConfiguredValue(url, ['your-project']) &&
+    hasConfiguredValue(key) &&
+    hasConfiguredValue(bucket)
     ? { url, key, bucket }
     : null;
 }

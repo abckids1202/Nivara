@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export type AuthenticatedIdentity = {
   id: string;
@@ -64,7 +65,11 @@ export async function getAuthenticatedIdentity(
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!token || !supabaseUrl || !anonKey || anonKey === 'replace-me')
+  if (
+    !token ||
+    !hasConfiguredValue(supabaseUrl, ['your-project']) ||
+    !hasConfiguredValue(anonKey)
+  )
     return null;
 
   let response: Response;

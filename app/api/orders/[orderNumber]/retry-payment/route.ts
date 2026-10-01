@@ -5,11 +5,12 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { consumeRateLimit } from '@/lib/access-rate';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const secret = process.env.RAZORPAY_KEY_SECRET;
-  return keyId && secret
+  return hasConfiguredValue(keyId) && hasConfiguredValue(secret)
     ? { keyId, authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}` }
     : null;
 }

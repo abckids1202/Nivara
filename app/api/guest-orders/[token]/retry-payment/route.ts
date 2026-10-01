@@ -5,11 +5,12 @@ import { badRequest, conflict, json, noStore, unavailable } from '@/lib/http';
 import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
   const secret = process.env.RAZORPAY_KEY_SECRET;
-  return keyId && secret
+  return hasConfiguredValue(keyId) && hasConfiguredValue(secret)
     ? { keyId, authorization: `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}` }
     : null;
 }

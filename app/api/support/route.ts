@@ -2,12 +2,17 @@ import { consumeRateLimit } from '@/lib/access-rate';
 import { badRequest, json, unavailable } from '@/lib/http';
 import { providerFetch } from '@/lib/provider-fetch';
 import { supportRequestSchema } from '@/lib/schemas';
+import { hasConfiguredValue } from '@/lib/configuration';
 
 export async function POST(request: Request) {
   const apiKey = process.env.RESEND_API_KEY;
   const sender = process.env.RESEND_FROM_EMAIL;
   const recipient = process.env.SUPPORT_EMAIL;
-  if (!apiKey || !sender || !recipient)
+  if (
+    !hasConfiguredValue(apiKey) ||
+    !hasConfiguredValue(sender, ['example.com']) ||
+    !hasConfiguredValue(recipient, ['example.com'])
+  )
     return unavailable('Support messaging is not configured');
 
   if (
