@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { trackEvent } from '@/lib/analytics';

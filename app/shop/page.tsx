@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Heart, Search, SlidersHorizontal, Star } from 'lucide-react';
-import { formatInr } from '@/lib/demo-data';
+import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { isSellable } from '@/lib/inventory';
