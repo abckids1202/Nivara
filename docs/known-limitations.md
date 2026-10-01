@@ -29,6 +29,7 @@ This document separates the implemented practice MVP from the work that still re
 
 - The repository includes seed/demo data and a storefront browser test suite, but no provider-backed purchase has been completed without client credentials.
 - Support messages use Resend when `SUPPORT_EMAIL` and the client sender domain are configured; until then the form reports that support messaging is unavailable.
+- Optional cookieless analytics is disabled until `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` is configured; events contain no payment, email, or address data.
 - The default sender, contact details, policies, and `nivara.example` fallback URL are placeholders until production configuration is supplied.
 
 ## Operational safeguards

@@ -6,6 +6,7 @@ import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatInr } from '@/lib/demo-data';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
+import { trackEvent } from '@/lib/analytics';
 
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
@@ -89,6 +90,7 @@ export default function CheckoutPage() {
 
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
+    trackEvent('CheckoutStart');
     setBusy(true);
     setError('');
     const values = new FormData(event.currentTarget);
