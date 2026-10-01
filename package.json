@@ -17,6 +17,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "check:env": "node --experimental-strip-types scripts/check-env.ts --production",
+    "check:admin-auth": "node --experimental-strip-types scripts/check-admin-auth.ts",
     "db:seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {

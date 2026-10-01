@@ -30,6 +30,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Audit admin authorization
+        run: npm run check:admin-auth
+
       - name: Unit tests
         run: npm run test
 
