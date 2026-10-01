@@ -6,11 +6,10 @@ import {
   unavailable,
 } from '@/lib/http';
 import { Prisma } from '@prisma/client';
+import { evaluateFulfilmentTransition } from '@/lib/fulfilment-rules';
 import { fulfilmentUpdateSchema } from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
-
-const fulfilmentRank = { PROCESSING: 0, SHIPPED: 1, DELIVERED: 2 } as const;
 
 async function requireAdmin(request: Request) {
   const identity = await getAuthenticatedIdentity(request);
@@ -75,10 +74,11 @@ export async function PATCH(request: Request) {
     if (!order) return { kind: 'not-found' as const };
     if (order.paymentStatus !== 'PAID') return { kind: 'unpaid' as const };
 
-    const currentRank = fulfilmentRank[order.fulfilmentStatus];
-    const nextRank = fulfilmentRank[parsed.data.status];
-    if (nextRank < currentRank) return { kind: 'backward' as const };
-    if (nextRank > currentRank + 1) return { kind: 'skipped' as const };
+    const transition = evaluateFulfilmentTransition(
+      order.fulfilmentStatus,
+      parsed.data.status,
+    );
+    if (!transition.allowed) return { kind: transition.kind };
 
     const result = await tx.order.update({
       where: { id: body.orderId },
@@ -103,7 +103,7 @@ export async function PATCH(request: Request) {
       data: {
         actorId: access.identity.id,
         action:
-          nextRank === currentRank
+          transition.kind === 'correction'
             ? 'order.fulfilment_correction'
             : 'order.fulfilment_updated',
         entityType: 'Order',
