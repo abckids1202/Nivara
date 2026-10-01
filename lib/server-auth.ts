@@ -30,7 +30,13 @@ function getCookieToken(request: Request) {
     .sort();
   if (!sessionNames.length) return null;
   const encoded = sessionNames.map((name) => cookies.get(name) ?? '').join('');
-  const candidates = [encoded, decodeURIComponent(encoded)];
+  let decoded = encoded;
+  try {
+    decoded = decodeURIComponent(encoded);
+  } catch {
+    // Ignore malformed cookie encoding and continue with the raw candidate.
+  }
+  const candidates = [encoded, decoded];
   for (const candidate of candidates) {
     try {
       const json = candidate.startsWith('base64-')
