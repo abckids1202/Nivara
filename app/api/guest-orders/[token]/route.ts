@@ -1,3 +1,4 @@
+import { consumeRateLimit } from '@/lib/access-rate';
 import { createHash } from 'node:crypto';
 import { requestFingerprint } from '@/lib/request-fingerprint';
 import { prisma } from '@/lib/prisma';
@@ -10,14 +11,16 @@ export async function GET(
   if (!process.env.DATABASE_URL)
     return unavailable('Guest order access is not configured');
 
-  const fingerprint = requestFingerprint(request);
-  const since = new Date(Date.now() - 15 * 60 * 1000);
-  const recentAttempts = await prisma.guestOrderAccessAttempt.count({
-    where: { requestFingerprint: fingerprint, createdAt: { gt: since } },
-  });
-  if (recentAttempts >= 10)
+  if (
+    !(await consumeRateLimit({
+      request,
+      endpoint: 'guest-order-access',
+      maxAttempts: 10,
+    }))
+  )
     return json({ error: 'Too many access attempts' }, 429);
 
+  const fingerprint = requestFingerprint(request);
   const { token } = await params;
   const tokenHash = createHash('sha256').update(token).digest('hex');
   const order = await prisma.order.findFirst({
