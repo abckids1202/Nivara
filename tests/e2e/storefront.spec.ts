@@ -62,6 +62,18 @@ test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
 });
 
+test('password reset page explains how to request an expired link', async ({
+  page,
+}) => {
+  await page.goto('/account/reset-password');
+  await expect(
+    page.getByRole('heading', { name: 'Choose a new password' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'account page' }),
+  ).toBeVisible();
+});
+
 test('offline connection state is announced accessibly', async ({ page }) => {
   await page.goto('/');
   await expect(
