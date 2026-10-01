@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
+import { consumeRateLimit } from '@/lib/access-rate';
 
 function readRefreshToken(request: Request) {
   const value = request.headers
@@ -10,6 +11,17 @@ function readRefreshToken(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (
+    !(await consumeRateLimit({
+      request,
+      endpoint: 'auth.refresh',
+      maxAttempts: 30,
+    }))
+  )
+    return NextResponse.json(
+      { error: 'Too many refresh attempts' },
+      { status: 429 },
+    );
   const refreshToken = readRefreshToken(request);
   if (!refreshToken)
     return NextResponse.json({ error: 'No refresh session' }, { status: 401 });
