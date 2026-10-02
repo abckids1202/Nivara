@@ -19,29 +19,62 @@ export async function GET() {
       const rows = await prisma.$queryRaw<
         Array<{
           userTable: string | null;
+          addressTable: string | null;
+          categoryTable: string | null;
           productTable: string | null;
+          variantTable: string | null;
+          imageTable: string | null;
+          wishlistTable: string | null;
+          wishlistItemTable: string | null;
+          cartTable: string | null;
+          cartItemTable: string | null;
           orderTable: string | null;
+          orderItemTable: string | null;
+          paymentAttemptTable: string | null;
           paymentEventTable: string | null;
           inventoryTable: string | null;
+          reviewTable: string | null;
+          shipmentTable: string | null;
+          inventoryAdjustmentTable: string | null;
+          paymentReviewResolutionTable: string | null;
+          moderationActionTable: string | null;
+          guestAttemptTable: string | null;
+          accessRateTable: string | null;
+          auditTable: string | null;
+          emailDeliveryTable: string | null;
           cleanupTable: string | null;
         }>
       >`
         SELECT
           to_regclass('public."User"') AS "userTable",
+          to_regclass('public."Address"') AS "addressTable",
+          to_regclass('public."Category"') AS "categoryTable",
           to_regclass('public."Product"') AS "productTable",
+          to_regclass('public."ProductVariant"') AS "variantTable",
+          to_regclass('public."ProductImage"') AS "imageTable",
+          to_regclass('public."Wishlist"') AS "wishlistTable",
+          to_regclass('public."WishlistItem"') AS "wishlistItemTable",
+          to_regclass('public."Cart"') AS "cartTable",
+          to_regclass('public."CartItem"') AS "cartItemTable",
           to_regclass('public."Order"') AS "orderTable",
+          to_regclass('public."OrderItem"') AS "orderItemTable",
+          to_regclass('public."PaymentAttempt"') AS "paymentAttemptTable",
           to_regclass('public."PaymentEvent"') AS "paymentEventTable",
           to_regclass('public."InventoryReservation"') AS "inventoryTable",
+          to_regclass('public."Review"') AS "reviewTable",
+          to_regclass('public."Shipment"') AS "shipmentTable",
+          to_regclass('public."InventoryAdjustment"') AS "inventoryAdjustmentTable",
+          to_regclass('public."PaymentReviewResolution"') AS "paymentReviewResolutionTable",
+          to_regclass('public."ModerationAction"') AS "moderationActionTable",
+          to_regclass('public."GuestOrderAccessAttempt"') AS "guestAttemptTable",
+          to_regclass('public."AccessRateLog"') AS "accessRateTable",
+          to_regclass('public."AuditLog"') AS "auditTable",
+          to_regclass('public."EmailDelivery"') AS "emailDeliveryTable",
           to_regclass('public."StorageCleanupTask"') AS "cleanupTable"
       `;
       const schema = rows[0];
       schemaConfigured = Boolean(
-        schema?.userTable &&
-          schema.productTable &&
-          schema.orderTable &&
-          schema.paymentEventTable &&
-          schema.inventoryTable &&
-          schema.cleanupTable,
+      schema && Object.values(schema).every(Boolean),
       );
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {

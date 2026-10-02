@@ -8,6 +8,34 @@ import { GET } from '../app/api/health/route';
 
 const originalEnv = { ...process.env };
 
+const completeSchema = {
+  userTable: 'User',
+  addressTable: 'Address',
+  categoryTable: 'Category',
+  productTable: 'Product',
+  variantTable: 'ProductVariant',
+  imageTable: 'ProductImage',
+  wishlistTable: 'Wishlist',
+  wishlistItemTable: 'WishlistItem',
+  cartTable: 'Cart',
+  cartItemTable: 'CartItem',
+  orderTable: 'Order',
+  orderItemTable: 'OrderItem',
+  paymentAttemptTable: 'PaymentAttempt',
+  paymentEventTable: 'PaymentEvent',
+  inventoryTable: 'InventoryReservation',
+  reviewTable: 'Review',
+  shipmentTable: 'Shipment',
+  inventoryAdjustmentTable: 'InventoryAdjustment',
+  paymentReviewResolutionTable: 'PaymentReviewResolution',
+  moderationActionTable: 'ModerationAction',
+  guestAttemptTable: 'GuestOrderAccessAttempt',
+  accessRateTable: 'AccessRateLog',
+  auditTable: 'AuditLog',
+  emailDeliveryTable: 'EmailDelivery',
+  cleanupTable: 'StorageCleanupTask',
+};
+
 function restoreEnvironment() {
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, originalEnv);
@@ -34,16 +62,7 @@ describe('health readiness', () => {
     process.env.RESEND_FROM_EMAIL = 'Nivara <orders@example.com>';
     process.env.SUPPORT_EMAIL = 'support@example.com';
     process.env.CRON_SECRET = 'replace-me-server-only';
-    queryRaw.mockResolvedValue([
-      {
-        userTable: 'User',
-        productTable: 'Product',
-        orderTable: 'Order',
-        paymentEventTable: 'PaymentEvent',
-        inventoryTable: 'InventoryReservation',
-        cleanupTable: 'StorageCleanupTask',
-      },
-    ]);
+    queryRaw.mockResolvedValue([completeSchema]);
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
@@ -97,16 +116,7 @@ describe('health readiness', () => {
     process.env.RESEND_FROM_EMAIL = 'Nivara <orders@nivara.in>';
     process.env.SUPPORT_EMAIL = 'support@nivara.in';
     process.env.CRON_SECRET = 'cron-secret';
-    queryRaw.mockResolvedValue([
-      {
-        userTable: 'User',
-        productTable: 'Product',
-        orderTable: 'Order',
-        paymentEventTable: 'PaymentEvent',
-        inventoryTable: 'InventoryReservation',
-        cleanupTable: 'StorageCleanupTask',
-      },
-    ]);
+    queryRaw.mockResolvedValue([completeSchema]);
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
