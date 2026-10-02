@@ -96,9 +96,21 @@ export async function GET(request: Request) {
       if (payment) processedPaymentAttempts.add(payment.id);
       if (!payment?.providerOrderId) {
         await expireReservationsForOrder(reservation.orderId);
-        if (payment) await markPaymentFailed(payment.id, 'CANCELLED');
-        else await releaseReservationsForOrder(reservation.orderId);
-        processed.released += 1;
+        if (
+          payment &&
+          (payment.status === 'PAYMENT_REVIEW' ||
+            reservation.order.paymentStatus === 'PAYMENT_REVIEW')
+        ) {
+          // There is no provider order ID to poll, so preserve the
+          // uncertainty for an administrator instead of guessing cancellation.
+          processed.review += 1;
+        } else if (payment) {
+          await markPaymentFailed(payment.id, 'CANCELLED');
+          processed.released += 1;
+        } else {
+          await releaseReservationsForOrder(reservation.orderId);
+          processed.released += 1;
+        }
         continue;
       }
 

@@ -204,4 +204,45 @@ describe('reconciliation payment-review polling', () => {
     expect(body.processed).toMatchObject({ paid: 0, review: 1 });
     expect(sendOrderConfirmationEmail).not.toHaveBeenCalled();
   });
+
+  it('keeps an uncertain payment without a provider ID in manual review', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    transaction.mockResolvedValue([{ count: 0 }, { count: 0 }]);
+    processStorageCleanupTasks.mockResolvedValue({
+      completed: 0,
+      failed: 0,
+      purged: 0,
+      skipped: false,
+    });
+    expiredReservations.mockResolvedValue([
+      {
+        orderId: 'order-4',
+        order: {
+          paymentStatus: 'PAYMENT_REVIEW',
+          payments: [{ id: 'payment-4', providerOrderId: null, status: 'PAYMENT_REVIEW' }],
+        },
+      },
+    ]);
+    reviewPayments.mockResolvedValue([]);
+    orderFindMany.mockResolvedValue([]);
+    accessRateDeleteMany.mockResolvedValue({ count: 0 });
+    guestAttemptDeleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+    const body = (await response.json()) as {
+      processed?: { released?: number; review?: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toMatchObject({ released: 0, review: 1 });
+    expect(expireReservationsForOrder).toHaveBeenCalledWith('order-4');
+    expect(markPaymentFailed).not.toHaveBeenCalled();
+  });
 });
