@@ -79,4 +79,54 @@ describe('order confirmation email delivery', () => {
     expect(result).toEqual({ sent: true, duplicate: true });
     expect(providerFetch).not.toHaveBeenCalled();
   });
+
+  it('marks a provider rejection as failed for a later retry', async () => {
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.RESEND_FROM_EMAIL = 'Nivara <orders@nivara.in>';
+    findUniqueOrder.mockResolvedValue({
+      orderNumber: 'NV-123',
+      guestEmail: 'customer@nivara.in',
+      user: null,
+      items: [],
+      shippingFullName: 'Test Shopper',
+      totalPaise: 12_500,
+    });
+    findUniqueDelivery.mockResolvedValue(null);
+    providerFetch.mockResolvedValue(
+      new Response(JSON.stringify({ message: 'rate limited' }), { status: 429 }),
+    );
+
+    const result = await sendOrderConfirmationEmail('order-123');
+
+    expect(result).toEqual({ sent: false, reason: 'provider_rejected' });
+    expect(updateDelivery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'FAILED' }),
+      }),
+    );
+  });
+
+  it('marks a provider timeout as failed for a later retry', async () => {
+    process.env.RESEND_API_KEY = 're_test_key';
+    process.env.RESEND_FROM_EMAIL = 'Nivara <orders@nivara.in>';
+    findUniqueOrder.mockResolvedValue({
+      orderNumber: 'NV-123',
+      guestEmail: 'customer@nivara.in',
+      user: null,
+      items: [],
+      shippingFullName: 'Test Shopper',
+      totalPaise: 12_500,
+    });
+    findUniqueDelivery.mockResolvedValue(null);
+    providerFetch.mockRejectedValue(new Error('request timed out'));
+
+    const result = await sendOrderConfirmationEmail('order-123');
+
+    expect(result).toEqual({ sent: false, reason: 'provider_timeout' });
+    expect(updateDelivery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'FAILED' }),
+      }),
+    );
+  });
 });
