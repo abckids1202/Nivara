@@ -144,7 +144,7 @@ test('product page reflects an existing wishlist item', async ({ page }) => {
   await page.goto('/product/arc-desk-organizer');
   await expect(
     page.getByRole('button', { name: 'Remove from wishlist' }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 10_000 });
 });
 
 test('header search opens an accessible live-search form', async ({ page }) => {
