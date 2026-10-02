@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { createGuestOrderToken } from '@/lib/guest-token';
 import { calculateDeliveryFee } from '@/lib/money';
+import { createOrderNumber } from '@/lib/order-number';
 import { prisma } from '@/lib/prisma';
 
 export type CheckoutAddress = {
@@ -36,9 +37,7 @@ export async function createPendingOrder({
   items: CheckoutItem[];
 }) {
   const guestToken = userId ? null : createGuestOrderToken();
-  const orderNumber = `NV-${Date.now()}-${Math.floor(Math.random() * 10_000)
-    .toString()
-    .padStart(4, '0')}`;
+  const orderNumber = createOrderNumber();
 
   return prisma.$transaction(async (tx) => {
     const variantIds = [...new Set(items.map((item) => item.variantId))];
