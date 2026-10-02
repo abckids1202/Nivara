@@ -39,9 +39,9 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
         failures.push(`${name} must use HTTPS`);
       if (
         name === 'NEXT_PUBLIC_SITE_URL' &&
-        !['https:', 'http:'].includes(url.protocol)
+        url.protocol !== 'https:'
       )
-        failures.push(`${name} must be an HTTP(S) URL`);
+        failures.push(`${name} must use HTTPS`);
     } catch {
       failures.push(`${name} is not a valid URL`);
     }
