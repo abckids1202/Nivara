@@ -235,7 +235,7 @@ model PaymentAttempt {
   id              String        @id @default(cuid())
   orderId         String
   providerOrderId String?             @unique
-  providerPaymentId String?
+  providerPaymentId String?              @unique
   idempotencyKey   String?             @unique
   refundReference  String?
   status          PaymentStatus @default(CREATED)
