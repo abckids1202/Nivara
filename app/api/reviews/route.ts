@@ -48,17 +48,22 @@ export async function POST(request: Request) {
     return unavailable('Review database is not configured');
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
-  if (
-    !(await consumeRateLimit({
-      request,
-      endpoint: 'reviews.create',
-      maxAttempts: 10,
-    }))
-  )
-    return noStore(
-      { error: 'Too many review submissions. Please try again later.' },
-      429,
-    );
+  try {
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'reviews.create',
+        maxAttempts: 10,
+      }))
+    )
+      return noStore(
+        { error: 'Too many review submissions. Please try again later.' },
+        429,
+      );
+  } catch (error) {
+    logServerError('reviews_rate_limit_failed', error);
+    return unavailable('Review submission is temporarily unavailable');
+  }
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return badRequest('Review details are invalid', parsed.error.flatten());
