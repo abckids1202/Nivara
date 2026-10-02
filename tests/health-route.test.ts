@@ -49,6 +49,32 @@ describe('health readiness', () => {
     expect(JSON.stringify(body)).not.toContain('replace-me');
   });
 
+  it('does not report ready when the database is reachable but migrations are incomplete', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.DIRECT_URL = 'postgresql://database.example/nivara';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
+    process.env.RAZORPAY_KEY_ID = 'provider-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'provider-test-secret';
+    process.env.RAZORPAY_WEBHOOK_SECRET = 'provider-test-webhook';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'supabase-anon-key';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'supabase-service-key';
+    process.env.SUPABASE_STORAGE_BUCKET = 'product-images';
+    process.env.RESEND_API_KEY = 're_test_api-key';
+    process.env.RESEND_FROM_EMAIL = 'Nivara <orders@nivara.in>';
+    process.env.SUPPORT_EMAIL = 'support@nivara.in';
+    process.env.CRON_SECRET = 'cron-secret';
+    queryRaw.mockResolvedValue([{ userTable: 'User', cleanupTable: null }]);
+
+    const response = await GET();
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(body.database).toBe('schema_incomplete');
+    expect(body.schemaConfigured).toBe(false);
+    expect(body.ready).toBe(false);
+  });
+
   it('returns ready only when the database and all required providers are configured', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     process.env.DIRECT_URL = 'postgresql://database.example/nivara';
