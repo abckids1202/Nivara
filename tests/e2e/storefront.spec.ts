@@ -191,3 +191,27 @@ test('offline connection state is announced accessibly', async ({ page }) => {
   await expect(offlineStatuses.first()).toContainText(/offline/i);
   await page.context().setOffline(false);
 });
+
+test('publishes crawl controls for search engines', async ({ request }) => {
+  const sitemap = await request.get('/sitemap.xml');
+  expect(sitemap.ok()).toBeTruthy();
+  const sitemapText = await sitemap.text();
+  expect(sitemapText).toContain('<loc>https://nivara.example</loc>');
+  expect(sitemapText).toContain('<loc>https://nivara.example/shop</loc>');
+
+  const robots = await request.get('/robots.txt');
+  expect(robots.ok()).toBeTruthy();
+  const robotsText = await robots.text();
+  expect(robotsText).toContain('Disallow: /admin');
+  expect(robotsText).toContain('Disallow: /api/');
+  expect(robotsText).toContain('Sitemap: https://nivara.example/sitemap.xml');
+});
+
+test('honours reduced-motion preferences', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const transitionDuration = await page
+    .locator('main.page-transition')
+    .evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(['0.01ms', '1e-05s']).toContain(transitionDuration);
+});
