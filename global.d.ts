@@ -1,4 +1,4 @@
-declare module "*.css";
+declare module '*.css';
 
 type RazorpayOptions = {
   key: string;
@@ -13,7 +13,10 @@ type RazorpayOptions = {
 
 type RazorpayInstance = {
   open: () => void;
-  on: (event: "payment.failed", handler: (response: { error?: { description?: string } }) => void) => void;
+  on: (
+    event: 'payment.failed',
+    handler: (response: { error?: { description?: string } }) => void,
+  ) => void;
 };
 
 interface Window {

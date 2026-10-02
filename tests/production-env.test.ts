@@ -46,11 +46,28 @@ describe('production environment validation', () => {
     expect(failures).toContain('NEXT_PUBLIC_SITE_URL must use HTTPS');
   });
 
+  it('rejects malformed transactional and support email addresses', () => {
+    const failures = validateProductionEnvironment({
+      ...validEnvironment,
+      RESEND_FROM_EMAIL: 'Nivara orders',
+      SUPPORT_EMAIL: 'support-at-nivara.test',
+    });
+
+    expect(failures).toContain(
+      'RESEND_FROM_EMAIL must contain a valid email address',
+    );
+    expect(failures).toContain(
+      'SUPPORT_EMAIL must contain a valid email address',
+    );
+  });
+
   it('keeps the local site URL aligned with the documented Next port', () => {
     const envExample = readFileSync(
       fileURLToPath(new URL('../.env.example', import.meta.url)),
       'utf8',
     );
-    expect(envExample).toContain('NEXT_PUBLIC_SITE_URL="http://localhost:3000"');
+    expect(envExample).toContain(
+      'NEXT_PUBLIC_SITE_URL="http://localhost:3000"',
+    );
   });
 });

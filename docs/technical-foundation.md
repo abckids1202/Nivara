@@ -4,16 +4,16 @@
 
 The planned production accounts belong to the client. The freelancer receives collaborator access. Local development uses `.env`; production values are configured in the hosting provider and never committed.
 
-| Concern | Selection | Ownership / note |
-|---|---|---|
-| Web application | Next.js, TypeScript, Node route handlers | Source repository owned by client |
-| Database | PostgreSQL through Supabase | Client-owned project; Prisma manages schema |
-| Authentication | Supabase Auth | Email verification and password reset in MVP; Google deferred; `User.id` mirrors the Supabase Auth user UUID |
-| Object storage | Supabase Storage | Product images in MVP; review images deferred |
-| Order email | Resend | Client-owned sender/domain configuration |
-| Payments | Razorpay test environment | Client supplies test keys and webhook access |
-| Hosting | Vercel target | Client-owned deployment account |
-| Scheduled work | Protected cron route | Expires reservations and retries reconciliation |
+| Concern         | Selection                                | Ownership / note                                                                                             |
+| --------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Web application | Next.js, TypeScript, Node route handlers | Source repository owned by client                                                                            |
+| Database        | PostgreSQL through Supabase              | Client-owned project; Prisma manages schema                                                                  |
+| Authentication  | Supabase Auth                            | Email verification and password reset in MVP; Google deferred; `User.id` mirrors the Supabase Auth user UUID |
+| Object storage  | Supabase Storage                         | Product images in MVP; review images deferred                                                                |
+| Order email     | Resend                                   | Client-owned sender/domain configuration                                                                     |
+| Payments        | Razorpay test environment                | Client supplies test keys and webhook access                                                                 |
+| Hosting         | Vercel target                            | Client-owned deployment account                                                                              |
+| Scheduled work  | Protected cron route                     | Expires reservations and retries reconciliation                                                              |
 
 ## State transitions
 

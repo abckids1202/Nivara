@@ -8,6 +8,7 @@ import {
 } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 
 const categorySchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -25,38 +26,48 @@ async function requireAdmin(request: Request) {
   return { identity } as const;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<Response> {
   if (!process.env.DATABASE_URL)
     return unavailable('Catalogue database is not configured');
   const access = await requireAdmin(request);
-  if ('response' in access) return access.response;
-  return noStore({
-    data: await prisma.category.findMany({
-      orderBy: { name: 'asc' },
-      include: { _count: { select: { products: true } } },
-    }),
-  });
+  if ('response' in access && access.response) return access.response;
+  try {
+    return noStore({
+      data: await prisma.category.findMany({
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { products: true } } },
+      }),
+    });
+  } catch (error) {
+    logServerError('admin_categories_read_failed', error);
+    return unavailable('Categories are temporarily unavailable');
+  }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   if (!process.env.DATABASE_URL)
     return unavailable('Catalogue database is not configured');
   const access = await requireAdmin(request);
-  if ('response' in access) return access.response;
+  if ('response' in access && access.response) return access.response;
   const parsed = categorySchema.safeParse(
     await request.json().catch(() => null),
   );
   if (!parsed.success)
     return badRequest('Category details are invalid', parsed.error.flatten());
-  const category = await prisma.category.create({ data: parsed.data });
-  await prisma.auditLog.create({
-    data: {
-      actorId: access.identity.id,
-      action: 'category.created',
-      entityType: 'Category',
-      entityId: category.id,
-      details: parsed.data,
-    },
-  });
-  return noStore({ data: category }, 201);
+  try {
+    const category = await prisma.category.create({ data: parsed.data });
+    await prisma.auditLog.create({
+      data: {
+        actorId: access.identity.id,
+        action: 'category.created',
+        entityType: 'Category',
+        entityId: category.id,
+        details: parsed.data,
+      },
+    });
+    return noStore({ data: category }, 201);
+  } catch (error) {
+    logServerError('category_create_failed', error);
+    return unavailable('Category could not be created');
+  }
 }

@@ -98,8 +98,45 @@ export const moderationSchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 
-export const paymentReviewResolutionSchema = z.object({
-  action: z.enum(['REFUND', 'FULFIL', 'CANCEL']),
-  reason: z.string().trim().min(3).max(500),
-  refundReference: z.string().trim().max(160).optional(),
+export const paymentReviewResolutionSchema = z
+  .object({
+    action: z.enum(['REFUND', 'FULFIL', 'CANCEL']),
+    reason: z.string().trim().min(3).max(500),
+    refundReference: z.string().trim().max(160).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.action === 'REFUND' && !value.refundReference?.trim())
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['refundReference'],
+        message: 'A provider refund reference is required',
+      });
+  });
+
+export const catalogueQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(120, 'Search text is too long')
+    .transform((value) => value || undefined)
+    .optional(),
+  category: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Invalid category')
+    .optional(),
+  availability: z.enum(['all', 'available', 'soldout']).default('all'),
+  sort: z.enum(['newest', 'best', 'price-low', 'price-high']).default('newest'),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(48).default(12),
+  maxPricePaise: z.coerce.number().int().min(1).max(100_000_000).optional(),
+});
+
+export const adminOrderQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(120, 'Order search text is too long')
+    .transform((value) => value || undefined)
+    .optional(),
 });

@@ -1,7 +1,7 @@
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -9,6 +9,7 @@ import { parseCatalogueCsv } from '@/lib/catalogue-import';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL)
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   if (parsed.errors.length)
     return badRequest('Catalogue contains invalid rows', parsed.errors);
   if (dryRun)
-    return json({
+    return noStore({
       dryRun: true,
       rowCount: parsed.rows.length,
       preview: parsed.rows,
@@ -91,14 +92,25 @@ export async function POST(request: Request) {
           stockOnHand: row.stockOnHand,
         },
       });
-      if (row.imageUrl)
-        await tx.productImage.create({
-          data: {
-            productId: product.id,
-            url: row.imageUrl,
-            altText: row.imageAlt || row.productName,
-          },
+      if (row.imageUrl) {
+        const existingImage = await tx.productImage.findFirst({
+          where: { productId: product.id, url: row.imageUrl },
+          select: { id: true },
         });
+        if (existingImage)
+          await tx.productImage.update({
+            where: { id: existingImage.id },
+            data: { altText: row.imageAlt || row.productName },
+          });
+        else
+          await tx.productImage.create({
+            data: {
+              productId: product.id,
+              url: row.imageUrl,
+              altText: row.imageAlt || row.productName,
+            },
+          });
+      }
     }
     await tx.auditLog.create({
       data: {
@@ -113,8 +125,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === 'STOCK_BELOW_RESERVED')
       return badRequest('Catalogue stock cannot be below reserved quantity');
-    throw error;
+    logServerError('catalogue_import_failed', error);
+    return unavailable('Catalogue import is temporarily unavailable');
   }
 
-  return json({ imported: parsed.rows.length });
+  return noStore({ imported: parsed.rows.length });
 }

@@ -4,11 +4,18 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatInr } from '@/lib/format';
+import { calculateDeliveryFee } from '@/lib/money';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { trackEvent } from '@/lib/analytics';
 
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
+
+function cartMutationMessage(reason: unknown) {
+  return reason instanceof Error
+    ? reason.message
+    : 'Your bag could not be updated. Please try again.';
+}
 
 export default function CheckoutPage() {
   const {
@@ -28,7 +35,7 @@ export default function CheckoutPage() {
     (sum, item) => sum + item.variant.pricePaise * item.quantity,
     0,
   );
-  const delivery = subtotal >= 99_900 ? 0 : 7_900;
+  const delivery = calculateDeliveryFee(subtotal);
   const total = subtotal + delivery;
 
   useEffect(() => {
@@ -127,38 +134,38 @@ export default function CheckoutPage() {
     trackEvent('CheckoutStart');
     setBusy(true);
     setError('');
-    const values = new FormData(event.currentTarget);
-    const field = (name: string) => {
-      const value = values.get(name);
-      return typeof value === 'string' ? value : '';
-    };
-    const response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: field('email'),
-        fullName: field('fullName'),
-        line1: field('line1'),
-        city: field('city'),
-        state: field('state'),
-        postalCode: field('postalCode'),
-        country: 'IN',
-        items: items.map((item) => ({
-          variantId: item.variantId,
-          quantity: item.quantity,
-        })),
-      }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      orderNumber?: string;
-      razorpayOrderId?: string;
-      keyId?: string;
-      amountPaise?: number;
-      currency?: string;
-      guestAccessToken?: string | null;
-      error?: string;
-    };
     try {
+      const values = new FormData(event.currentTarget);
+      const field = (name: string) => {
+        const value = values.get(name);
+        return typeof value === 'string' ? value : '';
+      };
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: field('email'),
+          fullName: field('fullName'),
+          line1: field('line1'),
+          city: field('city'),
+          state: field('state'),
+          postalCode: field('postalCode'),
+          country: 'IN',
+          items: items.map((item) => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        orderNumber?: string;
+        razorpayOrderId?: string;
+        keyId?: string;
+        amountPaise?: number;
+        currency?: string;
+        guestAccessToken?: string | null;
+        error?: string;
+      };
       if (!response.ok)
         setError(payload.error ?? 'Checkout could not be started');
       else if (
@@ -392,7 +399,13 @@ export default function CheckoutPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => void removeItem(item.id)}
+                      onClick={() =>
+                        void removeItem(item.id)
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
+                      }
                       aria-label={`Remove ${item.variant.product.name}`}
                       className="text-[#f2c1b2]"
                     >
@@ -429,7 +442,14 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        void updateItem(item.id, Math.max(1, item.quantity - 1))
+                        void updateItem(
+                          item.id,
+                          Math.max(1, item.quantity - 1),
+                        )
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
                       }
                       aria-label="Decrease quantity"
                     >
@@ -440,6 +460,10 @@ export default function CheckoutPage() {
                       type="button"
                       onClick={() =>
                         void updateItem(item.id, item.quantity + 1)
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
                       }
                       aria-label="Increase quantity"
                     >

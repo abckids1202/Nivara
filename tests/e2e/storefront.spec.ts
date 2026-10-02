@@ -10,6 +10,13 @@ test('homepage exposes the main shopping journey', async ({
   expect(response?.headers()['referrer-policy']).toBe(
     'strict-origin-when-cross-origin',
   );
+  expect(response?.headers()['permissions-policy']).toBe(
+    'camera=(), microphone=(), geolocation=()',
+  );
+  expect(response?.headers()['x-permitted-cross-domain-policies']).toBe('none');
+  expect(response?.headers()['cross-origin-opener-policy']).toBe(
+    'same-origin-allow-popups',
+  );
   await expect(page).toHaveTitle(/Nivara/);
   await expect(page.getByRole('link', { name: 'Nivara home' })).toBeVisible();
   if (testInfo.project.name === 'mobile') {
@@ -94,16 +101,66 @@ test('product-card wishlist prompts unauthenticated shoppers to sign in', async 
   ).toBeVisible();
 });
 
+test('product page reflects an existing wishlist item', async ({ page }) => {
+  await page.route('**/api/products/arc-desk-organizer', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          id: 'product-1',
+          name: 'Arc desk organizer',
+          description: 'A calm place for everyday desk essentials.',
+          material: 'Powder-coated steel',
+          dimensions: '32 × 12 × 8 cm',
+          care: 'Wipe clean with a soft cloth.',
+          category: { name: 'Desk & study' },
+          images: [],
+          variants: [
+            {
+              id: 'variant-1',
+              name: 'Single',
+              pricePaise: 64900,
+              compareAtPaise: null,
+              stockOnHand: 5,
+              stockReserved: 0,
+            },
+          ],
+          rating: null,
+          reviewCount: 0,
+          reviews: [],
+        },
+      }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [{ productId: 'product-1' }] }),
+    }),
+  );
+
+  await page.goto('/product/arc-desk-organizer');
+  await expect(
+    page.getByRole('button', { name: 'Remove from wishlist' }),
+  ).toBeVisible({ timeout: 10_000 });
+});
+
 test('header search opens an accessible live-search form', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search the collection' }).click();
-  await expect(page.getByPlaceholder('Search products, rooms, materials')).toBeVisible();
+  await expect(
+    page.getByPlaceholder('Search products, rooms, materials'),
+  ).toBeVisible();
   await expect(page.getByRole('search')).toBeVisible();
 });
 
 test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
   await page.goto('/');
-  const searchButton = page.getByRole('button', { name: 'Search the collection' });
+  const searchButton = page.getByRole('button', {
+    name: 'Search the collection',
+  });
   await searchButton.focus();
   await expect(searchButton).toBeFocused();
   await page.keyboard.press('Enter');
@@ -114,7 +171,9 @@ test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
     await menuButton.focus();
     await expect(menuButton).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('navigation', { name: 'Mobile navigation' })).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Mobile navigation' }),
+    ).toBeVisible();
   }
 });
 
@@ -130,9 +189,7 @@ test('password reset page explains how to request an expired link', async ({
   await expect(
     page.getByRole('heading', { name: 'Choose a new password' }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'account page' }),
-  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'account page' })).toBeVisible();
 });
 
 test('account dashboard exposes recovery when an account request fails', async ({

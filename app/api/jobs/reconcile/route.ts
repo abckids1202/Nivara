@@ -9,6 +9,7 @@ import { sendOrderConfirmationEmail } from '@/lib/email';
 import { releaseReservationsForOrder } from '@/lib/checkout';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { logServerError } from '@/lib/safe-logging';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -31,83 +32,92 @@ export async function GET(request: Request) {
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay credentials are not configured');
 
-  const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const [deletedRateLogs, deletedGuestAttempts] = await prisma.$transaction([
-    prisma.accessRateLog.deleteMany({ where: { createdAt: { lt: retentionCutoff } } }),
-    prisma.guestOrderAccessAttempt.deleteMany({ where: { createdAt: { lt: retentionCutoff } } }),
-  ]);
+  try {
+    const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [deletedRateLogs, deletedGuestAttempts] = await prisma.$transaction([
+      prisma.accessRateLog.deleteMany({
+        where: { createdAt: { lt: retentionCutoff } },
+      }),
+      prisma.guestOrderAccessAttempt.deleteMany({
+        where: { createdAt: { lt: retentionCutoff } },
+      }),
+    ]);
 
-  const expiredReservations = await prisma.inventoryReservation.findMany({
-    where: { status: 'ACTIVE', expiresAt: { lt: new Date() } },
-    include: {
-      order: {
-        include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
-      },
-    },
-    take: 100,
-  });
-  const processed = {
-    paid: 0,
-    released: 0,
-    review: 0,
-    skipped: 0,
-    deletedRateLogs: deletedRateLogs.count,
-    deletedGuestAttempts: deletedGuestAttempts.count,
-  };
-  const processedOrders = new Set<string>();
-
-  for (const reservation of expiredReservations) {
-    if (processedOrders.has(reservation.orderId)) continue;
-    processedOrders.add(reservation.orderId);
-    const payment = reservation.order.payments[0];
-    if (!payment?.providerOrderId) {
-      if (payment) await markPaymentFailed(payment.id, 'CANCELLED');
-      else await releaseReservationsForOrder(reservation.orderId);
-      processed.released += 1;
-      continue;
-    }
-
-    let response: Response;
-    try {
-      response = await providerFetch(
-        `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
-        {
-          headers: { Authorization: auth },
-          cache: 'no-store',
+    const expiredReservations = await prisma.inventoryReservation.findMany({
+      where: { status: 'ACTIVE', expiresAt: { lt: new Date() } },
+      include: {
+        order: {
+          include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
         },
-      );
-    } catch {
-      processed.review += 1;
-      await markPaymentReview(payment.id);
-      continue;
-    }
-    if (!response.ok) {
-      processed.review += 1;
-      await markPaymentReview(payment.id);
-      continue;
+      },
+      take: 100,
+    });
+    const processed = {
+      paid: 0,
+      released: 0,
+      review: 0,
+      skipped: 0,
+      deletedRateLogs: deletedRateLogs.count,
+      deletedGuestAttempts: deletedGuestAttempts.count,
+    };
+    const processedOrders = new Set<string>();
+
+    for (const reservation of expiredReservations) {
+      if (processedOrders.has(reservation.orderId)) continue;
+      processedOrders.add(reservation.orderId);
+      const payment = reservation.order.payments[0];
+      if (!payment?.providerOrderId) {
+        if (payment) await markPaymentFailed(payment.id, 'CANCELLED');
+        else await releaseReservationsForOrder(reservation.orderId);
+        processed.released += 1;
+        continue;
+      }
+
+      let response: Response;
+      try {
+        response = await providerFetch(
+          `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
+          {
+            headers: { Authorization: auth },
+            cache: 'no-store',
+          },
+        );
+      } catch {
+        processed.review += 1;
+        await markPaymentReview(payment.id);
+        continue;
+      }
+      if (!response.ok) {
+        processed.review += 1;
+        await markPaymentReview(payment.id);
+        continue;
+      }
+
+      let providerOrder: { status?: string };
+      try {
+        providerOrder = (await response.json()) as { status?: string };
+      } catch {
+        processed.review += 1;
+        await markPaymentReview(payment.id);
+        continue;
+      }
+      if (providerOrder.status === 'paid') {
+        const result = await markPaymentPaid({ paymentAttemptId: payment.id });
+        if (result.status === 'paid' && result.orderId)
+          await sendOrderConfirmationEmail(result.orderId);
+        processed.paid += 1;
+      } else if (providerOrder.status === 'created') {
+        await markPaymentFailed(payment.id, 'CANCELLED');
+        processed.released += 1;
+      } else {
+        await markPaymentReview(payment.id);
+        processed.review += 1;
+      }
     }
 
-    let providerOrder: { status?: string };
-    try {
-      providerOrder = (await response.json()) as { status?: string };
-    } catch {
-      processed.review += 1;
-      await markPaymentReview(payment.id);
-      continue;
-    }
-    if (providerOrder.status === 'paid') {
-      const result = await markPaymentPaid({ paymentAttemptId: payment.id });
-      if (result.status === 'paid' && result.orderId)
-        await sendOrderConfirmationEmail(result.orderId);
-      processed.paid += 1;
-    } else if (providerOrder.status === 'created') {
-      await markPaymentFailed(payment.id, 'CANCELLED');
-      processed.released += 1;
-    } else {
-      await markPaymentReview(payment.id);
-      processed.review += 1;
-    }
+    return noStore({ processed });
+  } catch (error) {
+    logServerError('reconciliation_job_failed', error);
+    return unavailable('Reconciliation is temporarily unavailable');
   }
-
-  return noStore({ processed });
 }

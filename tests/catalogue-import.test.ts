@@ -30,6 +30,15 @@ it('reports duplicate SKUs before import', () => {
   expect(result.errors).toContain('Row 3: duplicate SKU NIV-001');
 });
 
+it('rejects imports larger than the transaction row limit', () => {
+  const rows = Array.from({ length: 2_001 }, (_, index) =>
+    `organise,Organise,Desk organiser,desk-organiser-${index},A useful piece thoughtfully made,Oak,24 x 12 cm,Wipe clean,DRAFT,Natural,NIV-${index},1499,,8,,Desk organiser`,
+  ).join('\n');
+  const result = parseCatalogueCsv(`${header}\n${rows}`);
+  expect(result.rows).toHaveLength(0);
+  expect(result.errors).toContain('CSV cannot contain more than 2,000 product rows');
+});
+
 it('sorts catalogue products by paid sales and price before pagination', () => {
   const products = [
     {

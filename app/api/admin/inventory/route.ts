@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import {
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
   badRequest,
@@ -74,10 +74,10 @@ export async function POST(request: Request) {
       });
       return variant;
     });
-    return json({ data: result });
+    return noStore({ data: result });
   } catch (error) {
     if (error instanceof Error && error.message === 'VARIANT_NOT_FOUND')
-      return json({ error: 'Variant not found' }, 404);
+      return noStore({ error: 'Variant not found' }, 404);
     if (error instanceof Error && error.message === 'STOCK_BELOW_RESERVED')
       return badRequest('Stock cannot be reduced below reserved quantity');
     logServerError('inventory_adjustment_failed', error);

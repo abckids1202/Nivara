@@ -2,10 +2,19 @@ import { passwordResetSchema } from '@/lib/schemas';
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse } from '@/lib/auth-response';
+import { logServerError } from '@/lib/safe-logging';
 
-export async function POST(request: Request) {
-  if (!(await consumeRateLimit({ request, endpoint: 'auth.password-reset' })))
-    return authResponse({ error: 'Too many password-reset attempts' }, 429);
+export async function POST(request: Request): Promise<Response> {
+  try {
+    if (!(await consumeRateLimit({ request, endpoint: 'auth.password-reset' })))
+      return authResponse({ error: 'Too many password-reset attempts' }, 429);
+  } catch (error) {
+    logServerError('auth_password_reset_rate_limit_failed', error);
+    return authResponse(
+      { error: 'Password reset is temporarily unavailable' },
+      503,
+    );
+  }
   const parsed = passwordResetSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -17,10 +26,6 @@ export async function POST(request: Request) {
   });
   if (!result)
     return authResponse({ error: 'Supabase Auth is not configured' }, 503);
-  if (!result.ok)
-    return authResponse(
-      { data: { accepted: true } },
-      200,
-    );
+  if (!result.ok) return authResponse({ data: { accepted: true } }, 200);
   return authResponse({ data: { accepted: true } });
 }

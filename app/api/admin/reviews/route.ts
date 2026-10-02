@@ -8,27 +8,33 @@ import {
 import { moderationSchema } from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 import { z } from 'zod';
 
 const moderationRequestSchema = moderationSchema.extend({
   reviewId: z.string().min(1),
 });
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<Response> {
   if (!process.env.DATABASE_URL)
     return unavailable('Moderation database is not configured');
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
   if (!(await isAdministrator(identity))) return forbidden();
-  const reviews = await prisma.review.findMany({
-    where: { status: 'PENDING' },
-    include: { product: { select: { name: true, slug: true } } },
-    orderBy: { createdAt: 'asc' },
-  });
-  return noStore({ data: reviews });
+  try {
+    const reviews = await prisma.review.findMany({
+      where: { status: 'PENDING' },
+      include: { product: { select: { name: true, slug: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    return noStore({ data: reviews });
+  } catch (error) {
+    logServerError('admin_reviews_read_failed', error);
+    return unavailable('Reviews are temporarily unavailable');
+  }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: Request): Promise<Response> {
   if (!process.env.DATABASE_URL)
     return unavailable('Moderation database is not configured');
   const identity = await getAuthenticatedIdentity(request);
@@ -40,44 +46,50 @@ export async function PATCH(request: Request) {
   if (!parsed.success)
     return badRequest('Moderation decision is invalid', parsed.error.flatten());
 
-  const result = await prisma
-    .$transaction(async (tx) => {
-      const review = await tx.review.findUnique({
-        where: { id: parsed.data.reviewId },
+  let result;
+  try {
+    result = await prisma
+      .$transaction(async (tx) => {
+        const review = await tx.review.findUnique({
+          where: { id: parsed.data.reviewId },
+        });
+        if (!review) throw new Error('REVIEW_NOT_FOUND');
+        const updated = await tx.review.update({
+          where: { id: review.id },
+          data: {
+            status: parsed.data.status,
+            moderationReason: parsed.data.reason,
+          },
+        });
+        await tx.moderationAction.create({
+          data: {
+            reviewId: review.id,
+            adminUserId: identity.id,
+            previousStatus: review.status,
+            nextStatus: parsed.data.status,
+            reason: parsed.data.reason,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: identity.id,
+            action: 'review.moderated',
+            entityType: 'Review',
+            entityId: review.id,
+            details: { status: parsed.data.status },
+          },
+        });
+        return updated;
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.message === 'REVIEW_NOT_FOUND')
+          return null;
+        throw error;
       });
-      if (!review) throw new Error('REVIEW_NOT_FOUND');
-      const updated = await tx.review.update({
-        where: { id: review.id },
-        data: {
-          status: parsed.data.status,
-          moderationReason: parsed.data.reason,
-        },
-      });
-      await tx.moderationAction.create({
-        data: {
-          reviewId: review.id,
-          adminUserId: identity.id,
-          previousStatus: review.status,
-          nextStatus: parsed.data.status,
-          reason: parsed.data.reason,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId: identity.id,
-          action: 'review.moderated',
-          entityType: 'Review',
-          entityId: review.id,
-          details: { status: parsed.data.status },
-        },
-      });
-      return updated;
-    })
-    .catch((error) => {
-      if (error instanceof Error && error.message === 'REVIEW_NOT_FOUND')
-        return null;
-      throw error;
-    });
+  } catch (error) {
+    logServerError('admin_review_moderation_failed', error);
+    return unavailable('Review moderation is temporarily unavailable');
+  }
 
   if (!result) return noStore({ error: 'Review not found' }, 404);
   return noStore({ data: result });

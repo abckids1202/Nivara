@@ -82,6 +82,32 @@ export function ProductDetail({ slug }: { slug: string }) {
     return () => controller.abort();
   }, [slug]);
 
+  useEffect(() => {
+    if (!product?.id) return;
+    const controller = new AbortController();
+    fetch('/api/wishlist', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (response.status === 401) return [];
+        if (!response.ok) return [];
+        const payload = (await response.json()) as {
+          data?: Array<{ productId: string }>;
+        };
+        return payload.data ?? [];
+      })
+      .then((items) => {
+        setWishlisted(items.some((item) => item.productId === product.id));
+      })
+      .catch((reason: unknown) => {
+        if (reason instanceof DOMException && reason.name === 'AbortError')
+          return;
+        setWishlisted(false);
+      });
+    return () => controller.abort();
+  }, [product?.id]);
+
   if (loading)
     return (
       <>
@@ -143,32 +169,36 @@ export function ProductDetail({ slug }: { slug: string }) {
   };
 
   const toggleWishlist = async () => {
-    const response = await fetch(
-      wishlisted
-        ? `/api/wishlist?productId=${encodeURIComponent(product.id)}`
-        : '/api/wishlist',
-      {
-        method: wishlisted ? 'DELETE' : 'POST',
-        headers: wishlisted
-          ? undefined
-          : { 'Content-Type': 'application/json' },
-        body: wishlisted
-          ? undefined
-          : JSON.stringify({ productId: product.id }),
-      },
-    );
-    if (response.status === 401) {
-      setError('Sign in to save pieces to your wishlist.');
-      return;
+    try {
+      const response = await fetch(
+        wishlisted
+          ? `/api/wishlist?productId=${encodeURIComponent(product.id)}`
+          : '/api/wishlist',
+        {
+          method: wishlisted ? 'DELETE' : 'POST',
+          headers: wishlisted
+            ? undefined
+            : { 'Content-Type': 'application/json' },
+          body: wishlisted
+            ? undefined
+            : JSON.stringify({ productId: product.id }),
+        },
+      );
+      if (response.status === 401) {
+        setError('Sign in to save pieces to your wishlist.');
+        return;
+      }
+      if (!response.ok) {
+        const result = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setError(result.error ?? 'Wishlist could not be updated.');
+        return;
+      }
+      setWishlisted((value) => !value);
+    } catch {
+      setError('Wishlist could not be updated. Please try again.');
     }
-    if (!response.ok) {
-      const result = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      setError(result.error ?? 'Wishlist could not be updated.');
-      return;
-    }
-    setWishlisted((value) => !value);
   };
 
   return (

@@ -209,52 +209,82 @@ export default function AccountPage() {
   }
   async function saveProfile(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch('/api/account/profile', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ displayName }),
-    });
-    setMessage(response.ok ? 'Profile saved.' : 'Profile could not be saved.');
+    try {
+      const response = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName }),
+      });
+      setMessage(
+        response.ok ? 'Profile saved.' : 'Profile could not be saved.',
+      );
+    } catch {
+      setMessage('Profile could not be saved. Please try again.');
+    }
   }
   async function saveAddress(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch('/api/account/addresses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...address, country: 'IN' }),
-    });
-    if (!response.ok) {
-      const result = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      setMessage(result.error ?? 'Address could not be saved.');
-      return;
+    try {
+      const response = await fetch('/api/account/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...address, country: 'IN' }),
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setMessage(result.error ?? 'Address could not be saved.');
+        return;
+      }
+      setAddress({
+        label: '',
+        fullName: '',
+        line1: '',
+        city: '',
+        state: '',
+        postalCode: '',
+      });
+      setShowAddressForm(false);
+      setMessage('Address saved.');
+      void loadDashboard();
+    } catch {
+      setMessage('Address could not be saved. Please try again.');
     }
-    setAddress({
-      label: '',
-      fullName: '',
-      line1: '',
-      city: '',
-      state: '',
-      postalCode: '',
-    });
-    setShowAddressForm(false);
-    setMessage('Address saved.');
-    void loadDashboard();
   }
   async function deleteAddress(id: string) {
-    await fetch(`/api/account/addresses?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
-    void loadDashboard();
+    try {
+      const response = await fetch(
+        `/api/account/addresses?id=${encodeURIComponent(id)}`,
+        { method: 'DELETE' },
+      );
+      if (!response.ok) {
+        setMessage('Address could not be removed.');
+        return;
+      }
+      setMessage('Address removed.');
+      void loadDashboard();
+    } catch {
+      setMessage('Address could not be removed. Please try again.');
+    }
   }
   async function removeWishlist(productId: string) {
-    await fetch(`/api/wishlist?productId=${encodeURIComponent(productId)}`, {
-      method: 'DELETE',
-    });
-    setWishlist((items) =>
-      items.filter((item) => item.productId !== productId),
-    );
+    try {
+      const response = await fetch(
+        `/api/wishlist?productId=${encodeURIComponent(productId)}`,
+        { method: 'DELETE' },
+      );
+      if (!response.ok) {
+        setMessage('Saved piece could not be removed.');
+        return;
+      }
+      setWishlist((items) =>
+        items.filter((item) => item.productId !== productId),
+      );
+      setMessage('Saved piece removed.');
+    } catch {
+      setMessage('Saved piece could not be removed. Please try again.');
+    }
   }
 
   if (signedIn)
@@ -281,9 +311,17 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                setSignedIn(false);
-                await refreshCart();
+                try {
+                  const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                  });
+                  if (!response.ok) throw new Error('Logout failed');
+                  setSignedIn(false);
+                  setMessage('You’re signed out.');
+                  await refreshCart().catch(() => undefined);
+                } catch {
+                  setMessage('Could not sign out. Please try again.');
+                }
               }}
               className="button-secondary"
             >

@@ -67,4 +67,20 @@ describe('session refresh endpoint', () => {
     expect(cookies).toContain('HttpOnly');
     expect(cookies).toContain('SameSite=lax');
   });
+
+  it('clears local cookies when the provider definitively rejects refresh', async () => {
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({ ok: false, data: {} });
+
+    const response = await POST(
+      new Request('https://nivara.example/api/auth/refresh', {
+        headers: { cookie: 'nivara-refresh-token=expired-refresh-token' },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    const cookies = response.headers.get('set-cookie') ?? '';
+    expect(cookies).toContain('nivara-access-token=;');
+    expect(cookies).toContain('nivara-refresh-token=;');
+  });
 });

@@ -2,16 +2,25 @@ import { consumeRateLimit } from '@/lib/access-rate';
 import { passwordUpdateSchema } from '@/lib/schemas';
 import { supabaseUpdatePassword } from '@/lib/supabase-auth';
 import { authResponse } from '@/lib/auth-response';
+import { logServerError } from '@/lib/safe-logging';
 
-export async function POST(request: Request) {
-  if (
-    !(await consumeRateLimit({
-      request,
-      endpoint: 'auth.update-password',
-      maxAttempts: 5,
-    }))
-  )
-    return authResponse({ error: 'Too many password-update attempts' }, 429);
+export async function POST(request: Request): Promise<Response> {
+  try {
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'auth.update-password',
+        maxAttempts: 5,
+      }))
+    )
+      return authResponse({ error: 'Too many password-update attempts' }, 429);
+  } catch (error) {
+    logServerError('auth_update_password_rate_limit_failed', error);
+    return authResponse(
+      { error: 'Password update is temporarily unavailable' },
+      503,
+    );
+  }
 
   const parsed = passwordUpdateSchema.safeParse(
     await request.json().catch(() => null),

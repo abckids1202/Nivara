@@ -14,3 +14,12 @@ export function razorpaySignatureMatches(
     timingSafeEqual(expectedBuffer, actualBuffer)
   );
 }
+
+export function readConsistentProviderOrderId(
+  paymentOrderId?: string,
+  orderEntityId?: string,
+) {
+  if (paymentOrderId && orderEntityId && paymentOrderId !== orderEntityId)
+    return null;
+  return paymentOrderId ?? orderEntityId ?? null;
+}

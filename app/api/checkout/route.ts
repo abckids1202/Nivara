@@ -10,6 +10,7 @@ import { providerFetch } from '@/lib/provider-fetch';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { hasConfiguredValue } from '@/lib/configuration';
 import { logServerError } from '@/lib/safe-logging';
+import { readRazorpayOrderId } from '@/lib/razorpay-order';
 
 export async function POST(request: Request) {
   if (
@@ -71,17 +72,25 @@ export async function POST(request: Request) {
       return unavailable('Razorpay could not create the test payment');
     }
 
-    const razorpayOrder = (await razorpayResponse.json()) as { id?: string };
-    if (!razorpayOrder.id) {
+    const razorpayOrder = (await razorpayResponse.json()) as {
+      id?: unknown;
+      amount?: unknown;
+      currency?: unknown;
+    };
+    const razorpayOrderId = readRazorpayOrderId(
+      razorpayOrder,
+      pending.order.totalPaise,
+    );
+    if (!razorpayOrderId) {
       await releaseReservationsForOrder(pending.order.id);
-      return unavailable('Razorpay returned an invalid payment order');
+      return unavailable('Razorpay returned a mismatched payment order');
     }
 
     const { prisma } = await import('@/lib/prisma');
     await prisma.$transaction([
       prisma.paymentAttempt.update({
         where: { id: pending.order.payments[0].id },
-        data: { providerOrderId: razorpayOrder.id, status: 'PENDING' },
+        data: { providerOrderId: razorpayOrderId, status: 'PENDING' },
       }),
       prisma.order.update({
         where: { id: pending.order.id },
@@ -92,7 +101,7 @@ export async function POST(request: Request) {
     return noStore(
       {
         orderNumber: pending.order.orderNumber,
-        razorpayOrderId: razorpayOrder.id,
+        razorpayOrderId,
         keyId: process.env.RAZORPAY_KEY_ID,
         amountPaise: pending.order.totalPaise,
         currency: 'INR',
