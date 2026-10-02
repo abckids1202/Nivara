@@ -3,8 +3,9 @@ import { badRequest, noStore, unavailable } from '@/lib/http';
 import { providerFetch } from '@/lib/provider-fetch';
 import { supportRequestSchema } from '@/lib/schemas';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { logServerError } from '@/lib/safe-logging';
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   const apiKey = process.env.RESEND_API_KEY;
   const sender = process.env.RESEND_FROM_EMAIL;
   const recipient = process.env.SUPPORT_EMAIL;
@@ -15,21 +16,32 @@ export async function POST(request: Request) {
   )
     return unavailable('Support messaging is not configured');
 
-  if (
-    !(await consumeRateLimit({
-      request,
-      endpoint: 'support-message',
-      maxAttempts: 3,
-      windowMs: 15 * 60 * 1000,
-    }))
-  )
-    return noStore({ error: 'Too many messages. Please try again later.' }, 429);
+  try {
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'support-message',
+        maxAttempts: 3,
+        windowMs: 15 * 60 * 1000,
+      }))
+    )
+      return noStore(
+        { error: 'Too many messages. Please try again later.' },
+        429,
+      );
+  } catch (error) {
+    logServerError('support_rate_limit_failed', error);
+    return unavailable('Support messaging is temporarily unavailable');
+  }
 
   const parsed = supportRequestSchema.safeParse(
     await request.json().catch(() => null),
   );
   if (!parsed.success)
-    return badRequest('Support message details are invalid', parsed.error.flatten());
+    return badRequest(
+      'Support message details are invalid',
+      parsed.error.flatten(),
+    );
 
   try {
     const response = await providerFetch('https://api.resend.com/emails', {
@@ -53,7 +65,8 @@ export async function POST(request: Request) {
     });
     if (!response.ok)
       return unavailable('Support message could not be delivered');
-  } catch {
+  } catch (error) {
+    logServerError('support_message_delivery_failed', error);
     return unavailable('Support message could not be delivered');
   }
 
