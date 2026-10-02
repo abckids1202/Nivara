@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
 import { formatInr } from '@/lib/format';
+import { calculateDeliveryFee } from '@/lib/money';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { trackEvent } from '@/lib/analytics';
@@ -28,7 +29,7 @@ export default function CheckoutPage() {
     (sum, item) => sum + item.variant.pricePaise * item.quantity,
     0,
   );
-  const delivery = subtotal >= 99_900 ? 0 : 7_900;
+  const delivery = calculateDeliveryFee(subtotal);
   const total = subtotal + delivery;
 
   useEffect(() => {
