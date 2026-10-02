@@ -1,6 +1,7 @@
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse, clearAuthCookies } from '@/lib/auth-response';
+import { logServerError } from '@/lib/safe-logging';
 
 function readRefreshToken(request: Request) {
   const value = request.headers
@@ -10,19 +11,26 @@ function readRefreshToken(request: Request) {
   return value?.slice(value.indexOf('=') + 1).trim() ?? '';
 }
 
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<Response> {
   const refreshToken = readRefreshToken(request);
-  if (!refreshToken)
-    return authResponse({ error: 'No refresh session' }, 401);
+  if (!refreshToken) return authResponse({ error: 'No refresh session' }, 401);
 
-  if (
-    !(await consumeRateLimit({
-      request,
-      endpoint: 'auth.refresh',
-      maxAttempts: 30,
-    }))
-  )
-    return authResponse({ error: 'Too many refresh attempts' }, 429);
+  try {
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'auth.refresh',
+        maxAttempts: 30,
+      }))
+    )
+      return authResponse({ error: 'Too many refresh attempts' }, 429);
+  } catch (error) {
+    logServerError('auth_refresh_rate_limit_failed', error);
+    return authResponse(
+      { error: 'Session refresh is temporarily unavailable' },
+      503,
+    );
+  }
   const result = await supabaseAuthRequest('token?grant_type=refresh_token', {
     refresh_token: refreshToken,
   });
