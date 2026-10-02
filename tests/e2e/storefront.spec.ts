@@ -151,6 +151,9 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search the collection' }).click();
   await expect(
+    page.getByRole('combobox', { name: 'Search products' }),
+  ).toHaveAttribute('aria-autocomplete', 'list');
+  await expect(
     page.getByPlaceholder('Search products, rooms, materials'),
   ).toBeVisible();
   await expect(page.getByRole('search')).toBeVisible();

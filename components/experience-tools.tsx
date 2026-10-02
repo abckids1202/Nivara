@@ -184,29 +184,41 @@ export function StoreHeader({
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8d9a90]"
                 />
                 <input
+                  id="header-product-search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="header-search-suggestions"
+                  aria-expanded={suggestions.length > 0}
                   placeholder="Search products, rooms, materials"
                   className="h-12 w-full rounded-full border border-[#d8cec1] bg-[#fffaf3] px-11 text-sm outline-none focus:ring-2 focus:ring-[#c6674f]"
                 />
               </label>
               {suggestions.length > 0 && (
-                <div className="search-suggestions">
-                  {suggestions.map((product) => (
-                    <Link
-                      key={product.id}
-                      href={`/product/${product.slug}`}
-                      onClick={() => setSearchOpen(false)}
-                      className="search-suggestion"
-                    >
-                      <span>
-                        <strong>{product.name}</strong>
-                        <small>{product.category.name}</small>
-                      </span>
-                      <ChevronRight size={16} />
-                    </Link>
-                  ))}
-                </div>
+                <nav
+                  id="header-search-suggestions"
+                  aria-label="Product suggestions"
+                  className="search-suggestions"
+                >
+                  <ul>
+                    {suggestions.map((product) => (
+                      <li key={product.id}>
+                        <Link
+                          href={`/product/${product.slug}`}
+                          onClick={() => setSearchOpen(false)}
+                          className="search-suggestion"
+                        >
+                          <span>
+                            <strong>{product.name}</strong>
+                            <small>{product.category.name}</small>
+                          </span>
+                          <ChevronRight size={16} />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </nav>
               )}
             </form>
           </search>
