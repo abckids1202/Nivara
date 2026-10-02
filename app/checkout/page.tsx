@@ -11,6 +11,12 @@ import { trackEvent } from '@/lib/analytics';
 
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
+function cartMutationMessage(reason: unknown) {
+  return reason instanceof Error
+    ? reason.message
+    : 'Your bag could not be updated. Please try again.';
+}
+
 export default function CheckoutPage() {
   const {
     items,
@@ -393,7 +399,13 @@ export default function CheckoutPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => void removeItem(item.id)}
+                      onClick={() =>
+                        void removeItem(item.id)
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
+                      }
                       aria-label={`Remove ${item.variant.product.name}`}
                       className="text-[#f2c1b2]"
                     >
@@ -430,7 +442,14 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        void updateItem(item.id, Math.max(1, item.quantity - 1))
+                        void updateItem(
+                          item.id,
+                          Math.max(1, item.quantity - 1),
+                        )
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
                       }
                       aria-label="Decrease quantity"
                     >
@@ -441,6 +460,10 @@ export default function CheckoutPage() {
                       type="button"
                       onClick={() =>
                         void updateItem(item.id, item.quantity + 1)
+                          .then(() => setError(''))
+                          .catch((reason: unknown) =>
+                            setError(cartMutationMessage(reason)),
+                          )
                       }
                       aria-label="Increase quantity"
                     >
