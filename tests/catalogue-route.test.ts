@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { findMany, groupBy, reviewGroupBy, logServerError } = vi.hoisted(() => ({
+const { findMany, count, groupBy, reviewGroupBy, logServerError } = vi.hoisted(() => ({
   findMany: vi.fn(),
+  count: vi.fn(),
   groupBy: vi.fn(),
   reviewGroupBy: vi.fn(),
   logServerError: vi.fn(),
@@ -9,7 +10,7 @@ const { findMany, groupBy, reviewGroupBy, logServerError } = vi.hoisted(() => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    product: { findMany },
+    product: { findMany, count },
     orderItem: { groupBy },
     review: { groupBy: reviewGroupBy },
   },
@@ -24,6 +25,7 @@ afterEach(() => {
   if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = originalDatabaseUrl;
   findMany.mockReset();
+  count.mockReset();
   groupBy.mockReset();
   reviewGroupBy.mockReset();
   logServerError.mockReset();

@@ -1,9 +1,52 @@
 import { prisma } from '@/lib/prisma';
+import type { Prisma } from '@prisma/client';
 import { badRequest, noStore, unavailable } from '@/lib/http';
 import { sortCatalogueProducts } from '@/lib/catalogue-sort';
 import { isSellable } from '@/lib/inventory';
 import { catalogueQuerySchema } from '@/lib/schemas';
 import { logServerError } from '@/lib/safe-logging';
+
+const catalogueProductInclude = {
+  category: { select: { name: true, slug: true } },
+  images: { orderBy: { sortOrder: 'asc' as const }, take: 1 },
+  variants: {
+    select: {
+      id: true,
+      name: true,
+      pricePaise: true,
+      compareAtPaise: true,
+      stockOnHand: true,
+      stockReserved: true,
+    },
+  },
+  reviews: { where: { status: 'APPROVED' as const }, select: { rating: true } },
+} satisfies Prisma.ProductInclude;
+
+type CatalogueProduct = Prisma.ProductGetPayload<{
+  include: typeof catalogueProductInclude;
+}>;
+
+function serializeCatalogueProduct(product: CatalogueProduct) {
+  const prices = product.variants.map((variant) => variant.pricePaise);
+  const ratings = product.reviews.map((review) => review.rating);
+  return {
+    id: product.id,
+    name: product.name,
+    slug: product.slug,
+    description: product.description,
+    category: product.category,
+    image: product.images[0] ?? null,
+    variants: product.variants,
+    minPricePaise: prices.length ? Math.min(...prices) : null,
+    stockAvailable: product.variants.some((variant) =>
+      isSellable(variant.stockOnHand, variant.stockReserved),
+    ),
+    rating: ratings.length
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : null,
+    reviewCount: ratings.length,
+  };
+}
 
 export async function GET(request: Request) {
   if (!process.env.DATABASE_URL) {
@@ -48,6 +91,27 @@ export async function GET(request: Request) {
   const where = { status: 'PUBLISHED' as const, AND: filters };
 
   try {
+    if (sort === 'newest' && availability === 'all') {
+      const [total, products] = await Promise.all([
+        prisma.product.count({ where }),
+        prisma.product.findMany({
+          where,
+          include: catalogueProductInclude,
+          orderBy: { createdAt: 'desc' },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      ]);
+      return noStore({
+        data: products.map(serializeCatalogueProduct),
+        page,
+        pageSize,
+        total,
+        pages: Math.ceil(total / pageSize),
+        sort,
+      });
+    }
+
     const paidQuantityByVariant = new Map<string, number>();
     const reviewStatsByProduct = new Map<
       string,
@@ -115,21 +179,7 @@ export async function GET(request: Request) {
     ).map((product) => product.id);
     const pageIds = orderedIds.slice((page - 1) * pageSize, page * pageSize);
     const products = await prisma.product.findMany({
-      include: {
-        category: { select: { name: true, slug: true } },
-        images: { orderBy: { sortOrder: 'asc' }, take: 1 },
-        variants: {
-          select: {
-            id: true,
-            name: true,
-            pricePaise: true,
-            compareAtPaise: true,
-            stockOnHand: true,
-            stockReserved: true,
-          },
-        },
-        reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
-      },
+      include: catalogueProductInclude,
       where: { id: { in: pageIds } },
     });
     const productById = new Map(
@@ -142,27 +192,7 @@ export async function GET(request: Request) {
     const total = orderedIds.length;
 
     return noStore({
-      data: orderedProducts.map((product) => {
-        const prices = product.variants.map((variant) => variant.pricePaise);
-        const ratings = product.reviews.map((review) => review.rating);
-        return {
-          id: product.id,
-          name: product.name,
-          slug: product.slug,
-          description: product.description,
-          category: product.category,
-          image: product.images[0] ?? null,
-          variants: product.variants,
-          minPricePaise: prices.length ? Math.min(...prices) : null,
-          stockAvailable: product.variants.some((variant) =>
-            isSellable(variant.stockOnHand, variant.stockReserved),
-          ),
-          rating: ratings.length
-            ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-            : null,
-          reviewCount: ratings.length,
-        };
-      }),
+      data: orderedProducts.map(serializeCatalogueProduct),
       page,
       pageSize,
       total,
