@@ -81,6 +81,14 @@ describe('review submission route', () => {
         body: requestBody.body,
         displayName: requestBody.displayName,
       },
+      select: {
+        id: true,
+        rating: true,
+        body: true,
+        displayName: true,
+        status: true,
+        createdAt: true,
+      },
     });
   });
 

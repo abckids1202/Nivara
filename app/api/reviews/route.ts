@@ -85,6 +85,14 @@ export async function POST(request: Request) {
         body: parsed.data.body,
         displayName: parsed.data.displayName,
       },
+      select: {
+        id: true,
+        rating: true,
+        body: true,
+        displayName: true,
+        status: true,
+        createdAt: true,
+      },
     });
     return noStore({ data: review }, 201);
   } catch (error) {
