@@ -22,6 +22,25 @@ function razorpayAuth() {
   return `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`;
 }
 
+async function readRazorpayOrderStatus(auth: string, providerOrderId: string) {
+  try {
+    const response = await providerFetch(
+      `https://api.razorpay.com/v1/orders/${providerOrderId}`,
+      {
+        headers: { Authorization: auth },
+        cache: 'no-store',
+      },
+    );
+    if (!response.ok) return null;
+    const body = (await response.json().catch(() => null)) as {
+      status?: unknown;
+    } | null;
+    return typeof body?.status === 'string' ? body.status : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (
@@ -68,11 +87,13 @@ export async function GET(request: Request) {
       deletedGuestAttempts: deletedGuestAttempts.count,
     };
     const processedOrders = new Set<string>();
+    const processedPaymentAttempts = new Set<string>();
 
     for (const reservation of expiredReservations) {
       if (processedOrders.has(reservation.orderId)) continue;
       processedOrders.add(reservation.orderId);
       const payment = reservation.order.payments[0];
+      if (payment) processedPaymentAttempts.add(payment.id);
       if (!payment?.providerOrderId) {
         await expireReservationsForOrder(reservation.orderId);
         if (payment) await markPaymentFailed(payment.id, 'CANCELLED');
@@ -81,49 +102,68 @@ export async function GET(request: Request) {
         continue;
       }
 
-      let response: Response;
-      try {
-        response = await providerFetch(
-          `https://api.razorpay.com/v1/orders/${payment.providerOrderId}`,
-          {
-            headers: { Authorization: auth },
-            cache: 'no-store',
-          },
-        );
-      } catch {
+      const providerStatus = await readRazorpayOrderStatus(
+        auth,
+        payment.providerOrderId,
+      );
+      if (!providerStatus) {
         await expireReservationsForOrder(reservation.orderId);
         processed.review += 1;
         await markPaymentReview(payment.id);
         continue;
       }
-      if (!response.ok) {
-        await expireReservationsForOrder(reservation.orderId);
-        processed.review += 1;
-        await markPaymentReview(payment.id);
-        continue;
-      }
-
-      let providerOrder: { status?: string };
-      try {
-        providerOrder = (await response.json()) as { status?: string };
-      } catch {
-        await expireReservationsForOrder(reservation.orderId);
-        processed.review += 1;
-        await markPaymentReview(payment.id);
-        continue;
-      }
-      if (providerOrder.status === 'paid') {
+      if (providerStatus === 'paid') {
         const result = await markPaymentPaid({ paymentAttemptId: payment.id });
         if (result.status === 'paid' && result.orderId)
           await sendOrderConfirmationEmail(result.orderId);
         processed.paid += 1;
-      } else if (providerOrder.status === 'created') {
+      } else if (providerStatus === 'created') {
         await expireReservationsForOrder(reservation.orderId);
         await markPaymentFailed(payment.id, 'CANCELLED');
         processed.released += 1;
       } else {
         await expireReservationsForOrder(reservation.orderId);
         await markPaymentReview(payment.id);
+        processed.review += 1;
+      }
+    }
+
+    // A provider lookup failure above moves the payment into PAYMENT_REVIEW
+    // after its reservation expires. Keep polling those attempts on later
+    // runs; otherwise they would disappear from the active-reservation query
+    // and remain unresolved forever.
+    const reviewPayments = await prisma.paymentAttempt.findMany({
+      where: {
+        status: 'PAYMENT_REVIEW',
+        providerOrderId: { not: null },
+        order: { paymentStatus: 'PAYMENT_REVIEW' },
+      },
+      select: { id: true, providerOrderId: true },
+      orderBy: { updatedAt: 'asc' },
+      take: 100,
+    });
+    for (const payment of reviewPayments) {
+      if (processedPaymentAttempts.has(payment.id) || !payment.providerOrderId)
+        continue;
+      processedPaymentAttempts.add(payment.id);
+      const providerStatus = await readRazorpayOrderStatus(
+        auth,
+        payment.providerOrderId,
+      );
+      if (providerStatus === 'paid') {
+        const result = await markPaymentPaid({ paymentAttemptId: payment.id });
+        if (result.status === 'paid' && result.orderId) {
+          await sendOrderConfirmationEmail(result.orderId);
+          processed.paid += 1;
+        } else {
+          processed.review += 1;
+        }
+      } else if (providerStatus === 'failed' || providerStatus === 'cancelled') {
+        await markPaymentFailed(payment.id, 'FAILED');
+        processed.released += 1;
+      } else {
+        // Keep network errors and still-open provider orders in the manual
+        // review queue rather than guessing a financial outcome.
         processed.review += 1;
       }
     }
