@@ -1,12 +1,26 @@
-import { PrismaClient, ProductStatus } from "@prisma/client";
-import { products } from "../lib/demo-data.ts";
+import { PrismaClient, ProductStatus } from '@prisma/client';
+import { products } from '../lib/demo-data.ts';
+
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+  console.error(
+    'Demo seed refused in production. Set ALLOW_DEMO_SEED=true only for an intentional rehearsal database.',
+  );
+  process.exit(1);
+}
 
 const prisma = new PrismaClient();
 
-const slugify = (value: string) => value.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 
 async function seed() {
-  const categoryNames = [...new Set(products.map((product) => product.category))];
+  const categoryNames = [
+    ...new Set(products.map((product) => product.category)),
+  ];
   const categories = new Map<string, { id: string }>();
 
   for (const name of categoryNames) {
@@ -47,12 +61,12 @@ async function seed() {
       select: { id: true },
     });
 
-    const colors = product.colors.length ? product.colors : ["Standard"];
+    const colors = product.colors.length ? product.colors : ['Standard'];
     const baseStock = Math.floor(product.stock / colors.length);
     const remainder = product.stock % colors.length;
 
     for (const [index, color] of colors.entries()) {
-      const sku = `${product.slug.toUpperCase().replace(/-/g, "_")}-${index + 1}`;
+      const sku = `${product.slug.toUpperCase().replace(/-/g, '_')}-${index + 1}`;
       await prisma.productVariant.upsert({
         where: { sku },
         update: {
@@ -73,20 +87,33 @@ async function seed() {
       });
     }
 
-    const existingImage = await prisma.productImage.findFirst({ where: { productId: record.id, sortOrder: 0 } });
+    const existingImage = await prisma.productImage.findFirst({
+      where: { productId: record.id, sortOrder: 0 },
+    });
     if (existingImage) {
       await prisma.productImage.update({
         where: { id: existingImage.id },
-        data: { url: "/nivara-editorial.png", altText: product.name, sortOrder: 0 },
+        data: {
+          url: '/nivara-editorial.png',
+          altText: product.name,
+          sortOrder: 0,
+        },
       });
     } else {
       await prisma.productImage.create({
-        data: { productId: record.id, url: "/nivara-editorial.png", altText: product.name, sortOrder: 0 },
+        data: {
+          productId: record.id,
+          url: '/nivara-editorial.png',
+          altText: product.name,
+          sortOrder: 0,
+        },
       });
     }
   }
 
-  console.log(`Seeded ${products.length} products across ${categories.size} categories.`);
+  console.log(
+    `Seeded ${products.length} products across ${categories.size} categories.`,
+  );
 }
 
 try {

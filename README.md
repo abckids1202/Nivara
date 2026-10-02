@@ -30,7 +30,7 @@ npm run db:seed
 npm run dev
 ```
 
-`npm run db:seed` is safe to run repeatedly. It upserts the demonstration catalogue, categories, variants, and placeholder product images; it requires a reachable `DATABASE_URL`.
+`npm run db:seed` is safe to run repeatedly on a development or rehearsal database. It upserts the demonstration catalogue, categories, variants, and placeholder product images; it requires a reachable `DATABASE_URL`. In `NODE_ENV=production`, the script refuses to run unless `ALLOW_DEMO_SEED=true` is explicitly set.
 
 Then open `http://localhost:3000`.
 
@@ -83,7 +83,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-Run `db:seed` only against a non-production or intentionally seeded database.
+Run `db:seed` only against a non-production or intentionally seeded database. For an intentional production-mode rehearsal, set `ALLOW_DEMO_SEED=true` for that command only; never use it for the approved launch catalogue.
 Production catalogue data should be imported through the protected admin CSV
 dry-run/import flow after the client approves the content.
 
