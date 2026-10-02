@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma';
-import { unavailable, json } from '@/lib/http';
+import { badRequest, unavailable, json } from '@/lib/http';
 import { sortCatalogueProducts } from '@/lib/catalogue-sort';
 import { isSellable } from '@/lib/inventory';
-
-const allowedSorts = new Set(['newest', 'best', 'price-low', 'price-high']);
+import { catalogueQuerySchema } from '@/lib/schemas';
 
 export async function GET(request: Request) {
   if (!process.env.DATABASE_URL) {
@@ -11,16 +10,21 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const query = url.searchParams.get('q')?.trim();
-  const category = url.searchParams.get('category')?.trim();
-  const availability = url.searchParams.get('availability');
-  const sort = url.searchParams.get('sort') ?? 'newest';
-  const page = Math.max(1, Number(url.searchParams.get('page') ?? '1') || 1);
-  const pageSize = Math.min(
-    48,
-    Math.max(1, Number(url.searchParams.get('pageSize') ?? '12') || 12),
+  const parsedQuery = catalogueQuerySchema.safeParse(
+    Object.fromEntries(url.searchParams.entries()),
   );
-  const maxPricePaise = Number(url.searchParams.get('maxPricePaise'));
+  if (!parsedQuery.success)
+    return badRequest('Invalid catalogue query', parsedQuery.error.flatten());
+
+  const {
+    q: query,
+    category,
+    availability,
+    sort,
+    page,
+    pageSize,
+    maxPricePaise,
+  } = parsedQuery.data;
   const filters: object[] = [];
 
   if (query) {
@@ -35,7 +39,7 @@ export async function GET(request: Request) {
     });
   }
   if (category) filters.push({ category: { slug: category } });
-  if (Number.isFinite(maxPricePaise) && maxPricePaise > 0) {
+  if (maxPricePaise !== undefined) {
     filters.push({
       variants: { some: { pricePaise: { lte: maxPricePaise } } },
     });
@@ -72,7 +76,6 @@ export async function GET(request: Request) {
       );
     return true;
   });
-  const normalizedSort = allowedSorts.has(sort) ? sort : 'newest';
   const orderedIds = sortCatalogueProducts(
     availabilityFiltered.map((product) => ({
       ...product,
@@ -86,7 +89,7 @@ export async function GET(request: Request) {
         0,
       ),
     })),
-    normalizedSort,
+    sort,
   ).map((product) => product.id);
   const pageIds = orderedIds.slice(
     (page - 1) * pageSize,
@@ -143,6 +146,6 @@ export async function GET(request: Request) {
     pageSize,
     total,
     pages: Math.ceil(total / pageSize),
-    sort: normalizedSort,
+    sort,
   });
 }
