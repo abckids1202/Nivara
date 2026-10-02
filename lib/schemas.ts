@@ -131,3 +131,12 @@ export const catalogueQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(48).default(12),
   maxPricePaise: z.coerce.number().int().min(1).max(100_000_000).optional(),
 });
+
+export const adminOrderQuerySchema = z.object({
+  q: z
+    .string()
+    .trim()
+    .max(120, 'Order search text is too long')
+    .transform((value) => value || undefined)
+    .optional(),
+});

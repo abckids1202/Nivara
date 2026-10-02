@@ -7,7 +7,7 @@ import {
 } from '@/lib/http';
 import { Prisma } from '@prisma/client';
 import { evaluateFulfilmentTransition } from '@/lib/fulfilment-rules';
-import { fulfilmentUpdateSchema } from '@/lib/schemas';
+import { adminOrderQuerySchema, fulfilmentUpdateSchema } from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 
@@ -24,7 +24,12 @@ export async function GET(request: Request) {
     return unavailable('Order database is not configured');
   const access = await requireAdmin(request);
   if ('response' in access) return access.response;
-  const query = new URL(request.url).searchParams.get('q')?.trim();
+  const parsedQuery = adminOrderQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams.entries()),
+  );
+  if (!parsedQuery.success)
+    return badRequest('Order search query is invalid', parsedQuery.error.flatten());
+  const query = parsedQuery.data.q;
   const orders = await prisma.order.findMany({
     where: query
       ? {
