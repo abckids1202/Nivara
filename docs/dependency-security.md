@@ -6,9 +6,13 @@ The repository runs `npm audit --omit=dev` during launch-readiness review and us
 
 The direct React Server Components advisory was addressed by updating the React runtime and `react-server-dom-webpack` packages to the patched `19.2.8` release line. The application was then verified with lint, unit tests, and a production build.
 
+The lockfile is kept on the latest compatible Next 15.5 patch release, and
+`sharp` is pinned to the patched `0.35.5` release for the production image
+pipeline. These updates were applied without a forced framework migration.
+
 ## Remaining audit findings
 
-The current audit still reports vulnerabilities in indirect or development/toolchain dependencies, including packages pulled through the Next/Vite/Vinext and image-processing stacks. These findings should be reviewed again before a real production launch and after any supported framework upgrade.
+The current audit still reports seven findings in indirect or development/toolchain dependencies, including packages pulled through the Next/Vite/Vinext stacks. The remaining report includes the Next-bundled PostCSS version, Vinext's image-size dependency, and Cloudflare/Vite tooling. These findings should be reviewed again before a real production launch and after any supported framework upgrade.
 
 Do not run `npm audit fix --force` automatically. A forced repair may replace the framework or build tooling with a breaking major version. Each remaining finding needs a package-owner review, a compatible upgrade, or a documented risk decision.
 
