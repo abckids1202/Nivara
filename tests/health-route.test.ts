@@ -47,9 +47,9 @@ describe('health readiness', () => {
 
   it('returns ready only when the database and all required providers are configured', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
-    process.env.RAZORPAY_KEY_ID = 'rzp_test_livevalue';
-    process.env.RAZORPAY_KEY_SECRET = 'razorpay-secret';
-    process.env.RAZORPAY_WEBHOOK_SECRET = 'razorpay-webhook-secret';
+    process.env.RAZORPAY_KEY_ID = 'provider-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'provider-test-secret';
+    process.env.RAZORPAY_WEBHOOK_SECRET = 'provider-test-webhook';
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'supabase-anon-key';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'supabase-service-key';
@@ -73,6 +73,6 @@ describe('health readiness', () => {
     expect(body.emailConfigured).toBe(true);
     expect(body.supportConfigured).toBe(true);
     expect(body.cronConfigured).toBe(true);
-    expect(JSON.stringify(body)).not.toContain('razorpay-secret');
+    expect(JSON.stringify(body)).not.toContain('provider-test-secret');
   });
 });
