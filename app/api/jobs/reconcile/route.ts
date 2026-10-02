@@ -74,6 +74,7 @@ export async function GET(request: Request) {
           include: { payments: { orderBy: { createdAt: 'desc' }, take: 1 } },
         },
       },
+      orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
       take: 100,
     });
     const processed = {
@@ -153,7 +154,7 @@ export async function GET(request: Request) {
         order: { paymentStatus: 'PAYMENT_REVIEW' },
       },
       select: { id: true, providerOrderId: true },
-      orderBy: { updatedAt: 'asc' },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: 100,
     });
     for (const payment of reviewPayments) {
