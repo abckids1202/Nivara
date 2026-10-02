@@ -74,5 +74,6 @@ describe('health readiness', () => {
     expect(body.supportConfigured).toBe(true);
     expect(body.cronConfigured).toBe(true);
     expect(JSON.stringify(body)).not.toContain('provider-test-secret');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
   });
 });
