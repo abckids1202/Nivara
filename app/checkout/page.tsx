@@ -128,38 +128,38 @@ export default function CheckoutPage() {
     trackEvent('CheckoutStart');
     setBusy(true);
     setError('');
-    const values = new FormData(event.currentTarget);
-    const field = (name: string) => {
-      const value = values.get(name);
-      return typeof value === 'string' ? value : '';
-    };
-    const response = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: field('email'),
-        fullName: field('fullName'),
-        line1: field('line1'),
-        city: field('city'),
-        state: field('state'),
-        postalCode: field('postalCode'),
-        country: 'IN',
-        items: items.map((item) => ({
-          variantId: item.variantId,
-          quantity: item.quantity,
-        })),
-      }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      orderNumber?: string;
-      razorpayOrderId?: string;
-      keyId?: string;
-      amountPaise?: number;
-      currency?: string;
-      guestAccessToken?: string | null;
-      error?: string;
-    };
     try {
+      const values = new FormData(event.currentTarget);
+      const field = (name: string) => {
+        const value = values.get(name);
+        return typeof value === 'string' ? value : '';
+      };
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: field('email'),
+          fullName: field('fullName'),
+          line1: field('line1'),
+          city: field('city'),
+          state: field('state'),
+          postalCode: field('postalCode'),
+          country: 'IN',
+          items: items.map((item) => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        orderNumber?: string;
+        razorpayOrderId?: string;
+        keyId?: string;
+        amountPaise?: number;
+        currency?: string;
+        guestAccessToken?: string | null;
+        error?: string;
+      };
       if (!response.ok)
         setError(payload.error ?? 'Checkout could not be started');
       else if (
