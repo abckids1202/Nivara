@@ -261,6 +261,9 @@ test('publishes crawl controls for search engines', async ({ request }) => {
   const robotsText = await robots.text();
   expect(robotsText).toContain('Disallow: /admin');
   expect(robotsText).toContain('Disallow: /api/');
+  expect(robotsText).toContain('Disallow: /account');
+  expect(robotsText).toContain('Disallow: /checkout');
+  expect(robotsText).toContain('Disallow: /guest-order/');
   expect(robotsText).toContain('Sitemap: https://nivara.example/sitemap.xml');
 });
 
