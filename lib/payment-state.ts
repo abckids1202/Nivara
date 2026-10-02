@@ -1,6 +1,9 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { canConvertReservation } from '@/lib/payment-rules';
+import {
+  canConvertReservation,
+  decidePaymentCapture,
+} from '@/lib/payment-rules';
 
 async function lockOrderReservations(
   tx: Prisma.TransactionClient,
@@ -55,8 +58,23 @@ export async function markPaymentPaid({
   return prisma.$transaction(async (tx) => {
     const payment = await lockPaymentAttempt(tx, paymentAttemptId);
     if (!payment) return { status: 'missing' as const };
-    if (payment.status === 'PAID' && payment.order.paymentStatus === 'PAID') {
+    const captureDecision = decidePaymentCapture({
+      paymentStatus: payment.status,
+      orderStatus: payment.order.paymentStatus,
+    });
+    if (captureDecision === 'already_paid') {
       return { status: 'already_paid' as const, orderId: payment.orderId };
+    }
+    if (captureDecision === 'paid_review') {
+      await tx.paymentAttempt.update({
+        where: { id: paymentAttemptId },
+        data: { status: 'PAID_REVIEW', providerPaymentId },
+      });
+      await tx.order.update({
+        where: { id: payment.orderId },
+        data: { paymentStatus: 'PAID_REVIEW' },
+      });
+      return { status: 'paid_review' as const, orderId: payment.orderId };
     }
 
     const reservations = await lockOrderReservations(tx, payment.orderId);
