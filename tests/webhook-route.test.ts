@@ -50,4 +50,20 @@ describe('Razorpay webhook route boundary', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it('rejects a signed payload without a provider event ID', async () => {
+    const secret = 'webhook-secret';
+    process.env.RAZORPAY_WEBHOOK_SECRET = secret;
+    const body = JSON.stringify({ event: 'payment.captured' });
+    const signature = createHmac('sha256', secret).update(body).digest('hex');
+    const response = await POST(
+      new Request('https://nivara.example/api/payments/razorpay/webhook', {
+        method: 'POST',
+        headers: { 'x-razorpay-signature': signature },
+        body,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
 });
