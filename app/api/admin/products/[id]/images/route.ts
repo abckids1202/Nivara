@@ -113,26 +113,29 @@ export async function POST(
       return unavailable('Supabase Storage could not save the image');
     let image;
     try {
-      image = await prisma.productImage.create({
-        data: {
-          productId: product.id,
-          url: `${config.url}/storage/v1/object/public/${config.bucket}/${path}`,
-          altText: altText || product.name,
-        },
+      image = await prisma.$transaction(async (transaction) => {
+        const createdImage = await transaction.productImage.create({
+          data: {
+            productId: product.id,
+            url: `${config.url}/storage/v1/object/public/${config.bucket}/${path}`,
+            altText: altText || product.name,
+          },
+        });
+        await transaction.auditLog.create({
+          data: {
+            actorId: access.identity.id,
+            action: 'product.image.created',
+            entityType: 'ProductImage',
+            entityId: createdImage.id,
+            details: { productId: product.id, path },
+          },
+        });
+        return createdImage;
       });
     } catch {
       await deleteStorageObject(path, config).catch(() => undefined);
-      return unavailable('Image metadata could not be saved');
+      return unavailable('Image metadata or audit record could not be saved');
     }
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'product.image.created',
-        entityType: 'ProductImage',
-        entityId: image.id,
-        details: { productId: product.id, path },
-      },
-    });
     return noStore({ data: image }, 201);
   } catch (error) {
     logServerError('product_image_upload_failed', error);
