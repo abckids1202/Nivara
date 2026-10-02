@@ -10,7 +10,11 @@ vi.mock('../lib/supabase-auth', () => ({ supabaseAuthRequest }));
 
 import { POST } from '../app/api/auth/refresh/route';
 
+const originalNodeEnv = process.env.NODE_ENV;
+
 afterEach(() => {
+  if (originalNodeEnv === undefined) Reflect.deleteProperty(process.env, 'NODE_ENV');
+  else Reflect.set(process.env, 'NODE_ENV', originalNodeEnv);
   consumeRateLimit.mockReset();
   supabaseAuthRequest.mockReset();
 });
@@ -36,5 +40,31 @@ describe('session refresh endpoint', () => {
 
     expect(response.status).toBe(429);
     expect(supabaseAuthRequest).not.toHaveBeenCalled();
+  });
+
+  it('rotates secure session cookies after a successful refresh', async () => {
+    Reflect.set(process.env, 'NODE_ENV', 'production');
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({
+      ok: true,
+      data: {
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+      },
+    });
+
+    const response = await POST(
+      new Request('https://nivara.example/api/auth/refresh', {
+        headers: { cookie: 'nivara-refresh-token=old-refresh-token' },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const cookies = response.headers.get('set-cookie') ?? '';
+    expect(cookies).toContain('new-access-token');
+    expect(cookies).toContain('new-refresh-token');
+    expect(cookies).toContain('Secure');
+    expect(cookies).toContain('HttpOnly');
+    expect(cookies).toContain('SameSite=lax');
   });
 });
