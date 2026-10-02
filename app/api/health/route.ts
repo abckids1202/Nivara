@@ -1,4 +1,4 @@
-import { json } from '@/lib/http';
+import { noStore } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { hasConfiguredValue } from '@/lib/configuration';
 
@@ -65,5 +65,5 @@ export async function GET() {
     cronConfigured,
     ready,
   } as const;
-  return json(response, ready ? 200 : 503);
+  return noStore(response, ready ? 200 : 503);
 }
