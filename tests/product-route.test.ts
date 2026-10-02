@@ -22,6 +22,21 @@ afterEach(() => {
 });
 
 describe('product route resilience', () => {
+  it('marks a product-not-found response as non-cacheable', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    findFirst.mockResolvedValue(null);
+
+    const response = await GET(
+      new Request('https://nivara.example/product/x'),
+      {
+        params: Promise.resolve({ slug: 'x' }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('returns a safe unavailable response when the database query fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     findFirst.mockRejectedValue(new Error('private product database details'));

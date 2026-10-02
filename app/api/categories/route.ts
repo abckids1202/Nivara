@@ -1,4 +1,4 @@
-import { json, unavailable } from '@/lib/http';
+import { noStore, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { logServerError } from '@/lib/safe-logging';
 
@@ -11,7 +11,7 @@ export async function GET() {
       select: { id: true, name: true, slug: true },
       orderBy: { name: 'asc' },
     });
-    return json({ data: categories });
+    return noStore({ data: categories });
   } catch (error) {
     logServerError('categories_query_failed', error);
     return unavailable('Categories are temporarily unavailable');

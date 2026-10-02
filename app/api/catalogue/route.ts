@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { badRequest, unavailable, json } from '@/lib/http';
+import { badRequest, noStore, unavailable } from '@/lib/http';
 import { sortCatalogueProducts } from '@/lib/catalogue-sort';
 import { isSellable } from '@/lib/inventory';
 import { catalogueQuerySchema } from '@/lib/schemas';
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
     });
     const total = orderedIds.length;
 
-    return json({
+    return noStore({
       data: orderedProducts.map((product) => {
         const prices = product.variants.map((variant) => variant.pricePaise);
         const ratings = product.reviews.map((review) => review.rating);

@@ -22,6 +22,16 @@ afterEach(() => {
 });
 
 describe('categories route resilience', () => {
+  it('marks successful category responses as non-cacheable', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    findMany.mockResolvedValue([]);
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('returns a safe unavailable response when the database query fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     findMany.mockRejectedValue(new Error('private database details'));

@@ -22,6 +22,18 @@ afterEach(() => {
 });
 
 describe('catalogue route resilience', () => {
+  it('marks successful catalogue responses as non-cacheable', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    findMany.mockResolvedValue([]);
+
+    const response = await GET(
+      new Request('https://nivara.example/api/catalogue'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('returns a safe unavailable response when the database query fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     findMany.mockRejectedValue(

@@ -1,4 +1,4 @@
-import { json, unavailable } from '@/lib/http';
+import { noStore, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { isSellable } from '@/lib/inventory';
 import { logServerError } from '@/lib/safe-logging';
@@ -50,10 +50,10 @@ export async function GET(
       },
     });
 
-    if (!product) return json({ error: 'Product not found' }, 404);
+    if (!product) return noStore({ error: 'Product not found' }, 404);
 
     const ratings = product.reviews.map((review) => review.rating);
-    return json({
+    return noStore({
       data: {
         ...product,
         reviews: product.reviews.map(({ orderItem, ...review }) => ({
