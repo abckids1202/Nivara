@@ -161,12 +161,26 @@ export default function AccountPage() {
           setEmail(result.data.email);
           setDisplayName(result.data.displayName ?? '');
           setSignedIn(true);
-          void refreshCart();
           void loadDashboard();
         }
       })
       .catch(() => undefined);
   }, [refreshCart]);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    void mergeGuestCartWithRetry().then(async (cartMerged) => {
+      await refreshCart();
+      if (active && !cartMerged)
+        setMessage(
+          'You’re signed in, but your guest bag could not be merged. Please refresh and try again.',
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshCart, signedIn]);
 
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -203,14 +217,8 @@ export default function AccountPage() {
       else if (mode === 'signup' && result.data?.needsVerification)
         setMessage('Check your email to verify your Nivara account.');
       else {
-        const cartMerged = await mergeGuestCartWithRetry();
-        await refreshCart();
         setSignedIn(true);
-        setMessage(
-          cartMerged
-            ? 'You’re signed in.'
-            : 'You’re signed in, but your guest bag could not be merged. Please refresh and try again.',
-        );
+        setMessage('You’re signed in.');
         void loadDashboard();
       }
     } catch (error) {
