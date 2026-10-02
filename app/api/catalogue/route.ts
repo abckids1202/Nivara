@@ -1,7 +1,6 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import type { Prisma } from '@prisma/client';
 import { badRequest, noStore, unavailable } from '@/lib/http';
-import { sortCatalogueProducts } from '@/lib/catalogue-sort';
 import { isSellable } from '@/lib/inventory';
 import { catalogueQuerySchema } from '@/lib/schemas';
 import { logServerError } from '@/lib/safe-logging';
@@ -25,6 +24,110 @@ const catalogueProductInclude = {
 type CatalogueProduct = Prisma.ProductGetPayload<{
   include: typeof catalogueProductInclude;
 }>;
+
+type CatalogueCandidate = { id: string; total: bigint | number };
+
+function candidateQuery({
+  query,
+  category,
+  availability,
+  sort,
+  page,
+  pageSize,
+  maxPricePaise,
+}: {
+  query?: string;
+  category?: string;
+  availability: 'all' | 'available' | 'soldout';
+  sort: 'newest' | 'best' | 'price-low' | 'price-high';
+  page: number;
+  pageSize: number;
+  maxPricePaise?: number;
+}) {
+  const conditions: Prisma.Sql[] = [
+    Prisma.sql`p."status" = 'PUBLISHED'`,
+  ];
+  if (query) {
+    const pattern = `%${query}%`;
+    conditions.push(Prisma.sql`(
+      p."name" ILIKE ${pattern}
+      OR p."description" ILIKE ${pattern}
+      OR EXISTS (
+        SELECT 1
+        FROM "ProductVariant" search_variant
+        WHERE search_variant."productId" = p."id"
+          AND search_variant."sku" ILIKE ${pattern}
+      )
+    )`);
+  }
+  if (category)
+    conditions.push(Prisma.sql`c."slug" = ${category}`);
+  if (maxPricePaise !== undefined)
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1
+      FROM "ProductVariant" price_variant
+      WHERE price_variant."productId" = p."id"
+        AND price_variant."pricePaise" <= ${maxPricePaise}
+    )`);
+  if (availability === 'available')
+    conditions.push(Prisma.sql`EXISTS (
+      SELECT 1
+      FROM "ProductVariant" available_variant
+      WHERE available_variant."productId" = p."id"
+        AND available_variant."stockOnHand" > available_variant."stockReserved"
+    )`);
+  if (availability === 'soldout')
+    conditions.push(Prisma.sql`NOT EXISTS (
+      SELECT 1
+      FROM "ProductVariant" available_variant
+      WHERE available_variant."productId" = p."id"
+        AND available_variant."stockOnHand" > available_variant."stockReserved"
+    )`);
+
+  const sales = Prisma.sql`COALESCE((
+    SELECT SUM(order_item."quantity")
+    FROM "OrderItem" order_item
+    JOIN "Order" paid_order ON paid_order."id" = order_item."orderId"
+    JOIN "ProductVariant" sold_variant ON sold_variant."id" = order_item."variantId"
+    WHERE sold_variant."productId" = p."id"
+      AND paid_order."paymentStatus" = 'PAID'
+  ), 0)`;
+  const averageRating = Prisma.sql`COALESCE((
+    SELECT AVG(approved_review."rating")
+    FROM "Review" approved_review
+    WHERE approved_review."productId" = p."id"
+      AND approved_review."status" = 'APPROVED'
+  ), 0)`;
+  const reviewCount = Prisma.sql`(
+    SELECT COUNT(*)
+    FROM "Review" approved_review
+    WHERE approved_review."productId" = p."id"
+      AND approved_review."status" = 'APPROVED'
+  )`;
+  const minimumPrice = Prisma.sql`COALESCE((
+    SELECT MIN(price_variant."pricePaise")
+    FROM "ProductVariant" price_variant
+    WHERE price_variant."productId" = p."id"
+  ), 2147483647)`;
+  const orderBy =
+    sort === 'best'
+      ? Prisma.sql`${sales} DESC, ${averageRating} DESC, ${reviewCount} DESC, p."createdAt" DESC`
+      : sort === 'price-low'
+        ? Prisma.sql`${minimumPrice} ASC, p."createdAt" DESC`
+        : sort === 'price-high'
+          ? Prisma.sql`${minimumPrice} DESC, p."createdAt" DESC`
+          : Prisma.sql`p."createdAt" DESC`;
+
+  return Prisma.sql`
+    SELECT p."id", COUNT(*) OVER() AS "total"
+    FROM "Product" p
+    JOIN "Category" c ON c."id" = p."categoryId"
+    WHERE ${Prisma.join(conditions, ' AND ')}
+    ORDER BY ${orderBy}
+    LIMIT ${pageSize}
+    OFFSET ${(page - 1) * pageSize}
+  `;
+}
 
 function serializeCatalogueProduct(product: CatalogueProduct) {
   const prices = product.variants.map((variant) => variant.pricePaise);
@@ -69,115 +172,20 @@ export async function GET(request: Request) {
     pageSize,
     maxPricePaise,
   } = parsedQuery.data;
-  const filters: object[] = [];
-
-  if (query) {
-    filters.push({
-      OR: [
-        { name: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } },
-        {
-          variants: { some: { sku: { contains: query, mode: 'insensitive' } } },
-        },
-      ],
-    });
-  }
-  if (category) filters.push({ category: { slug: category } });
-  if (maxPricePaise !== undefined) {
-    filters.push({
-      variants: { some: { pricePaise: { lte: maxPricePaise } } },
-    });
-  }
-  const where = { status: 'PUBLISHED' as const, AND: filters };
-
   try {
-    if (sort === 'newest' && availability === 'all') {
-      const [total, products] = await Promise.all([
-        prisma.product.count({ where }),
-        prisma.product.findMany({
-          where,
-          include: catalogueProductInclude,
-          orderBy: { createdAt: 'desc' },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-      ]);
-      return noStore({
-        data: products.map(serializeCatalogueProduct),
+    const candidates = await prisma.$queryRaw<CatalogueCandidate[]>(
+      candidateQuery({
+        query,
+        category,
+        availability,
+        sort,
         page,
         pageSize,
-        total,
-        pages: Math.ceil(total / pageSize),
-        sort,
-      });
-    }
-
-    const paidQuantityByVariant = new Map<string, number>();
-    const reviewStatsByProduct = new Map<
-      string,
-      { averageRating: number; reviewCount: number }
-    >();
-    if (sort === 'best') {
-      const [sales, reviewStats] = await Promise.all([
-        prisma.orderItem.groupBy({
-          by: ['variantId'],
-          where: { order: { paymentStatus: 'PAID' } },
-          _sum: { quantity: true },
-        }),
-        prisma.review.groupBy({
-          by: ['productId'],
-          where: { status: 'APPROVED' },
-          _avg: { rating: true },
-          _count: { _all: true },
-        }),
-      ]);
-      for (const sale of sales)
-        paidQuantityByVariant.set(sale.variantId, sale._sum.quantity ?? 0);
-      for (const review of reviewStats)
-        reviewStatsByProduct.set(review.productId, {
-          averageRating: review._avg.rating ?? 0,
-          reviewCount: review._count._all,
-        });
-    }
-    const candidates = await prisma.product.findMany({
-      where,
-      select: {
-        id: true,
-        createdAt: true,
-        variants: {
-          select: {
-            id: true,
-            pricePaise: true,
-            stockOnHand: true,
-            stockReserved: true,
-          },
-        },
-      },
-    });
-    const availabilityFiltered = candidates.filter((product) => {
-      if (availability === 'available')
-        return product.variants.some((variant) =>
-          isSellable(variant.stockOnHand, variant.stockReserved),
-        );
-      if (availability === 'soldout')
-        return product.variants.every(
-          (variant) => !isSellable(variant.stockOnHand, variant.stockReserved),
-        );
-      return true;
-    });
-    const orderedIds = sortCatalogueProducts(
-      availabilityFiltered.map((product) => ({
-        ...product,
-        paidQuantity: product.variants.reduce(
-          (sum, variant) => sum + (paidQuantityByVariant.get(variant.id) ?? 0),
-          0,
-        ),
-        reviews: [],
-        ...reviewStatsByProduct.get(product.id),
-      })),
-      sort,
-    ).map((product) => product.id);
-    const pageIds = orderedIds.slice((page - 1) * pageSize, page * pageSize);
+        maxPricePaise,
+      }),
+    );
+    const pageIds = candidates.map((candidate) => candidate.id);
+    const total = candidates.length ? Number(candidates[0].total) : 0;
     const products = await prisma.product.findMany({
       include: catalogueProductInclude,
       where: { id: { in: pageIds } },
@@ -189,8 +197,6 @@ export async function GET(request: Request) {
       const product = productById.get(id);
       return product ? [product] : [];
     });
-    const total = orderedIds.length;
-
     return noStore({
       data: orderedProducts.map(serializeCatalogueProduct),
       page,
