@@ -5,9 +5,14 @@ import { authResponse } from '@/lib/auth-response';
 import { ensureUserProfile } from '@/lib/server-auth';
 import { logServerError } from '@/lib/safe-logging';
 
-export async function POST(request: Request) {
-  if (!(await consumeRateLimit({ request, endpoint: 'auth.login' })))
-    return authResponse({ error: 'Too many login attempts' }, 429);
+export async function POST(request: Request): Promise<Response> {
+  try {
+    if (!(await consumeRateLimit({ request, endpoint: 'auth.login' })))
+      return authResponse({ error: 'Too many login attempts' }, 429);
+  } catch (error) {
+    logServerError('auth_login_rate_limit_failed', error);
+    return authResponse({ error: 'Login is temporarily unavailable' }, 503);
+  }
   const parsed = authCredentialsSchema.safeParse(
     await request.json().catch(() => null),
   );
@@ -30,7 +35,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     logServerError('auth_login_profile_sync_failed', error);
-    return authResponse({ error: 'Account service is temporarily unavailable' }, 503);
+    return authResponse(
+      { error: 'Account service is temporarily unavailable' },
+      503,
+    );
   }
   const response = authResponse({
     data: { userId: result.data.user?.id },

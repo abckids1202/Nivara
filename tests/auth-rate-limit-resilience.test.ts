@@ -22,6 +22,8 @@ vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 import { POST as resetPassword } from '@/app/api/auth/password-reset/route';
 import { POST as refresh } from '@/app/api/auth/refresh/route';
 import { POST as updatePassword } from '@/app/api/auth/update-password/route';
+import { POST as login } from '@/app/api/auth/login/route';
+import { POST as signup } from '@/app/api/auth/signup/route';
 
 afterEach(() => {
   consumeRateLimit.mockReset();
@@ -48,6 +50,36 @@ describe('authentication rate-limit failure handling', () => {
       'auth_password_reset_rate_limit_failed',
       expect.any(Error),
     );
+  });
+
+  it('returns safe responses for login and signup infrastructure failures', async () => {
+    consumeRateLimit.mockRejectedValue(new Error('private rate log details'));
+    const requestBody = JSON.stringify({
+      email: 'shopper@example.com',
+      password: 'correct horse battery staple',
+    });
+
+    const loginResponse = await login(
+      new Request('https://nivara.example/api/auth/login', {
+        method: 'POST',
+        body: requestBody,
+      }),
+    );
+    const signupResponse = await signup(
+      new Request('https://nivara.example/api/auth/signup', {
+        method: 'POST',
+        body: requestBody,
+      }),
+    );
+
+    expect(loginResponse.status).toBe(503);
+    expect(signupResponse.status).toBe(503);
+    expect(await loginResponse.json()).toEqual({
+      error: 'Login is temporarily unavailable',
+    });
+    expect(await signupResponse.json()).toEqual({
+      error: 'Sign-up is temporarily unavailable',
+    });
   });
 
   it('returns a safe response for refresh infrastructure failure', async () => {
