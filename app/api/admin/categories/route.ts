@@ -55,15 +55,20 @@ export async function POST(request: Request): Promise<Response> {
   if (!parsed.success)
     return badRequest('Category details are invalid', parsed.error.flatten());
   try {
-    const category = await prisma.category.create({ data: parsed.data });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'category.created',
-        entityType: 'Category',
-        entityId: category.id,
-        details: parsed.data,
-      },
+    const category = await prisma.$transaction(async (transaction) => {
+      const createdCategory = await transaction.category.create({
+        data: parsed.data,
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'category.created',
+          entityType: 'Category',
+          entityId: createdCategory.id,
+          details: parsed.data,
+        },
+      });
+      return createdCategory;
     });
     return noStore({ data: category }, 201);
   } catch (error) {

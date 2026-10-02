@@ -46,18 +46,21 @@ export async function PATCH(
   try {
     const existing = await prisma.category.findUnique({ where: { id } });
     if (!existing) return notFound('Category not found');
-    const category = await prisma.category.update({
-      where: { id },
-      data: parsed.data,
-    });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'category.updated',
-        entityType: 'Category',
-        entityId: id,
-        details: { before: existing, after: parsed.data },
-      },
+    const category = await prisma.$transaction(async (transaction) => {
+      const updatedCategory = await transaction.category.update({
+        where: { id },
+        data: parsed.data,
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'category.updated',
+          entityType: 'Category',
+          entityId: id,
+          details: { before: existing, after: parsed.data },
+        },
+      });
+      return updatedCategory;
     });
     return noStore({ data: category });
   } catch (error) {
@@ -90,15 +93,17 @@ export async function DELETE(
       return conflict(
         'Move or archive the category products before deleting this category',
       );
-    await prisma.category.delete({ where: { id } });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'category.deleted',
-        entityType: 'Category',
-        entityId: id,
-        details: { name: category.name, slug: category.slug },
-      },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.category.delete({ where: { id } });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'category.deleted',
+          entityType: 'Category',
+          entityId: id,
+          details: { name: category.name, slug: category.slug },
+        },
+      });
     });
     return noStore({ data: { id } });
   } catch (error) {
