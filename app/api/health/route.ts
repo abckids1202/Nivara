@@ -13,10 +13,18 @@ function hasHttpsUrl(value: string | undefined) {
 
 export async function GET() {
   let database = 'not_configured';
+  let schemaConfigured = false;
   if (process.env.DATABASE_URL) {
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      database = 'connected';
+      const rows = await prisma.$queryRaw<
+        Array<{ userTable: string | null; cleanupTable: string | null }>
+      >`
+        SELECT
+          to_regclass('public."User"') AS "userTable",
+          to_regclass('public."StorageCleanupTask"') AS "cleanupTable"
+      `;
+      schemaConfigured = Boolean(rows[0]?.userTable && rows[0]?.cleanupTable);
+      database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {
       database = 'unreachable';
     }
@@ -60,6 +68,7 @@ export async function GET() {
   );
   const ready =
     database === 'connected' &&
+    schemaConfigured &&
     deploymentConfigured &&
     authConfigured &&
     paymentsConfigured &&
@@ -71,6 +80,7 @@ export async function GET() {
     service: 'nivara-store',
     status: ready ? 'ok' : 'degraded',
     database,
+    schemaConfigured,
     deploymentConfigured,
     paymentsConfigured,
     authConfigured,

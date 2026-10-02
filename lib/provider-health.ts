@@ -2,6 +2,7 @@ export type ProviderHealthPayload = {
   status?: unknown;
   ready?: unknown;
   database?: unknown;
+  schemaConfigured?: unknown;
   deploymentConfigured?: unknown;
   paymentsConfigured?: unknown;
   authConfigured?: unknown;
@@ -34,6 +35,7 @@ export function isReadyHealthPayload(
 export function healthChecks(payload: ProviderHealthPayload) {
   return [
     ['database', payload.database],
+    ['schema', payload.schemaConfigured],
     ['deployment', payload.deploymentConfigured],
     ['payments', payload.paymentsConfigured],
     ['auth', payload.authConfigured],

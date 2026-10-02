@@ -34,7 +34,9 @@ describe('health readiness', () => {
     process.env.RESEND_FROM_EMAIL = 'Nivara <orders@example.com>';
     process.env.SUPPORT_EMAIL = 'support@example.com';
     process.env.CRON_SECRET = 'replace-me-server-only';
-    queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    queryRaw.mockResolvedValue([
+      { userTable: 'User', cleanupTable: 'StorageCleanupTask' },
+    ]);
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
@@ -62,7 +64,9 @@ describe('health readiness', () => {
     process.env.RESEND_FROM_EMAIL = 'Nivara <orders@nivara.in>';
     process.env.SUPPORT_EMAIL = 'support@nivara.in';
     process.env.CRON_SECRET = 'cron-secret';
-    queryRaw.mockResolvedValue([{ '?column?': 1 }]);
+    queryRaw.mockResolvedValue([
+      { userTable: 'User', cleanupTable: 'StorageCleanupTask' },
+    ]);
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
@@ -71,6 +75,7 @@ describe('health readiness', () => {
     expect(body.status).toBe('ok');
     expect(body.ready).toBe(true);
     expect(body.database).toBe('connected');
+    expect(body.schemaConfigured).toBe(true);
     expect(body.deploymentConfigured).toBe(true);
     expect(body.paymentsConfigured).toBe(true);
     expect(body.authConfigured).toBe(true);

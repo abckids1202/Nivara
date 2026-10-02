@@ -26,6 +26,7 @@ describe('provider readiness helpers', () => {
       status: 'ok',
       ready: true,
       database: 'connected',
+      schemaConfigured: true,
       paymentsConfigured: true,
       authConfigured: true,
       storageConfigured: true,
@@ -35,6 +36,6 @@ describe('provider readiness helpers', () => {
     };
     expect(isReadyHealthPayload(ready)).toBe(true);
     expect(isReadyHealthPayload({ ...ready, ready: false })).toBe(false);
-    expect(healthChecks(ready)).toHaveLength(8);
+    expect(healthChecks(ready)).toHaveLength(9);
   });
 });
