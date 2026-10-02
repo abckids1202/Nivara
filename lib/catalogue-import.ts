@@ -56,6 +56,11 @@ export function parseCatalogueCsv(csv: string) {
       rows: [] as CatalogueRow[],
       errors: ['CSV must include a header and at least one product row'],
     };
+  if (lines.length > 2_001)
+    return {
+      rows: [] as CatalogueRow[],
+      errors: ['CSV cannot contain more than 2,000 product rows'],
+    };
   const headers = parseCsvLine(lines[0]);
   const rows: CatalogueRow[] = [];
   const errors: string[] = [];
