@@ -15,7 +15,18 @@ const required = [
   'NEXT_PUBLIC_SITE_URL',
 ] as const;
 
-const placeholderMarkers = ['replace-me', 'your-project', 'example.com', 'localhost'];
+const placeholderMarkers = [
+  'replace-me',
+  'your-project',
+  'example.com',
+  'localhost',
+];
+const emailPattern = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+
+function hasValidEmail(value: string) {
+  const address = value.match(/<([^<>]+)>/)?.[1] ?? value;
+  return emailPattern.test(address);
+}
 
 export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
   const failures: string[] = [];
@@ -26,7 +37,9 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
       failures.push(`${name} is missing`);
       continue;
     }
-    if (placeholderMarkers.some((marker) => value.toLowerCase().includes(marker)))
+    if (
+      placeholderMarkers.some((marker) => value.toLowerCase().includes(marker))
+    )
       failures.push(`${name} still contains a development placeholder`);
   }
 
@@ -37,10 +50,7 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
       const url = new URL(value);
       if (name === 'NEXT_PUBLIC_SUPABASE_URL' && url.protocol !== 'https:')
         failures.push(`${name} must use HTTPS`);
-      if (
-        name === 'NEXT_PUBLIC_SITE_URL' &&
-        url.protocol !== 'https:'
-      )
+      if (name === 'NEXT_PUBLIC_SITE_URL' && url.protocol !== 'https:')
         failures.push(`${name} must use HTTPS`);
     } catch {
       failures.push(`${name} is not a valid URL`);
@@ -57,6 +67,12 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
     } catch {
       failures.push(`${name} is not a valid PostgreSQL URL`);
     }
+  }
+
+  for (const name of ['RESEND_FROM_EMAIL', 'SUPPORT_EMAIL']) {
+    const value = environment[name]?.trim();
+    if (value && !hasValidEmail(value))
+      failures.push(`${name} must contain a valid email address`);
   }
 
   return failures;

@@ -104,8 +104,8 @@ running migrations or accepting payments:
 npm run check:env
 ```
 
-It checks variable presence, placeholder values, and required URL formats
-without printing secret contents.
+It checks variable presence, placeholder values, required URL formats, and
+transactional/support email shape without printing secret contents.
 
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
 
