@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { findMany, updateMany, update, providerFetch } = vi.hoisted(() => ({
+const { findMany, updateMany, update, deleteMany, providerFetch } = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
   update: vi.fn(),
+  deleteMany: vi.fn(),
   providerFetch: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    storageCleanupTask: { findMany, updateMany, update },
+    storageCleanupTask: { findMany, updateMany, update, deleteMany },
   },
 }));
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
@@ -24,6 +25,7 @@ afterEach(() => {
   findMany.mockReset();
   updateMany.mockReset();
   update.mockReset();
+  deleteMany.mockReset();
   providerFetch.mockReset();
 });
 
@@ -47,12 +49,14 @@ describe('storage cleanup worker', () => {
   it('claims and completes a provider deletion', async () => {
     configureStorage();
     findMany.mockResolvedValue([task()]);
+    deleteMany.mockResolvedValue({ count: 2 });
     updateMany.mockResolvedValue({ count: 1 });
     providerFetch.mockResolvedValue(new Response(null, { status: 204 }));
 
     await expect(processStorageCleanupTasks()).resolves.toEqual({
       completed: 1,
       failed: 0,
+      purged: 2,
       skipped: false,
     });
 
@@ -69,12 +73,14 @@ describe('storage cleanup worker', () => {
   it('records a retryable failure when the provider rejects cleanup', async () => {
     configureStorage();
     findMany.mockResolvedValue([task()]);
+    deleteMany.mockResolvedValue({ count: 0 });
     updateMany.mockResolvedValue({ count: 1 });
     providerFetch.mockResolvedValue(new Response(null, { status: 500 }));
 
     await expect(processStorageCleanupTasks()).resolves.toEqual({
       completed: 0,
       failed: 1,
+      purged: 0,
       skipped: false,
     });
 
@@ -91,11 +97,13 @@ describe('storage cleanup worker', () => {
   it('does not call the provider when another worker claimed the task', async () => {
     configureStorage();
     findMany.mockResolvedValue([task()]);
+    deleteMany.mockResolvedValue({ count: 0 });
     updateMany.mockResolvedValue({ count: 0 });
 
     await expect(processStorageCleanupTasks()).resolves.toEqual({
       completed: 0,
       failed: 0,
+      purged: 0,
       skipped: false,
     });
     expect(providerFetch).not.toHaveBeenCalled();

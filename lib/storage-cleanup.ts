@@ -44,7 +44,12 @@ export async function deleteStorageObject(
 
 export async function processStorageCleanupTasks(limit = 50) {
   const config = storageConfig();
-  if (!config) return { completed: 0, failed: 0, skipped: true };
+  if (!config) return { completed: 0, failed: 0, purged: 0, skipped: true };
+
+  const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const purged = await prisma.storageCleanupTask.deleteMany({
+    where: { status: 'COMPLETED', updatedAt: { lt: retentionCutoff } },
+  });
 
   const staleProcessingAt = new Date(Date.now() - 10 * 60 * 1000);
   const tasks = await prisma.storageCleanupTask.findMany({
@@ -95,5 +100,5 @@ export async function processStorageCleanupTasks(limit = 50) {
     }
   }
 
-  return { completed, failed, skipped: false };
+  return { completed, failed, purged: purged.count, skipped: false };
 }
