@@ -71,6 +71,7 @@ describe('review submission route', () => {
     );
 
     expect(response.status).toBe(201);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(createReview).toHaveBeenCalledWith({
       data: {
         productId: 'product-1',

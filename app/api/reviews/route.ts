@@ -2,6 +2,7 @@ import {
   badRequest,
   forbidden,
   json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       maxAttempts: 10,
     }))
   )
-    return json(
+    return noStore(
       { error: 'Too many review submissions. Please try again later.' },
       429,
     );
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
         displayName: parsed.data.displayName,
       },
     });
-    return json({ data: review }, 201);
+    return noStore({ data: review }, 201);
   } catch (error) {
     logServerError('review_create_failed', error);
     return badRequest('A review may already exist for this order item');
