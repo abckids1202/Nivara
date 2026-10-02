@@ -1,4 +1,4 @@
-import { json, unauthorized, unavailable } from '@/lib/http';
+import { noStore, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 
@@ -15,5 +15,5 @@ export async function GET(request: Request) {
     },
     orderBy: { createdAt: 'desc' },
   });
-  return json({ data: orders });
+  return noStore({ data: orders });
 }
