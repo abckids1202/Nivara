@@ -25,7 +25,7 @@ afterEach(() => {
 describe('guest payment retry route resilience', () => {
   it('returns a safe response when the guest order lookup fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
-    process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
     process.env.RAZORPAY_KEY_SECRET = 'test-secret';
     consumeRateLimit.mockResolvedValue(true);
     findFirst.mockRejectedValue(new Error('private guest order details'));

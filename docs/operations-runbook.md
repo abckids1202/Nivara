@@ -14,6 +14,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 7. Configure Resend and verify the client sender domain before sending real order mail.
 8. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
    The same job retains rate-limit and guest-access-attempt records for 30 days, then removes older entries.
+9. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready.
 
 ## Acceptance sequence
 

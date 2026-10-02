@@ -49,7 +49,7 @@ afterEach(() => {
 describe('authenticated payment retry route', () => {
   it('cleans up retry state when the provider request fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
-    process.env.RAZORPAY_KEY_ID = 'rzp_test_key';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
     process.env.RAZORPAY_KEY_SECRET = 'test-secret';
     consumeRateLimit.mockResolvedValue(true);
     getIdentity.mockResolvedValue({

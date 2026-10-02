@@ -107,6 +107,17 @@ npm run check:env
 It checks variable presence, placeholder values, required URL formats, and
 transactional/support email shape without printing secret contents.
 
+After deployment, verify the live provider configuration without exposing
+secrets:
+
+```cmd
+npm run check:provider -- --url https://your-deployment.example
+```
+
+The check calls `/api/health` and requires a connected database plus configured
+Auth, Storage, Razorpay, Resend, support email, and cron secret. A degraded
+response is a launch blocker.
+
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
 
 ## Delivery assumptions

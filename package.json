@@ -17,6 +17,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "check:env": "node --experimental-strip-types scripts/check-env.ts --production",
+    "check:provider": "node --experimental-strip-types scripts/check-provider.ts",
     "check:secrets": "node --experimental-strip-types scripts/check-secrets.ts",
     "check:admin-auth": "node --experimental-strip-types scripts/check-admin-auth.ts",
     "check:quality": "node --experimental-strip-types scripts/check-quality.ts",
