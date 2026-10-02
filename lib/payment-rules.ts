@@ -8,7 +8,7 @@ export function canConvertReservation({
   quantity: number;
 }) {
   return (
-    (status === 'ACTIVE' || status === 'EXPIRED') &&
+    status === 'ACTIVE' &&
     quantity > 0 &&
     stockOnHand >= quantity
   );
