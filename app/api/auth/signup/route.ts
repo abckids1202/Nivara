@@ -1,8 +1,9 @@
 import { authCredentialsSchema } from '@/lib/schemas';
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
-import { prisma } from '@/lib/prisma';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse } from '@/lib/auth-response';
+import { ensureUserProfile } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   if (!(await consumeRateLimit({ request, endpoint: 'auth.signup' })))
@@ -18,6 +19,15 @@ export async function POST(request: Request) {
   if (!result.ok || !result.data.user?.id)
     return authResponse({ error: 'Sign-up could not be completed' }, 400);
 
+  try {
+    await ensureUserProfile({
+      id: result.data.user.id,
+      email: result.data.user.email ?? parsed.data.email,
+    });
+  } catch (error) {
+    logServerError('auth_signup_profile_sync_failed', error);
+    return authResponse({ error: 'Account service is temporarily unavailable' }, 503);
+  }
   const response = authResponse(
     {
       data: {
@@ -27,14 +37,6 @@ export async function POST(request: Request) {
     },
     201,
   );
-  await prisma.user.upsert({
-    where: { id: result.data.user.id },
-    create: {
-      id: result.data.user.id,
-      email: result.data.user.email ?? parsed.data.email,
-    },
-    update: { email: result.data.user.email ?? parsed.data.email },
-  });
   if (result.data.access_token) {
     response.cookies.set('nivara-access-token', result.data.access_token, {
       httpOnly: true,
