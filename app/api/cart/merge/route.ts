@@ -1,7 +1,12 @@
 import { Prisma } from '@prisma/client';
-import { json, unauthorized, unavailable } from '@/lib/http';
+import { noStore, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-import { CART_COOKIE, readCookie } from '@/lib/cart';
+import {
+  CART_COOKIE,
+  clearCartCookieHeader,
+  readCookie,
+} from '@/lib/cart';
+import { mergedCartQuantity } from '@/lib/cart-merge';
 import {
   ensureUserProfile,
   getAuthenticatedIdentity,
@@ -13,7 +18,7 @@ export async function POST(request: Request) {
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
   const guestKey = readCookie(request, CART_COOKIE);
-  if (!guestKey) return json({ merged: false });
+  if (!guestKey) return noStore({ merged: false });
 
   await ensureUserProfile(identity);
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -32,6 +37,11 @@ export async function POST(request: Request) {
           if (!guestCart || guestCart.id === userCart.id) return false;
 
           for (const item of guestCart.items) {
+            const variant = await tx.productVariant.findFirst({
+              where: { id: item.variantId, product: { status: 'PUBLISHED' } },
+              select: { stockOnHand: true, stockReserved: true },
+            });
+            if (!variant) continue;
             const existing = await tx.cartItem.findUnique({
               where: {
                 cartId_variantId: {
@@ -40,10 +50,12 @@ export async function POST(request: Request) {
                 },
               },
             });
-            const quantity = Math.min(
-              20,
-              (existing?.quantity ?? 0) + item.quantity,
+            const quantity = mergedCartQuantity(
+              existing?.quantity ?? 0,
+              item.quantity,
+              variant.stockOnHand - variant.stockReserved,
             );
+            if (quantity < 1) continue;
             if (existing)
               await tx.cartItem.update({
                 where: { id: existing.id },
@@ -63,7 +75,9 @@ export async function POST(request: Request) {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
-      return json({ merged });
+      const response = noStore({ merged });
+      response.headers.set('Set-Cookie', clearCartCookieHeader());
+      return response;
     } catch (error) {
       const serializationConflict =
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -71,5 +85,5 @@ export async function POST(request: Request) {
       if (!serializationConflict || attempt === 1) throw error;
     }
   }
-  return json({ merged: false });
+  return noStore({ merged: false });
 }

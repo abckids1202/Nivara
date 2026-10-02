@@ -52,3 +52,8 @@ export function cartCookieHeader(value: string) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   return `${CART_COOKIE}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; HttpOnly; SameSite=Lax${secure}`;
 }
+
+export function clearCartCookieHeader() {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${CART_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`;
+}
