@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { validateProductionEnvironment } from '@/lib/production-env';
 
@@ -33,5 +35,13 @@ describe('production environment validation', () => {
 
     expect(failures).toContain('DATABASE_URL must use a PostgreSQL URL');
     expect(failures).toContain('DIRECT_URL must use a PostgreSQL URL');
+  });
+
+  it('keeps the local site URL aligned with the documented Next port', () => {
+    const envExample = readFileSync(
+      fileURLToPath(new URL('../.env.example', import.meta.url)),
+      'utf8',
+    );
+    expect(envExample).toContain('NEXT_PUBLIC_SITE_URL="http://localhost:3000"');
   });
 });
