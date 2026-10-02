@@ -68,6 +68,15 @@ validation, and desktop/mobile browser acceptance tests:
 npm run check:quality
 ```
 
+Review dependency advisories separately before launch:
+
+```cmd
+npm audit --omit=dev
+```
+
+See [`docs/dependency-security.md`](docs/dependency-security.md) for the
+current findings and upgrade decision. Do not run `npm audit fix --force`.
+
 This gate does not replace provider-backed acceptance. After it passes, the
 client-owned Supabase, Razorpay, Resend, Storage, and Vercel configuration must
 still be verified with the test payment journey in the operations runbook.
