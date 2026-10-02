@@ -87,7 +87,14 @@ export async function GET(request: Request) {
       continue;
     }
 
-    const providerOrder = (await response.json()) as { status?: string };
+    let providerOrder: { status?: string };
+    try {
+      providerOrder = (await response.json()) as { status?: string };
+    } catch {
+      processed.review += 1;
+      await markPaymentReview(payment.id);
+      continue;
+    }
     if (providerOrder.status === 'paid') {
       const result = await markPaymentPaid({ paymentAttemptId: payment.id });
       if (result.status === 'paid' && result.orderId)
