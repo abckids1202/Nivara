@@ -77,7 +77,9 @@ export default function CheckoutPage() {
     keyId: string;
     amountPaise: number;
     currency: string;
+    guestAccessToken?: string | null;
   }) {
+    setGuestAccessToken(details.guestAccessToken ?? '');
     if (!window.Razorpay) {
       await new Promise<void>((resolve, reject) => {
         const existing = document.querySelector<HTMLScriptElement>(
@@ -114,18 +116,21 @@ export default function CheckoutPage() {
         setOrderNumber(details.orderNumber);
       },
       modal: {
-        ondismiss: () =>
+        ondismiss: () => {
+          setOrderNumber(details.orderNumber);
           setError(
             'Checkout was closed. Your order remains unpaid until a verified payment is received.',
-          ),
+          );
+        },
       },
     });
-    checkout.on('payment.failed', (response) =>
+    checkout.on('payment.failed', (response) => {
+      setOrderNumber(details.orderNumber);
       setError(
         response.error?.description ??
-          'Payment failed. You can retry from the checkout page.',
-      ),
-    );
+          'Payment failed. You can retry from the order status page.',
+      );
+    });
     checkout.open();
   }
 
@@ -181,6 +186,7 @@ export default function CheckoutPage() {
           keyId: payload.keyId,
           amountPaise: payload.amountPaise,
           currency: payload.currency,
+          guestAccessToken: payload.guestAccessToken,
         });
       else {
         setOrderNumber(payload.orderNumber ?? '');
