@@ -40,6 +40,26 @@ async function isStorageBucketReachable() {
   }
 }
 
+async function isSupabaseAuthReachable() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (
+    !hasConfiguredValue(supabaseUrl, ['your-project']) ||
+    !hasConfiguredValue(anonKey, ['replace-me'])
+  )
+    return false;
+
+  try {
+    const response = await providerFetch(`${supabaseUrl}/auth/v1/settings`, {
+      headers: { apikey: anonKey },
+      cache: 'no-store',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   let database = 'not_configured';
   let schemaConfigured = false;
@@ -115,14 +135,7 @@ export async function GET() {
       hasConfiguredValue(process.env.RAZORPAY_KEY_SECRET, ['replace-me']) &&
       hasConfiguredValue(process.env.RAZORPAY_WEBHOOK_SECRET, ['replace-me']),
   );
-  const authConfigured = Boolean(
-    hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_URL, [
-      'your-project',
-    ]) &&
-      hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, [
-        'replace-me',
-      ]),
-  );
+  const authConfigured = await isSupabaseAuthReachable();
   const storageConfigured = await isStorageBucketReachable();
   const emailConfigured = Boolean(
     hasConfiguredValue(process.env.RESEND_API_KEY, ['replace-me']) &&
