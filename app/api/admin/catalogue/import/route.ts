@@ -9,6 +9,7 @@ import { parseCatalogueCsv } from '@/lib/catalogue-import';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL)
@@ -124,7 +125,8 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === 'STOCK_BELOW_RESERVED')
       return badRequest('Catalogue stock cannot be below reserved quantity');
-    throw error;
+    logServerError('catalogue_import_failed', error);
+    return unavailable('Catalogue import is temporarily unavailable');
   }
 
   return noStore({ imported: parsed.rows.length });
