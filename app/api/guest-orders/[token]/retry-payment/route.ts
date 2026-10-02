@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
 import { logServerError } from '@/lib/safe-logging';
+import { readRazorpayOrderId } from '@/lib/razorpay-order';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -47,13 +48,18 @@ export async function POST(
       body: JSON.stringify({ amount: pending.totalPaise, currency: 'INR', receipt: pending.orderNumber }),
     });
     if (!response.ok) throw new Error('Razorpay could not create the retry payment');
-    const razorpayOrder = (await response.json()) as { id?: string };
-    if (!razorpayOrder.id) throw new Error('Razorpay returned an invalid payment order');
+    const razorpayOrder = (await response.json()) as {
+      id?: unknown;
+      amount?: unknown;
+      currency?: unknown;
+    };
+    const razorpayOrderId = readRazorpayOrderId(razorpayOrder, pending.totalPaise);
+    if (!razorpayOrderId) throw new Error('Razorpay returned a mismatched payment order');
     await prisma.$transaction([
-      prisma.paymentAttempt.update({ where: { id: pending.paymentAttemptId }, data: { providerOrderId: razorpayOrder.id, status: 'PENDING' } }),
+      prisma.paymentAttempt.update({ where: { id: pending.paymentAttemptId }, data: { providerOrderId: razorpayOrderId, status: 'PENDING' } }),
       prisma.order.update({ where: { id: pending.orderId }, data: { paymentStatus: 'PENDING' } }),
     ]);
-    return noStore({ data: { orderNumber: pending.orderNumber, razorpayOrderId: razorpayOrder.id, keyId: auth.keyId, amountPaise: pending.totalPaise, currency: 'INR' } });
+    return noStore({ data: { orderNumber: pending.orderNumber, razorpayOrderId, keyId: auth.keyId, amountPaise: pending.totalPaise, currency: 'INR' } });
   } catch (error) {
     await markPaymentFailed(pending.paymentAttemptId, 'FAILED').catch(() => undefined);
     await releaseReservationsForOrder(pending.orderId).catch(() => undefined);

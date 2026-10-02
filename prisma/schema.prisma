@@ -234,7 +234,7 @@ model OrderItem {
 model PaymentAttempt {
   id              String        @id @default(cuid())
   orderId         String
-  providerOrderId String?
+  providerOrderId String?             @unique
   providerPaymentId String?
   idempotencyKey   String?             @unique
   refundReference  String?
