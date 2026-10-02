@@ -5,6 +5,8 @@ describe('administrator order search validation', () => {
   it('trims a bounded search query', () => {
     expect(adminOrderQuerySchema.parse({ q: '  NV-123  ' })).toEqual({
       q: 'NV-123',
+      page: 1,
+      pageSize: 24,
     });
   });
 
