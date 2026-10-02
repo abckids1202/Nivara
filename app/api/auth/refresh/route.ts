@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
+import { authResponse } from '@/lib/auth-response';
 
 function readRefreshToken(request: Request) {
   const value = request.headers
@@ -13,7 +13,7 @@ function readRefreshToken(request: Request) {
 export async function POST(request: Request) {
   const refreshToken = readRefreshToken(request);
   if (!refreshToken)
-    return NextResponse.json({ error: 'No refresh session' }, { status: 401 });
+    return authResponse({ error: 'No refresh session' }, 401);
 
   if (
     !(await consumeRateLimit({
@@ -22,19 +22,13 @@ export async function POST(request: Request) {
       maxAttempts: 30,
     }))
   )
-    return NextResponse.json(
-      { error: 'Too many refresh attempts' },
-      { status: 429 },
-    );
+    return authResponse({ error: 'Too many refresh attempts' }, 429);
   const result = await supabaseAuthRequest('token?grant_type=refresh_token', {
     refresh_token: refreshToken,
   });
   if (!result || !result.ok || !result.data.access_token)
-    return NextResponse.json(
-      { error: 'Session could not be refreshed' },
-      { status: 401 },
-    );
-  const response = NextResponse.json({ data: { refreshed: true } });
+    return authResponse({ error: 'Session could not be refreshed' }, 401);
+  const response = authResponse({ data: { refreshed: true } });
   response.cookies.set('nivara-access-token', result.data.access_token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
