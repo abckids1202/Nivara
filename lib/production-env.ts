@@ -78,4 +78,6 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
   return failures;
 }
 
-export const productionEnvironmentVariableCount = required.length;
+export const productionEnvironmentVariables = required;
+export const productionEnvironmentVariableCount =
+  productionEnvironmentVariables.length;

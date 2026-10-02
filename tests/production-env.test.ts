@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { validateProductionEnvironment } from '@/lib/production-env';
+import {
+  productionEnvironmentVariables,
+  validateProductionEnvironment,
+} from '@/lib/production-env';
 
 const validEnvironment = {
   NODE_ENV: 'production' as const,
@@ -69,5 +72,15 @@ describe('production environment validation', () => {
     expect(envExample).toContain(
       'NEXT_PUBLIC_SITE_URL="http://localhost:3000"',
     );
+  });
+
+  it('documents every required production variable in the environment template', () => {
+    const envExample = readFileSync(
+      fileURLToPath(new URL('../.env.example', import.meta.url)),
+      'utf8',
+    );
+    for (const name of productionEnvironmentVariables) {
+      expect(envExample).toMatch(new RegExp(`^${name}=`, 'm'));
+    }
   });
 });
