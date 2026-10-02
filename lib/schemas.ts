@@ -98,11 +98,20 @@ export const moderationSchema = z.object({
   reason: z.string().trim().min(3).max(500),
 });
 
-export const paymentReviewResolutionSchema = z.object({
-  action: z.enum(['REFUND', 'FULFIL', 'CANCEL']),
-  reason: z.string().trim().min(3).max(500),
-  refundReference: z.string().trim().max(160).optional(),
-});
+export const paymentReviewResolutionSchema = z
+  .object({
+    action: z.enum(['REFUND', 'FULFIL', 'CANCEL']),
+    reason: z.string().trim().min(3).max(500),
+    refundReference: z.string().trim().max(160).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.action === 'REFUND' && !value.refundReference?.trim())
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['refundReference'],
+        message: 'A provider refund reference is required',
+      });
+  });
 
 export const catalogueQuerySchema = z.object({
   q: z
