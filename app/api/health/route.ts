@@ -135,8 +135,10 @@ export async function GET() {
       hasConfiguredValue(process.env.RAZORPAY_KEY_SECRET, ['replace-me']) &&
       hasConfiguredValue(process.env.RAZORPAY_WEBHOOK_SECRET, ['replace-me']),
   );
-  const authConfigured = await isSupabaseAuthReachable();
-  const storageConfigured = await isStorageBucketReachable();
+  const [authConfigured, storageConfigured] = await Promise.all([
+    isSupabaseAuthReachable(),
+    isStorageBucketReachable(),
+  ]);
   const emailConfigured = Boolean(
     hasConfiguredValue(process.env.RESEND_API_KEY, ['replace-me']) &&
       hasConfiguredValue(process.env.RESEND_FROM_EMAIL, ['example.com']),
