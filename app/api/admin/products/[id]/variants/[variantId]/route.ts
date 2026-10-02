@@ -8,12 +8,19 @@ import {
 } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { isValidComparisonPrice } from '@/lib/catalogue-pricing';
 
 const variantUpdateSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   sku: z.string().trim().min(1).max(80).optional(),
-  priceRupees: z.number().nonnegative().optional(),
-  compareAtRupees: z.number().nonnegative().nullable().optional(),
+  priceRupees: z.number().int().positive().max(10_000_000).optional(),
+  compareAtRupees: z
+    .number()
+    .int()
+    .positive()
+    .max(10_000_000)
+    .nullable()
+    .optional(),
 });
 
 async function requireAdmin(request: Request) {
@@ -42,6 +49,18 @@ export async function PATCH(
     where: { id: variantId, productId: id },
   });
   if (!existing) return noStore({ error: 'Variant not found' }, 404);
+  const pricePaise =
+    parsed.data.priceRupees === undefined
+      ? existing.pricePaise
+      : parsed.data.priceRupees * 100;
+  const compareAtPaise =
+    parsed.data.compareAtRupees === undefined
+      ? existing.compareAtPaise
+      : parsed.data.compareAtRupees === null
+        ? null
+        : parsed.data.compareAtRupees * 100;
+  if (!isValidComparisonPrice(pricePaise, compareAtPaise))
+    return badRequest('Comparison price must be at least the selling price');
   const variant = await prisma.productVariant.update({
     where: { id: variantId },
     data: {
@@ -49,14 +68,14 @@ export async function PATCH(
       ...(parsed.data.sku === undefined ? {} : { sku: parsed.data.sku }),
       ...(parsed.data.priceRupees === undefined
         ? {}
-        : { pricePaise: Math.round(parsed.data.priceRupees * 100) }),
+        : { pricePaise }),
       ...(parsed.data.compareAtRupees === undefined
         ? {}
         : {
             compareAtPaise:
               parsed.data.compareAtRupees === null
                 ? null
-                : Math.round(parsed.data.compareAtRupees * 100),
+              : compareAtPaise,
           }),
     },
   });
