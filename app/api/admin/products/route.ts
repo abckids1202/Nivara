@@ -18,27 +18,32 @@ async function requireAdmin(request: Request) {
   return { identity } as const;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<Response> {
   if (!process.env.DATABASE_URL)
     return unavailable('Product database is not configured');
   const access = await requireAdmin(request);
-  if ('response' in access) return access.response;
-  const products = await prisma.product.findMany({
-    include: {
-      category: true,
-      variants: { orderBy: { sku: 'asc' } },
-      images: { orderBy: { sortOrder: 'asc' } },
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-  return noStore({ data: products });
+  if ('response' in access && access.response) return access.response;
+  try {
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        variants: { orderBy: { sku: 'asc' } },
+        images: { orderBy: { sortOrder: 'asc' } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return noStore({ data: products });
+  } catch (error) {
+    logServerError('admin_products_read_failed', error);
+    return unavailable('Products are temporarily unavailable');
+  }
 }
 
 export async function POST(request: Request) {
   if (!process.env.DATABASE_URL)
     return unavailable('Product database is not configured');
   const access = await requireAdmin(request);
-  if ('response' in access) return access.response;
+  if ('response' in access && access.response) return access.response;
   const parsed = productMutationSchema.safeParse(
     await request.json().catch(() => null),
   );
