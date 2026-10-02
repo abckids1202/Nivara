@@ -66,6 +66,18 @@ const statusLabel = (value: string) =>
     .toLowerCase()
     .replace(/(^| )\w/g, (letter) => letter.toUpperCase());
 
+async function mergeGuestCartWithRetry() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch('/api/cart/merge', { method: 'POST' });
+      if (response.ok) return true;
+    } catch {
+      // A second attempt handles a transient network or serialization failure.
+    }
+  }
+  return false;
+}
+
 export default function AccountPage() {
   const { refresh: refreshCart } = useCart();
   const [mode, setMode] = useState<Mode>('login');
@@ -191,10 +203,14 @@ export default function AccountPage() {
       else if (mode === 'signup' && result.data?.needsVerification)
         setMessage('Check your email to verify your Nivara account.');
       else {
-        await fetch('/api/cart/merge', { method: 'POST' });
+        const cartMerged = await mergeGuestCartWithRetry();
         await refreshCart();
         setSignedIn(true);
-        setMessage('You’re signed in.');
+        setMessage(
+          cartMerged
+            ? 'You’re signed in.'
+            : 'You’re signed in, but your guest bag could not be merged. Please refresh and try again.',
+        );
         void loadDashboard();
       }
     } catch (error) {
