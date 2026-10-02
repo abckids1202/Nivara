@@ -1,5 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { decidePaymentCapture } from '@/lib/payment-rules';
+import {
+  canMarkPaymentReview,
+  decidePaymentCapture,
+} from '@/lib/payment-rules';
+
+describe('payment review transitions', () => {
+  it.each([
+    ['FAILED', 'FAILED'],
+    ['CANCELLED', 'PENDING'],
+    ['PAID_REVIEW', 'PAID_REVIEW'],
+    ['PENDING', 'PAID'],
+  ] as const)('does not reopen terminal state %s/%s', (
+    paymentStatus,
+    orderStatus,
+  ) => {
+    expect(canMarkPaymentReview({ paymentStatus, orderStatus })).toBe(false);
+  });
+
+  it('allows uncertain non-terminal payments to enter review', () => {
+    expect(
+      canMarkPaymentReview({ paymentStatus: 'PENDING', orderStatus: 'PENDING' }),
+    ).toBe(true);
+  });
+});
 
 describe('payment capture decisions', () => {
   it('is idempotent for an already paid payment and order', () => {

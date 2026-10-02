@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { canMarkPaymentReview } from '@/lib/payment-rules';
 import {
   canConvertReservation,
   decidePaymentCapture,
@@ -206,6 +207,13 @@ export async function markPaymentReview(paymentAttemptId: string) {
       payment.order.paymentStatus === 'PAYMENT_REVIEW'
     )
       return { status: 'payment_review' as const, orderId: payment.orderId };
+    if (
+      !canMarkPaymentReview({
+        paymentStatus: payment.status,
+        orderStatus: payment.order.paymentStatus,
+      })
+    )
+      return { status: 'unchanged' as const, orderId: payment.orderId };
     await tx.paymentAttempt.update({
       where: { id: paymentAttemptId },
       data: { status: 'PAYMENT_REVIEW' },

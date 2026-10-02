@@ -14,26 +14,41 @@ export function canConvertReservation({
   );
 }
 
+export type PaymentState =
+  | 'CREATED'
+  | 'PENDING'
+  | 'PAID'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'PAYMENT_REVIEW'
+  | 'PAID_REVIEW';
+
+const terminalPaymentStates = new Set<PaymentState>([
+  'PAID',
+  'FAILED',
+  'CANCELLED',
+  'PAID_REVIEW',
+]);
+
+export function canMarkPaymentReview({
+  paymentStatus,
+  orderStatus,
+}: {
+  paymentStatus: PaymentState;
+  orderStatus: PaymentState;
+}) {
+  return (
+    !terminalPaymentStates.has(paymentStatus) &&
+    !terminalPaymentStates.has(orderStatus)
+  );
+}
+
 export function decidePaymentCapture({
   paymentStatus,
   orderStatus,
 }: {
-  paymentStatus:
-    | 'CREATED'
-    | 'PENDING'
-    | 'PAID'
-    | 'FAILED'
-    | 'CANCELLED'
-    | 'PAYMENT_REVIEW'
-    | 'PAID_REVIEW';
-  orderStatus:
-    | 'CREATED'
-    | 'PENDING'
-    | 'PAID'
-    | 'FAILED'
-    | 'CANCELLED'
-    | 'PAYMENT_REVIEW'
-    | 'PAID_REVIEW';
+  paymentStatus: PaymentState;
+  orderStatus: PaymentState;
 }) {
   if (paymentStatus === 'PAID' && orderStatus === 'PAID')
     return 'already_paid' as const;
