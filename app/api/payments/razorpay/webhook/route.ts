@@ -4,7 +4,10 @@ import { markPaymentFailed, markPaymentPaid } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { noStore, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
-import { razorpaySignatureMatches } from '@/lib/razorpay-webhook';
+import {
+  readConsistentProviderOrderId,
+  razorpaySignatureMatches,
+} from '@/lib/razorpay-webhook';
 import { logServerError, safeErrorMessage } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
@@ -55,9 +58,16 @@ export async function POST(request: Request) {
       .update(rawBody)
       .digest('hex');
     const paymentId = typedPayload.payload?.payment?.entity?.id;
-    const providerOrderId =
-      typedPayload.payload?.payment?.entity?.order_id ??
-      typedPayload.payload?.order?.entity?.id;
+    const providerOrderId = readConsistentProviderOrderId(
+      typedPayload.payload?.payment?.entity?.order_id,
+      typedPayload.payload?.order?.entity?.id,
+    );
+    if (
+      typedPayload.payload?.payment?.entity?.order_id &&
+      typedPayload.payload?.order?.entity?.id &&
+      !providerOrderId
+    )
+      return noStore({ error: 'Webhook order IDs do not match' }, 400);
     const attempt = providerOrderId
       ? await prisma.paymentAttempt.findFirst({ where: { providerOrderId } })
       : null;
