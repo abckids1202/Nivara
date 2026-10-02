@@ -13,6 +13,7 @@ import {
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
 import { logServerError } from '@/lib/safe-logging';
+import { processStorageCleanupTasks } from '@/lib/storage-cleanup';
 
 function razorpayAuth() {
   const keyId = process.env.RAZORPAY_KEY_ID;
@@ -36,6 +37,7 @@ export async function GET(request: Request) {
   if (!auth) return unavailable('Razorpay credentials are not configured');
 
   try {
+    const storageCleanup = await processStorageCleanupTasks();
     const retentionCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const [deletedRateLogs, deletedGuestAttempts] = await prisma.$transaction([
       prisma.accessRateLog.deleteMany({
@@ -61,6 +63,7 @@ export async function GET(request: Request) {
       review: 0,
       skipped: 0,
       emailRetried: 0,
+      storageCleanup,
       deletedRateLogs: deletedRateLogs.count,
       deletedGuestAttempts: deletedGuestAttempts.count,
     };

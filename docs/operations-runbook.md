@@ -13,7 +13,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 6. Configure Razorpay test keys and webhook secret. Point the webhook to `/api/payments/razorpay/webhook` and set `CRON_SECRET`.
 7. Configure Resend and verify the client sender domain before sending real order mail.
 8. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
-   The same job retains rate-limit and guest-access-attempt records for 30 days, then removes older entries.
+   The same job retries queued Supabase Storage image deletions, and retains rate-limit and guest-access-attempt records for 30 days before removing older entries.
 9. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready.
 
 ## Acceptance sequence
@@ -29,6 +29,8 @@ Run the following with seeded data and Razorpay test credentials:
 7. Submit a customer review, confirm it is pending, approve it as admin, and confirm only the approved review affects the product average.
 8. Test a failed, cancelled, expired, and late payment. Resolve uncertain orders through the payment-review queue and record any manual refund reference.
    For an authenticated failed or cancelled order, use `POST /api/orders/{orderNumber}/retry-payment`; for a valid guest link use `POST /api/guest-orders/{token}/retry-payment`. Both reuse the original order and create a fresh payment attempt after rechecking stock.
+
+9. Delete a product image from administration and confirm the database deletion is audited immediately while the Storage deletion is queued and reported by the next reconciliation run.
 
 The repository includes `npm run test:e2e` for desktop/mobile storefront checks and `npm run test` for deterministic business rules. Provider-backed acceptance requires the client credentials above.
 

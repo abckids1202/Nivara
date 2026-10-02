@@ -10,7 +10,11 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasAllowedImageSignature } from '@/lib/image-validation';
-import { hasConfiguredValue } from '@/lib/configuration';
+import {
+  deleteStorageObject,
+  storageConfig,
+  storagePathForImage,
+} from '@/lib/storage-cleanup';
 import { logServerError } from '@/lib/safe-logging';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -22,44 +26,6 @@ async function requireAdmin(request: Request) {
   if (!(await isAdministrator(identity)))
     return { response: forbidden() } as const;
   return { identity } as const;
-}
-
-function storageConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'product-images';
-  return hasConfiguredValue(url, ['your-project']) &&
-    hasConfiguredValue(key) &&
-    hasConfiguredValue(bucket)
-    ? { url, key, bucket }
-    : null;
-}
-
-function storagePathForImage(
-  url: string,
-  config: ReturnType<typeof storageConfig>,
-) {
-  if (!config) return null;
-  const marker = `/storage/v1/object/public/${config.bucket}/`;
-  if (!url.startsWith(`${config.url}${marker}`)) return null;
-  return decodeURIComponent(url.slice(`${config.url}${marker}`.length));
-}
-
-async function deleteStorageObject(
-  path: string,
-  config: NonNullable<ReturnType<typeof storageConfig>>,
-) {
-  const response = await providerFetch(
-    `${config.url}/storage/v1/object/${config.bucket}/${path.split('/').map(encodeURIComponent).join('/')}`,
-    {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${config.key}`,
-        apikey: config.key,
-      },
-    },
-  );
-  return response.ok || response.status === 404;
 }
 
 export async function POST(
@@ -133,7 +99,9 @@ export async function POST(
         return createdImage;
       });
     } catch {
-      await deleteStorageObject(path, config).catch(() => undefined);
+      await deleteStorageObject(path, config.bucket, config).catch(
+        () => undefined,
+      );
       return unavailable('Image metadata or audit record could not be saved');
     }
     return noStore({ data: image }, 201);
@@ -161,19 +129,24 @@ export async function DELETE(
     if (!image) return noStore({ error: 'Image not found' }, 404);
     const config = storageConfig();
     const path = storagePathForImage(image.url, config);
-    if (path && config && !(await deleteStorageObject(path, config)))
-      return unavailable('Supabase Storage could not remove the image');
-    await prisma.productImage.delete({ where: { id: image.id } });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'product.image.deleted',
-        entityType: 'ProductImage',
-        entityId: image.id,
-        details: { productId: id, path },
-      },
+    await prisma.$transaction(async (transaction) => {
+      await transaction.productImage.delete({ where: { id: image.id } });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'product.image.deleted',
+          entityType: 'ProductImage',
+          entityId: image.id,
+          details: { productId: id, path },
+        },
+      });
+      if (path && config) {
+        await transaction.storageCleanupTask.create({
+          data: { bucket: config.bucket, path },
+        });
+      }
     });
-    return noStore({ deleted: true });
+    return noStore({ deleted: true, storageCleanup: path ? 'queued' : 'not-applicable' });
   } catch (error) {
     logServerError('product_image_delete_failed', error);
     return unavailable('Image removal is temporarily unavailable');
