@@ -4,7 +4,10 @@ import {
   releaseReservationsForOrder,
 } from '@/lib/checkout';
 import { conflict, noStore, unauthorized, unavailable } from '@/lib/http';
-import { markPaymentFailed } from '@/lib/payment-state';
+import {
+  markPaymentFailed,
+  markPaymentReview,
+} from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
 import { providerFetch } from '@/lib/provider-fetch';
@@ -49,6 +52,7 @@ export async function POST(
   if (!auth) return unavailable('Razorpay test credentials are not configured');
   const { orderNumber } = await params;
   let pending;
+  let providerRejected = false;
   try {
     pending = await prepareRetryPayment({ orderNumber, userId: identity.id });
   } catch (error) {
@@ -69,8 +73,10 @@ export async function POST(
         receipt: pending.orderNumber,
       }),
     });
-    if (!response.ok)
+    if (!response.ok) {
+      providerRejected = true;
       throw new Error('Razorpay could not create the retry payment');
+    }
     const razorpayOrder = (await response.json()) as {
       id?: unknown;
       amount?: unknown;
@@ -102,10 +108,13 @@ export async function POST(
       },
     });
   } catch (error) {
-    await markPaymentFailed(pending.paymentAttemptId, 'FAILED').catch(
-      () => undefined,
-    );
-    await releaseReservationsForOrder(pending.orderId).catch(() => undefined);
+    try {
+      if (providerRejected)
+        await markPaymentFailed(pending.paymentAttemptId, 'FAILED');
+      else await markPaymentReview(pending.paymentAttemptId);
+    } catch {
+      await releaseReservationsForOrder(pending.orderId).catch(() => undefined);
+    }
     logServerError('account_payment_retry_failed', error);
     return unavailable('Payment retry is unavailable');
   }
