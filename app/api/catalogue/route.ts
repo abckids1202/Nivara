@@ -49,14 +49,31 @@ export async function GET(request: Request) {
 
   try {
     const paidQuantityByVariant = new Map<string, number>();
+    const reviewStatsByProduct = new Map<
+      string,
+      { averageRating: number; reviewCount: number }
+    >();
     if (sort === 'best') {
-      const sales = await prisma.orderItem.groupBy({
-        by: ['variantId'],
-        where: { order: { paymentStatus: 'PAID' } },
-        _sum: { quantity: true },
-      });
+      const [sales, reviewStats] = await Promise.all([
+        prisma.orderItem.groupBy({
+          by: ['variantId'],
+          where: { order: { paymentStatus: 'PAID' } },
+          _sum: { quantity: true },
+        }),
+        prisma.review.groupBy({
+          by: ['productId'],
+          where: { status: 'APPROVED' },
+          _avg: { rating: true },
+          _count: { _all: true },
+        }),
+      ]);
       for (const sale of sales)
         paidQuantityByVariant.set(sale.variantId, sale._sum.quantity ?? 0);
+      for (const review of reviewStats)
+        reviewStatsByProduct.set(review.productId, {
+          averageRating: review._avg.rating ?? 0,
+          reviewCount: review._count._all,
+        });
     }
     const candidates = await prisma.product.findMany({
       where,
@@ -71,7 +88,6 @@ export async function GET(request: Request) {
             stockReserved: true,
           },
         },
-        reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
       },
     });
     const availabilityFiltered = candidates.filter((product) => {
@@ -89,10 +105,11 @@ export async function GET(request: Request) {
       availabilityFiltered.map((product) => ({
         ...product,
         paidQuantity: product.variants.reduce(
-          (sum, variant) =>
-            sum + (paidQuantityByVariant.get(variant.id) ?? 0),
+          (sum, variant) => sum + (paidQuantityByVariant.get(variant.id) ?? 0),
           0,
         ),
+        reviews: [],
+        ...reviewStatsByProduct.get(product.id),
       })),
       sort,
     ).map((product) => product.id);

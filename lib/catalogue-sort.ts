@@ -3,13 +3,20 @@ export type SortableCatalogueProduct = {
   createdAt: Date;
   variants: Array<{ pricePaise: number }>;
   reviews: Array<{ rating: number }>;
+  averageRating?: number;
+  reviewCount?: number;
   paidQuantity: number;
 };
 
 function averageRating(product: SortableCatalogueProduct) {
+  if (product.averageRating !== undefined) return product.averageRating;
   if (!product.reviews.length) return 0;
   return product.reviews.reduce((sum, review) => sum + review.rating, 0) /
     product.reviews.length;
+}
+
+function reviewCount(product: SortableCatalogueProduct) {
+  return product.reviewCount ?? product.reviews.length;
 }
 
 function minPrice(product: SortableCatalogueProduct) {
@@ -28,7 +35,7 @@ export function sortCatalogueProducts(
       if (salesDifference !== 0) return salesDifference;
       const ratingDifference = averageRating(right) - averageRating(left);
       if (ratingDifference !== 0) return ratingDifference;
-      const reviewDifference = right.reviews.length - left.reviews.length;
+      const reviewDifference = reviewCount(right) - reviewCount(left);
       if (reviewDifference !== 0) return reviewDifference;
     }
     if (sort === 'price-low' || sort === 'price-high') {
