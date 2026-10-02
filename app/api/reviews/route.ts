@@ -1,7 +1,6 @@
 import {
   badRequest,
   forbidden,
-  json,
   noStore,
   unauthorized,
   unavailable,
@@ -25,18 +24,23 @@ export async function GET(request: Request) {
     return unavailable('Review database is not configured');
   const productId = new URL(request.url).searchParams.get('productId');
   if (!productId) return badRequest('productId is required');
-  const reviews = await prisma.review.findMany({
-    where: { productId, status: 'APPROVED' },
-    select: {
-      id: true,
-      rating: true,
-      body: true,
-      displayName: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-  return json({ data: reviews });
+  try {
+    const reviews = await prisma.review.findMany({
+      where: { productId, status: 'APPROVED' },
+      select: {
+        id: true,
+        rating: true,
+        body: true,
+        displayName: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return noStore({ data: reviews });
+  } catch (error) {
+    logServerError('reviews_query_failed', error);
+    return unavailable('Reviews are temporarily unavailable');
+  }
 }
 
 export async function POST(request: Request) {
