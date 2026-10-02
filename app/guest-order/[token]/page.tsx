@@ -40,6 +40,7 @@ export default function GuestOrderPage({
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
   const [notice, setNotice] = useState('');
+  const paymentStatus = order?.paymentStatus;
   async function retryPayment() {
     setRetrying(true);
     setError('');
@@ -134,6 +135,31 @@ export default function GuestOrderPage({
       active = false;
     };
   }, [params]);
+
+  useEffect(() => {
+    if (paymentStatus !== 'PENDING') return;
+    let active = true;
+    let attempts = 0;
+    let timer: number | undefined;
+    const poll = async () => {
+      const { token } = await params;
+      const response = await fetch(
+        `/api/guest-orders/${encodeURIComponent(token)}`,
+        { cache: 'no-store' },
+      ).catch(() => null);
+      const result = (await response?.json().catch(() => ({}))) as GuestOrder;
+      if (active && response?.ok && result.paymentStatus)
+        setOrder(result);
+      attempts += 1;
+      if (active && attempts < 10)
+        timer = window.setTimeout(() => void poll(), 3000);
+    };
+    void poll();
+    return () => {
+      active = false;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [paymentStatus, params]);
 
   return (
     <>
