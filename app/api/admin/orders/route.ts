@@ -34,26 +34,43 @@ export async function GET(request: Request): Promise<Response> {
       parsedQuery.error.flatten(),
     );
   try {
-    const query = parsedQuery.data.q;
-    const orders = await prisma.order.findMany({
-      where: query
-        ? {
-            OR: [
-              { orderNumber: { contains: query, mode: 'insensitive' } },
-              { guestEmail: { contains: query, mode: 'insensitive' } },
-              { user: { email: { contains: query, mode: 'insensitive' } } },
-            ],
-          }
-        : undefined,
-      include: {
-        items: true,
-        shipment: true,
-        user: { select: { email: true, displayName: true } },
+    const { q: query, page, pageSize } = parsedQuery.data;
+    const where = query
+      ? {
+          OR: [
+            { orderNumber: { contains: query, mode: 'insensitive' as const } },
+            { guestEmail: { contains: query, mode: 'insensitive' as const } },
+            {
+              user: {
+                email: { contains: query, mode: 'insensitive' as const },
+              },
+            },
+          ],
+        }
+      : undefined;
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          items: true,
+          shipment: true,
+          user: { select: { email: true, displayName: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.order.count({ where }),
+    ]);
+    return noStore({
+      data: orders,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
     });
-    return noStore({ data: orders });
   } catch (error) {
     logServerError('admin_orders_read_failed', error);
     return unavailable('Orders are temporarily unavailable');

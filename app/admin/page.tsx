@@ -51,6 +51,12 @@ type AdminOrder = {
     trackingReference: string | null;
   } | null;
 };
+type OrderPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 type AdminReview = {
   id: string;
   displayName: string;
@@ -147,6 +153,13 @@ export default function AdminPage() {
       totalPages: 1,
     });
   const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderPagination, setOrderPagination] = useState<OrderPagination>({
+    page: 1,
+    pageSize: 24,
+    total: 0,
+    totalPages: 1,
+  });
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [report, setReport] = useState<AdminReport | null>(null);
   const [paymentReviews, setPaymentReviews] = useState<PaymentReviewOrder[]>(
@@ -220,18 +233,24 @@ export default function AdminPage() {
     setLoading(false);
   }
 
-  async function loadOrders() {
+  async function loadOrders(search = orderQuery, page = orderPage) {
+    const params = new URLSearchParams({ page: String(page), pageSize: '24' });
+    if (search.trim()) params.set('q', search.trim());
     const response = await fetch(
-      `/api/admin/orders${orderQuery ? `?q=${encodeURIComponent(orderQuery)}` : ''}`,
+      `/api/admin/orders?${params}`,
       { cache: 'no-store' },
     );
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminOrder[];
+      pagination?: OrderPagination;
       error?: string;
     };
     const failure = adminLoadError(response, payload, 'Orders could not be loaded');
     if (failure) setError(failure);
-    else setOrders(payload.data ?? []);
+    else {
+      setOrders(payload.data ?? []);
+      if (payload.pagination) setOrderPagination(payload.pagination);
+    }
   }
 
   async function loadReviews() {
@@ -397,7 +416,8 @@ export default function AdminPage() {
   useEffect(() => {
     queueMicrotask(() => {
       setError('');
-      void loadOrders();
+      setOrderPage(1);
+      void loadOrders(orderQuery, 1);
       void loadReviews();
       void loadCategories();
       void loadReport();
@@ -1801,6 +1821,44 @@ export default function AdminPage() {
                         </div>
                       </article>
                     ))
+                  )}
+                  {orderPagination.totalPages > 1 && (
+                    <nav
+                      aria-label="Admin order pages"
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ebe2] pt-4"
+                    >
+                      <p className="text-sm text-[#718078]">
+                        Showing page {orderPagination.page} of{' '}
+                        {orderPagination.totalPages} ({orderPagination.total}{' '}
+                        orders)
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={orderPage <= 1}
+                          onClick={() => {
+                            const nextPage = orderPage - 1;
+                            setOrderPage(nextPage);
+                            void loadOrders(orderQuery, nextPage);
+                          }}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={orderPage >= orderPagination.totalPages}
+                          onClick={() => {
+                            const nextPage = orderPage + 1;
+                            setOrderPage(nextPage);
+                            void loadOrders(orderQuery, nextPage);
+                          }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </nav>
                   )}
                 </div>
               </section>

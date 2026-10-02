@@ -139,6 +139,8 @@ export const adminOrderQuerySchema = z.object({
     .max(120, 'Order search text is too long')
     .transform((value) => value || undefined)
     .optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(48).default(24),
 });
 
 export const adminProductQuerySchema = z.object({
