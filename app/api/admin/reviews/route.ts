@@ -26,6 +26,7 @@ export async function GET(request: Request): Promise<Response> {
       where: { status: 'PENDING' },
       include: { product: { select: { name: true, slug: true } } },
       orderBy: { createdAt: 'asc' },
+      take: 100,
     });
     return noStore({ data: reviews });
   } catch (error) {

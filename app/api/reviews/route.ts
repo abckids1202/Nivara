@@ -35,6 +35,7 @@ export async function GET(request: Request) {
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
     return noStore({ data: reviews });
   } catch (error) {
