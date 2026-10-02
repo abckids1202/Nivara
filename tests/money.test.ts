@@ -28,7 +28,7 @@ describe('money and reservation rules', () => {
     expect(() => calculateDeliveryFee(10.5)).toThrow(/non-negative integer/);
   });
 
-  it('converts only active reservations with enough physical stock', () => {
+  it('converts active or recoverable expired reservations with enough stock', () => {
     expect(
     canConvertReservation({ status: 'ACTIVE', stockOnHand: 1, quantity: 1 }),
     ).toBe(true);
@@ -37,6 +37,9 @@ describe('money and reservation rules', () => {
     ).toBe(false);
     expect(
     canConvertReservation({ status: 'EXPIRED', stockOnHand: 1, quantity: 1 }),
+    ).toBe(true);
+    expect(
+    canConvertReservation({ status: 'EXPIRED', stockOnHand: 0, quantity: 1 }),
     ).toBe(false);
     expect(
     canConvertReservation({ status: 'RELEASED', stockOnHand: 5, quantity: 1 }),

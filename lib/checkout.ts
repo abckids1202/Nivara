@@ -176,6 +176,43 @@ export async function releaseReservationsForOrder(orderId: string) {
   });
 }
 
+export async function expireReservationsForOrder(orderId: string) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "Order"
+      WHERE "id" = ${orderId}
+      FOR UPDATE
+    `);
+    await tx.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "InventoryReservation"
+      WHERE "orderId" = ${orderId}
+      FOR UPDATE
+    `);
+    const reservations = await tx.inventoryReservation.findMany({
+      where: { orderId, status: 'ACTIVE', expiresAt: { lte: new Date() } },
+    });
+
+    for (const reservation of reservations) {
+      await tx.productVariant.update({
+        where: { id: reservation.variantId },
+        data: { stockReserved: { decrement: reservation.quantity } },
+      });
+    }
+
+    await tx.inventoryReservation.updateMany({
+      where: {
+        orderId,
+        status: 'ACTIVE',
+        expiresAt: { lte: new Date() },
+      },
+      data: { status: 'EXPIRED' },
+    });
+    return { expired: reservations.length };
+  });
+}
+
 export async function prepareRetryPayment({
   orderNumber,
   userId,

@@ -6,7 +6,10 @@ import {
 import { prisma } from '@/lib/prisma';
 import { noStore, unauthorized, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
-import { releaseReservationsForOrder } from '@/lib/checkout';
+import {
+  expireReservationsForOrder,
+  releaseReservationsForOrder,
+} from '@/lib/checkout';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
 import { logServerError } from '@/lib/safe-logging';
@@ -67,6 +70,7 @@ export async function GET(request: Request) {
       processedOrders.add(reservation.orderId);
       const payment = reservation.order.payments[0];
       if (!payment?.providerOrderId) {
+        await expireReservationsForOrder(reservation.orderId);
         if (payment) await markPaymentFailed(payment.id, 'CANCELLED');
         else await releaseReservationsForOrder(reservation.orderId);
         processed.released += 1;
@@ -83,11 +87,13 @@ export async function GET(request: Request) {
           },
         );
       } catch {
+        await expireReservationsForOrder(reservation.orderId);
         processed.review += 1;
         await markPaymentReview(payment.id);
         continue;
       }
       if (!response.ok) {
+        await expireReservationsForOrder(reservation.orderId);
         processed.review += 1;
         await markPaymentReview(payment.id);
         continue;
@@ -97,6 +103,7 @@ export async function GET(request: Request) {
       try {
         providerOrder = (await response.json()) as { status?: string };
       } catch {
+        await expireReservationsForOrder(reservation.orderId);
         processed.review += 1;
         await markPaymentReview(payment.id);
         continue;
@@ -107,9 +114,11 @@ export async function GET(request: Request) {
           await sendOrderConfirmationEmail(result.orderId);
         processed.paid += 1;
       } else if (providerOrder.status === 'created') {
+        await expireReservationsForOrder(reservation.orderId);
         await markPaymentFailed(payment.id, 'CANCELLED');
         processed.released += 1;
       } else {
+        await expireReservationsForOrder(reservation.orderId);
         await markPaymentReview(payment.id);
         processed.review += 1;
       }
