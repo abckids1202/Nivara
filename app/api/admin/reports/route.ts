@@ -1,4 +1,4 @@
-import { forbidden, json, unauthorized, unavailable } from '@/lib/http';
+import { forbidden, noStore, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   const lowStock = variants
     .filter((variant) => variant.stockOnHand - variant.stockReserved < 7)
     .slice(0, 50);
-  return json({
+  return noStore({
     data: {
       paidOrderCount: paidOrders.length,
       paidOrderTotalPaise: paidOrders.reduce(

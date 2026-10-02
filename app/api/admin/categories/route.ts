@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return unavailable('Catalogue database is not configured');
   const access = await requireAdmin(request);
   if ('response' in access) return access.response;
-  return json({
+  return noStore({
     data: await prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: { _count: { select: { products: true } } },
@@ -58,5 +58,5 @@ export async function POST(request: Request) {
       details: parsed.data,
     },
   });
-  return json({ data: category }, 201);
+  return noStore({ data: category }, 201);
 }

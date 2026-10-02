@@ -1,7 +1,7 @@
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     },
     orderBy: { updatedAt: 'desc' },
   });
-  return json({ data: products });
+  return noStore({ data: products });
 }
 
 export async function POST(request: Request) {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         entityId: product.id,
       },
     });
-    return json({ data: product }, 201);
+    return noStore({ data: product }, 201);
   } catch (error) {
     logServerError('product_create_failed', error);
     return unavailable('Product could not be created');

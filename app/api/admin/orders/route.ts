@@ -1,7 +1,7 @@
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
     orderBy: { createdAt: 'desc' },
     take: 100,
   });
-  return json({ data: orders });
+  return noStore({ data: orders });
 }
 
 export async function PATCH(request: Request) {
@@ -118,12 +118,12 @@ export async function PATCH(request: Request) {
     });
     return { kind: 'updated' as const, order: result };
   });
-  if (result.kind === 'not-found') return json({ error: 'Order not found' }, 404);
+  if (result.kind === 'not-found') return noStore({ error: 'Order not found' }, 404);
   if (result.kind === 'backward')
     return badRequest('Fulfilment status cannot move backwards');
   if (result.kind === 'skipped')
     return badRequest('Fulfilment status must move one stage at a time');
   if (result.kind === 'unpaid')
     return badRequest('Fulfilment requires verified captured payment');
-  return json({ data: result.order });
+  return noStore({ data: result.order });
 }
