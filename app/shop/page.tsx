@@ -45,6 +45,7 @@ export default function ShopPage() {
   const searchParams = useSearchParams();
   const { addItem } = useCart();
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const [category, setCategory] = useState(
     () => searchParams.get('category') ?? '',
   );
@@ -70,6 +71,10 @@ export default function ShopPage() {
   const [categoryReload, setCategoryReload] = useState(0);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(query), 250);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
   useEffect(() => {
     fetch('/api/categories', { cache: 'no-store' })
       .then(async (response) => {
@@ -129,7 +134,7 @@ export default function ShopPage() {
       sort,
       maxPricePaise: String(maxPrice * 100),
     });
-    if (query) params.set('q', query);
+    if (debouncedQuery) params.set('q', debouncedQuery);
     if (category) params.set('category', category);
     if (availability !== 'all') params.set('availability', availability);
 
@@ -166,10 +171,12 @@ export default function ShopPage() {
         setPages(1);
         setTotal(0);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
 
     return () => controller.abort();
-  }, [availability, category, maxPrice, page, query, sort]);
+  }, [availability, category, debouncedQuery, maxPrice, page, sort]);
 
   const selectedCategoryLabel = useMemo(
     () =>
