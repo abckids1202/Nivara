@@ -4,7 +4,7 @@ import {
   markPaymentReview,
 } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
-import { json, unauthorized, unavailable } from '@/lib/http';
+import { noStore, unauthorized, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { releaseReservationsForOrder } from '@/lib/checkout';
 import { providerFetch } from '@/lib/provider-fetch';
@@ -102,5 +102,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return json({ processed });
+  return noStore({ processed });
 }
