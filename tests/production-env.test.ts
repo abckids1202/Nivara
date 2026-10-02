@@ -37,6 +37,15 @@ describe('production environment validation', () => {
     expect(failures).toContain('DIRECT_URL must use a PostgreSQL URL');
   });
 
+  it('rejects an insecure production site URL', () => {
+    const failures = validateProductionEnvironment({
+      ...validEnvironment,
+      NEXT_PUBLIC_SITE_URL: 'http://nivara.test',
+    });
+
+    expect(failures).toContain('NEXT_PUBLIC_SITE_URL must use HTTPS');
+  });
+
   it('keeps the local site URL aligned with the documented Next port', () => {
     const envExample = readFileSync(
       fileURLToPath(new URL('../.env.example', import.meta.url)),
