@@ -55,6 +55,18 @@ for (const name of ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SITE_URL']) {
   }
 }
 
+for (const name of ['DATABASE_URL', 'DIRECT_URL']) {
+  const value = process.env[name];
+  if (!value) continue;
+  try {
+    const url = new URL(value);
+    if (!['postgres:', 'postgresql:'].includes(url.protocol))
+      failures.push(`${name} must use a PostgreSQL URL`);
+  } catch {
+    failures.push(`${name} is not a valid PostgreSQL URL`);
+  }
+}
+
 if (failures.length) {
   console.error('Production environment preflight failed:');
   for (const failure of failures) console.error(`- ${failure}`);
