@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -70,7 +70,7 @@ export async function POST(
     where: { id },
     select: { id: true, slug: true, name: true },
   });
-  if (!product) return json({ error: 'Product not found' }, 404);
+  if (!product) return noStore({ error: 'Product not found' }, 404);
   const form = await request.formData();
   const file = form.get('file');
   const rawAltText = form.get('altText');
@@ -125,7 +125,7 @@ export async function POST(
       details: { productId: product.id, path },
     },
   });
-  return json({ data: image }, 201);
+  return noStore({ data: image }, 201);
 }
 
 export async function DELETE(
@@ -142,7 +142,7 @@ export async function DELETE(
   const image = await prisma.productImage.findFirst({
     where: { id: imageId, productId: id },
   });
-  if (!image) return json({ error: 'Image not found' }, 404);
+  if (!image) return noStore({ error: 'Image not found' }, 404);
   const config = storageConfig();
   const path = storagePathForImage(image.url, config);
   if (path && config && !(await deleteStorageObject(path, config)))
@@ -157,5 +157,5 @@ export async function DELETE(
       details: { productId: id, path },
     },
   });
-  return json({ deleted: true });
+  return noStore({ deleted: true });
 }
