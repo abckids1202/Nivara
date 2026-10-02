@@ -38,6 +38,12 @@ type AccountOrder = {
     trackingReference: string | null;
   } | null;
 };
+type OrderPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 type AccountAddress = {
   id: string;
   label: string | null;
@@ -88,6 +94,13 @@ export default function AccountPage() {
   const [signedIn, setSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [orders, setOrders] = useState<AccountOrder[]>([]);
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderPagination, setOrderPagination] = useState<OrderPagination>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 1,
+  });
   const [addresses, setAddresses] = useState<AccountAddress[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -112,12 +125,14 @@ export default function AccountPage() {
     [password],
   );
 
-  async function loadDashboard() {
+  async function loadDashboard(page = orderPage) {
     setDashboardLoading(true);
     setDashboardError('');
     try {
       const results = await Promise.all([
-        fetch('/api/account/orders', { cache: 'no-store' }),
+        fetch(`/api/account/orders?page=${page}&pageSize=10`, {
+          cache: 'no-store',
+        }),
         fetch('/api/account/addresses', { cache: 'no-store' }),
         fetch('/api/wishlist', { cache: 'no-store' }),
       ]);
@@ -125,9 +140,12 @@ export default function AccountPage() {
       if (!ordersResponse.ok || !addressesResponse.ok || !wishlistResponse.ok)
         throw new Error('Some account details could not be loaded.');
 
-      setOrders(
-        ((await ordersResponse.json()) as { data?: AccountOrder[] }).data ?? [],
-      );
+      const orderPayload = (await ordersResponse.json()) as {
+        data?: AccountOrder[];
+        pagination?: OrderPagination;
+      };
+      setOrders(orderPayload.data ?? []);
+      if (orderPayload.pagination) setOrderPagination(orderPayload.pagination);
       setAddresses(
         ((await addressesResponse.json()) as { data?: AccountAddress[] })
           .data ?? [],
@@ -363,8 +381,8 @@ export default function AccountPage() {
               <span>
                 <strong>Order history</strong>
                 <small>
-                  {orders.length
-                    ? `${orders.length} order${orders.length === 1 ? '' : 's'}`
+                          {orderPagination.total
+                    ? `${orderPagination.total} order${orderPagination.total === 1 ? '' : 's'}`
                     : 'No orders yet'}
                 </small>
               </span>
@@ -484,6 +502,42 @@ export default function AccountPage() {
                       ))}
                   </article>
                 ))}
+                {orderPagination.totalPages > 1 && (
+                  <nav
+                    aria-label="Order history pages"
+                    className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e2d9cd] pt-4"
+                  >
+                    <p className="text-sm text-[#718078]">
+                      Page {orderPagination.page} of {orderPagination.totalPages}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-full border border-[#c98271] px-4 py-2 text-sm font-semibold text-[#8f3f31] disabled:opacity-40"
+                        disabled={orderPage <= 1}
+                        onClick={() => {
+                          const nextPage = orderPage - 1;
+                          setOrderPage(nextPage);
+                          void loadDashboard(nextPage);
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-full border border-[#c98271] px-4 py-2 text-sm font-semibold text-[#8f3f31] disabled:opacity-40"
+                        disabled={orderPage >= orderPagination.totalPages}
+                        onClick={() => {
+                          const nextPage = orderPage + 1;
+                          setOrderPage(nextPage);
+                          void loadDashboard(nextPage);
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </nav>
+                )}
               </div>
             ) : (
               <p className="mt-5 text-sm text-[#718078]">

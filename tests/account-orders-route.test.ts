@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { findMany, getIdentity, logServerError } = vi.hoisted(() => ({
+const { findMany, count, getIdentity, logServerError } = vi.hoisted(() => ({
   findMany: vi.fn(),
+  count: vi.fn(),
   getIdentity: vi.fn(),
   logServerError: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({ prisma: { order: { findMany } } }));
+vi.mock('@/lib/prisma', () => ({ prisma: { order: { findMany, count } } }));
 vi.mock('@/lib/server-auth', () => ({ getAuthenticatedIdentity: getIdentity }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
@@ -18,11 +19,45 @@ afterEach(() => {
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, originalEnvironment);
   findMany.mockReset();
+  count.mockReset();
   getIdentity.mockReset();
   logServerError.mockReset();
 });
 
 describe('account orders route resilience', () => {
+  it('returns paginated order history for the authenticated customer', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({ id: 'user-1', email: 'shopper@example.com' });
+    findMany.mockResolvedValue([{ id: 'order-1', orderNumber: 'NV-1' }]);
+    count.mockResolvedValue(21);
+
+    const response = await GET(
+      new Request('https://nivara.example/api/account/orders?page=2&pageSize=10'),
+    );
+    const body = (await response.json()) as {
+      data: Array<{ id: string }>;
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual([{ id: 'order-1', orderNumber: 'NV-1' }]);
+    expect(body.pagination).toEqual({
+      page: 2,
+      pageSize: 10,
+      total: 21,
+      totalPages: 3,
+    });
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'user-1' },
+        skip: 10,
+        take: 10,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      }),
+    );
+    expect(count).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+  });
+
   it('returns a safe response when order history cannot be loaded', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({
