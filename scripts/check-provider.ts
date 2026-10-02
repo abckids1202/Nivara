@@ -33,6 +33,7 @@ try {
   const response = await fetch(healthUrl, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
   });
   const payload = (await response.json().catch(() => null)) as
     | ProviderHealthPayload
