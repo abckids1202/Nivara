@@ -38,6 +38,7 @@ export async function sendOrderConfirmationEmail(orderId: string) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'Idempotency-Key': `order-confirmation/${orderId}`,
       },
       body: JSON.stringify({
         from: sender,
