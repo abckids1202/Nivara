@@ -2,7 +2,11 @@
 
 ## Current practice
 
-The repository runs `npm audit --omit=dev` during launch-readiness review and uses the GitHub quality workflow for repeatable lint, test, build, admin-authorization, and secret-exposure checks.
+The repository runs `npm audit --omit=dev` during launch-readiness review and
+surfaces the same high-severity audit in the GitHub quality workflow. The audit
+step is intentionally non-blocking while the documented transitive findings
+remain under review; lint, tests, build, authorization, and secret checks stay
+blocking.
 
 The direct React Server Components advisory was addressed by updating the React runtime and `react-server-dom-webpack` packages to the patched `19.2.8` release line. The application was then verified with lint, unit tests, and a production build.
 
