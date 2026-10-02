@@ -27,18 +27,21 @@ export async function PATCH(
     return badRequest('Product details are invalid', parsed.error.flatten());
 
   try {
-    const product = await prisma.product.update({
-      where: { id },
-      data: parsed.data,
-    });
-    await prisma.auditLog.create({
-      data: {
-        actorId: identity.id,
-        action: 'product.updated',
-        entityType: 'Product',
-        entityId: product.id,
-        details: parsed.data,
-      },
+    const product = await prisma.$transaction(async (transaction) => {
+      const updatedProduct = await transaction.product.update({
+        where: { id },
+        data: parsed.data,
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: identity.id,
+          action: 'product.updated',
+          entityType: 'Product',
+          entityId: updatedProduct.id,
+          details: parsed.data,
+        },
+      });
+      return updatedProduct;
     });
     return noStore({ data: product });
   } catch (error) {
@@ -58,17 +61,20 @@ export async function DELETE(
   if (!(await isAdministrator(identity))) return forbidden();
   const { id } = await params;
   try {
-    const product = await prisma.product.update({
-      where: { id },
-      data: { status: 'ARCHIVED' },
-    });
-    await prisma.auditLog.create({
-      data: {
-        actorId: identity.id,
-        action: 'product.archived',
-        entityType: 'Product',
-        entityId: product.id,
-      },
+    const product = await prisma.$transaction(async (transaction) => {
+      const archivedProduct = await transaction.product.update({
+        where: { id },
+        data: { status: 'ARCHIVED' },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: identity.id,
+          action: 'product.archived',
+          entityType: 'Product',
+          entityId: archivedProduct.id,
+        },
+      });
+      return archivedProduct;
     });
     return noStore({ data: product });
   } catch (error) {

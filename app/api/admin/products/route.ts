@@ -51,14 +51,19 @@ export async function POST(request: Request) {
     return badRequest('Product details are invalid', parsed.error.flatten());
 
   try {
-    const product = await prisma.product.create({ data: parsed.data });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'product.created',
-        entityType: 'Product',
-        entityId: product.id,
-      },
+    const product = await prisma.$transaction(async (transaction) => {
+      const createdProduct = await transaction.product.create({
+        data: parsed.data,
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'product.created',
+          entityType: 'Product',
+          entityId: createdProduct.id,
+        },
+      });
+      return createdProduct;
     });
     return noStore({ data: product }, 201);
   } catch (error) {

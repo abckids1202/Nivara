@@ -1,16 +1,23 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { update, createAudit, getIdentity, isAdministrator, logServerError } =
-  vi.hoisted(() => ({
+const {
+  update,
+  createAudit,
+  transaction,
+  getIdentity,
+  isAdministrator,
+  logServerError,
+} = vi.hoisted(() => ({
     update: vi.fn(),
     createAudit: vi.fn(),
+    transaction: vi.fn(),
     getIdentity: vi.fn(),
     isAdministrator: vi.fn(),
     logServerError: vi.fn(),
   }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { product: { update }, auditLog: { create: createAudit } },
+  prisma: { $transaction: transaction },
 }));
 vi.mock('@/lib/server-auth', () => ({
   getAuthenticatedIdentity: getIdentity,
@@ -27,6 +34,7 @@ afterEach(() => {
   Object.assign(process.env, originalEnvironment);
   update.mockReset();
   createAudit.mockReset();
+  transaction.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
   logServerError.mockReset();
@@ -40,6 +48,9 @@ describe('admin product mutation resilience', () => {
       email: 'admin@example.com',
     });
     isAdministrator.mockResolvedValue(true);
+    transaction.mockImplementation(async (callback) =>
+      callback({ product: { update }, auditLog: { create: createAudit } }),
+    );
     update.mockRejectedValue(new Error('private product details'));
 
     const response = await PATCH(

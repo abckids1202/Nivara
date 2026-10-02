@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { updateProduct, createAudit, getIdentity, isAdministrator } = vi.hoisted(() => ({
+const { updateProduct, createAudit, transaction, getIdentity, isAdministrator } = vi.hoisted(() => ({
   updateProduct: vi.fn(),
   createAudit: vi.fn(),
+  transaction: vi.fn(),
   getIdentity: vi.fn(),
   isAdministrator: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    product: { update: updateProduct },
-    auditLog: { create: createAudit },
+    $transaction: transaction,
   },
 }));
 vi.mock('@/lib/server-auth', () => ({ getAuthenticatedIdentity: getIdentity, isAdministrator }));
@@ -24,6 +24,7 @@ afterEach(() => {
   else process.env.DATABASE_URL = originalDatabaseUrl;
   updateProduct.mockReset();
   createAudit.mockReset();
+  transaction.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
 });
@@ -34,6 +35,9 @@ describe('admin product deletion route', () => {
     getIdentity.mockResolvedValue({ id: 'admin-1', email: 'admin@nivara.in' });
     isAdministrator.mockResolvedValue(true);
     updateProduct.mockResolvedValue({ id: 'product-1', status: 'ARCHIVED' });
+    transaction.mockImplementation(async (callback) =>
+      callback({ product: { update: updateProduct }, auditLog: { create: createAudit } }),
+    );
 
     const response = await DELETE(
       new Request('https://nivara.example/api/admin/products/product-1', {

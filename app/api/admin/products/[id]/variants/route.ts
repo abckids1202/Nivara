@@ -63,27 +63,30 @@ export async function POST(
     return badRequest('Variant details are invalid', parsed.error.flatten());
   try {
     const { id } = await context.params;
-    const variant = await prisma.productVariant.create({
-      data: {
-        productId: id,
-        name: parsed.data.name,
-        sku: parsed.data.sku,
-        pricePaise: Math.round(parsed.data.priceRupees * 100),
-        compareAtPaise:
-          parsed.data.compareAtRupees === undefined
-            ? null
-            : Math.round(parsed.data.compareAtRupees * 100),
-        stockOnHand: parsed.data.stockOnHand,
-      },
-    });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'variant.created',
-        entityType: 'ProductVariant',
-        entityId: variant.id,
-        details: parsed.data,
-      },
+    const variant = await prisma.$transaction(async (transaction) => {
+      const createdVariant = await transaction.productVariant.create({
+        data: {
+          productId: id,
+          name: parsed.data.name,
+          sku: parsed.data.sku,
+          pricePaise: Math.round(parsed.data.priceRupees * 100),
+          compareAtPaise:
+            parsed.data.compareAtRupees === undefined
+              ? null
+              : Math.round(parsed.data.compareAtRupees * 100),
+          stockOnHand: parsed.data.stockOnHand,
+        },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'variant.created',
+          entityType: 'ProductVariant',
+          entityId: createdVariant.id,
+          details: parsed.data,
+        },
+      });
+      return createdVariant;
     });
     return noStore({ data: variant }, 201);
   } catch (error) {
