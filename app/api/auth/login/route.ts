@@ -1,8 +1,9 @@
 import { authCredentialsSchema } from '@/lib/schemas';
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
-import { prisma } from '@/lib/prisma';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse } from '@/lib/auth-response';
+import { ensureUserProfile } from '@/lib/server-auth';
+import { logServerError } from '@/lib/safe-logging';
 
 export async function POST(request: Request) {
   if (!(await consumeRateLimit({ request, endpoint: 'auth.login' })))
@@ -20,15 +21,17 @@ export async function POST(request: Request) {
     return authResponse({ error: 'Supabase Auth is not configured' }, 503);
   if (!result.ok || !result.data.access_token)
     return authResponse({ error: 'Email or password is incorrect' }, 401);
-  if (result.data.user?.id)
-    await prisma.user.upsert({
-      where: { id: result.data.user.id },
-      create: {
-        id: result.data.user.id,
-        email: result.data.user.email ?? parsed.data.email,
-      },
-      update: { email: result.data.user.email ?? parsed.data.email },
+  if (!result.data.user?.id)
+    return authResponse({ error: 'Email or password is incorrect' }, 401);
+  try {
+    await ensureUserProfile({
+      id: result.data.user.id,
+      email: result.data.user.email ?? parsed.data.email,
     });
+  } catch (error) {
+    logServerError('auth_login_profile_sync_failed', error);
+    return authResponse({ error: 'Account service is temporarily unavailable' }, 503);
+  }
   const response = authResponse({
     data: { userId: result.data.user?.id },
   });
