@@ -120,6 +120,8 @@ Razorpay, Resend, support email, and cron secret. A degraded response is a
 launch blocker.
 
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
+Use [`docs/acceptance-walkthrough.md`](docs/acceptance-walkthrough.md) as the
+client-facing evidence worksheet for the provider-backed acceptance run.
 
 ## Delivery assumptions
 
