@@ -51,6 +51,19 @@ describe('Razorpay webhook route boundary', () => {
     expect(response.status).toBe(400);
   });
 
+  it('rejects oversized webhook bodies before signature processing', async () => {
+    process.env.RAZORPAY_WEBHOOK_SECRET = 'webhook-secret';
+    const body = 'x'.repeat(1_000_001);
+    const response = await POST(
+      new Request('https://nivara.example/api/payments/razorpay/webhook', {
+        method: 'POST',
+        body,
+      }),
+    );
+
+    expect(response.status).toBe(413);
+  });
+
   it('rejects a signed payload without a provider event ID', async () => {
     const secret = 'webhook-secret';
     process.env.RAZORPAY_WEBHOOK_SECRET = secret;

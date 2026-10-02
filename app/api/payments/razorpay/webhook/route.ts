@@ -10,12 +10,16 @@ import {
 } from '@/lib/razorpay-webhook';
 import { logServerError, safeErrorMessage } from '@/lib/safe-logging';
 
+const MAX_WEBHOOK_BYTES = 1_000_000;
+
 export async function POST(request: Request) {
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
   if (!webhookSecret)
     return unavailable('Razorpay webhook secret is not configured');
 
   const rawBody = await request.text();
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_WEBHOOK_BYTES)
+    return noStore({ error: 'Webhook body is too large' }, 413);
   const signature = request.headers.get('x-razorpay-signature');
   if (
     !signature ||
