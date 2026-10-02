@@ -2,7 +2,7 @@ import { cancelPaymentReview, markPaymentPaid } from '@/lib/payment-state';
 import {
   badRequest,
   forbidden,
-  json,
+  noStore,
   unauthorized,
   unavailable,
 } from '@/lib/http';
@@ -41,7 +41,7 @@ export async function PATCH(request: Request) {
       reservations: true,
     },
   });
-  if (!order) return json({ error: 'Order not found' }, 404);
+  if (!order) return noStore({ error: 'Order not found' }, 404);
   if (
     order.paymentStatus !== 'PAYMENT_REVIEW' &&
     order.paymentStatus !== 'PAID_REVIEW'
@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
       orderId: order.id,
       refundReference: parsed.data.refundReference,
     });
-    if (result.status === 'missing') return json({ error: 'Payment not found' }, 404);
+    if (result.status === 'missing') return noStore({ error: 'Payment not found' }, 404);
     if (result.status === 'not_review')
       return badRequest('This order is no longer waiting for payment review');
   }
@@ -107,7 +107,7 @@ export async function PATCH(request: Request) {
     return result;
   });
 
-  return json({ data: resolution });
+  return noStore({ data: resolution });
 }
 
 export async function GET(request: Request) {
@@ -125,5 +125,5 @@ export async function GET(request: Request) {
     orderBy: { updatedAt: 'desc' },
     take: 100,
   });
-  return json({ data: orders });
+  return noStore({ data: orders });
 }
