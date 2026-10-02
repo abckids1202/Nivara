@@ -50,5 +50,13 @@ describe('guest order route resilience', () => {
       expect.any(Error),
     );
     expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(consumeRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.stringMatching(/^guest-order-access:[a-f0-9]{16}$/),
+      }),
+    );
+    expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain(
+      'secret-token',
+    );
   });
 });

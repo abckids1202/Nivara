@@ -13,18 +13,18 @@ export async function GET(
     return unavailable('Guest order access is not configured');
 
   try {
+    const { token } = await params;
+    const tokenHash = createHash('sha256').update(token).digest('hex');
     if (
       !(await consumeRateLimit({
         request,
-        endpoint: 'guest-order-access',
+        endpoint: `guest-order-access:${tokenHash.slice(0, 16)}`,
         maxAttempts: 10,
       }))
     )
       return noStore({ error: 'Too many access attempts' }, 429);
 
     const fingerprint = requestFingerprint(request);
-    const { token } = await params;
-    const tokenHash = createHash('sha256').update(token).digest('hex');
     const order = await prisma.order.findFirst({
       where: { guestAccessHash: tokenHash },
       include: { items: true, shipment: true },

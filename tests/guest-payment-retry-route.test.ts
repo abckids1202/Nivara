@@ -44,6 +44,12 @@ describe('guest payment retry route resilience', () => {
     expect(response.status).toBe(503);
     expect(body.error).toBe('Payment retry is temporarily unavailable');
     expect(JSON.stringify(body)).not.toContain('private');
+    expect(consumeRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.stringMatching(/^guest-payment-retry:[a-f0-9]{16}$/),
+      }),
+    );
+    expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain('secret');
     expect(logServerError).toHaveBeenCalledWith(
       'guest_payment_retry_lookup_failed',
       expect.any(Error),

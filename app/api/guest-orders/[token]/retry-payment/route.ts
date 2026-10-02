@@ -30,11 +30,13 @@ export async function POST(
 ) {
   if (!process.env.DATABASE_URL)
     return unavailable('Guest payment retry is not configured');
+  const { token } = await params;
+  const guestAccessHash = createHash('sha256').update(token).digest('hex');
   try {
     if (
       !(await consumeRateLimit({
         request,
-        endpoint: 'guest-payment-retry',
+        endpoint: `guest-payment-retry:${guestAccessHash.slice(0, 16)}`,
         maxAttempts: 5,
       }))
     )
@@ -45,8 +47,6 @@ export async function POST(
   }
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay test credentials are not configured');
-  const { token } = await params;
-  const guestAccessHash = createHash('sha256').update(token).digest('hex');
   let order;
   try {
     order = await prisma.order.findFirst({
