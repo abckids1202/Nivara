@@ -48,6 +48,16 @@ export async function GET(request: Request) {
   const where = { status: 'PUBLISHED' as const, AND: filters };
 
   try {
+    const paidQuantityByVariant = new Map<string, number>();
+    if (sort === 'best') {
+      const sales = await prisma.orderItem.groupBy({
+        by: ['variantId'],
+        where: { order: { paymentStatus: 'PAID' } },
+        _sum: { quantity: true },
+      });
+      for (const sale of sales)
+        paidQuantityByVariant.set(sale.variantId, sale._sum.quantity ?? 0);
+    }
     const candidates = await prisma.product.findMany({
       where,
       select: {
@@ -55,13 +65,10 @@ export async function GET(request: Request) {
         createdAt: true,
         variants: {
           select: {
+            id: true,
             pricePaise: true,
             stockOnHand: true,
             stockReserved: true,
-            orderItems: {
-              where: { order: { paymentStatus: 'PAID' } },
-              select: { quantity: true },
-            },
           },
         },
         reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
@@ -83,11 +90,7 @@ export async function GET(request: Request) {
         ...product,
         paidQuantity: product.variants.reduce(
           (sum, variant) =>
-            sum +
-            variant.orderItems.reduce(
-              (quantity, item) => quantity + item.quantity,
-              0,
-            ),
+            sum + (paidQuantityByVariant.get(variant.id) ?? 0),
           0,
         ),
       })),

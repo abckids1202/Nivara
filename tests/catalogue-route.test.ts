@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { findMany, logServerError } = vi.hoisted(() => ({
+const { findMany, groupBy, logServerError } = vi.hoisted(() => ({
   findMany: vi.fn(),
+  groupBy: vi.fn(),
   logServerError: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { product: { findMany } },
+  prisma: { product: { findMany }, orderItem: { groupBy } },
 }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
@@ -18,6 +19,7 @@ afterEach(() => {
   if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = originalDatabaseUrl;
   findMany.mockReset();
+  groupBy.mockReset();
   logServerError.mockReset();
 });
 
