@@ -5,7 +5,7 @@ const {
   orderAggregate,
   orderCount,
   adjustmentFindMany,
-  variantFindMany,
+  queryRaw,
   reviewFindMany,
   getIdentity,
   isAdministrator,
@@ -15,7 +15,7 @@ const {
   orderAggregate: vi.fn(),
   orderCount: vi.fn(),
   adjustmentFindMany: vi.fn(),
-  variantFindMany: vi.fn(),
+  queryRaw: vi.fn(),
   reviewFindMany: vi.fn(),
   getIdentity: vi.fn(),
   isAdministrator: vi.fn(),
@@ -30,7 +30,7 @@ vi.mock('@/lib/prisma', () => ({
       count: orderCount,
     },
     inventoryAdjustment: { findMany: adjustmentFindMany },
-    productVariant: { findMany: variantFindMany },
+    $queryRaw: queryRaw,
     review: { findMany: reviewFindMany },
   },
 }));
@@ -52,7 +52,7 @@ afterEach(() => {
   orderAggregate.mockReset();
   orderCount.mockReset();
   adjustmentFindMany.mockReset();
-  variantFindMany.mockReset();
+  queryRaw.mockReset();
   reviewFindMany.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
@@ -82,6 +82,48 @@ describe('admin reports and moderation resilience', () => {
       'admin_reports_read_failed',
       expect.any(Error),
     );
+  });
+
+  it('reports lowest available stock using reserved quantities', async () => {
+    configureAdmin();
+    orderAggregate.mockResolvedValue({
+      _count: { _all: 2 },
+      _sum: { totalPaise: 1000 },
+    });
+    orderCount.mockResolvedValue(0);
+    adjustmentFindMany.mockResolvedValue([]);
+    queryRaw.mockResolvedValue([
+      {
+        id: 'variant-1',
+        name: 'Large',
+        sku: 'SKU-1',
+        stockOnHand: 10,
+        stockReserved: 9,
+        productName: 'Product',
+        productSlug: 'product',
+      },
+    ]);
+
+    const response = await getReports(
+      new Request('https://nivara.example/api/admin/reports'),
+    );
+    const body = (await response.json()) as {
+      data: {
+        lowStock: Array<{
+          stockOnHand: number;
+          stockReserved: number;
+          product: { name: string; slug: string };
+        }>;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.lowStock[0]).toMatchObject({
+      stockOnHand: 10,
+      stockReserved: 9,
+      product: { name: 'Product', slug: 'product' },
+    });
+    expect(queryRaw).toHaveBeenCalledOnce();
   });
 
   it('returns a safe response when moderation data cannot be loaded', async () => {

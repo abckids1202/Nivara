@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { forbidden, noStore, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
@@ -11,7 +12,17 @@ export async function GET(request: Request): Promise<Response> {
   if (!(await isAdministrator(identity))) return forbidden();
 
   try {
-    const [paidOrderTotals, reviewOrders, adjustments, variants] = await Promise.all(
+    type LowStockRow = {
+      id: string;
+      name: string;
+      sku: string;
+      stockOnHand: number;
+      stockReserved: number;
+      productName: string;
+      productSlug: string;
+    };
+
+    const [paidOrderTotals, reviewOrders, adjustments, lowStockRows] = await Promise.all(
       [
         prisma.order.aggregate({
           where: { paymentStatus: 'PAID' },
@@ -29,16 +40,34 @@ export async function GET(request: Request): Promise<Response> {
             adminUser: { select: { email: true, displayName: true } },
           },
         }),
-        prisma.productVariant.findMany({
-          where: { product: { status: 'PUBLISHED' } },
-          include: { product: { select: { name: true, slug: true } } },
-          orderBy: { stockOnHand: 'asc' },
-        }),
+        prisma.$queryRaw<LowStockRow[]>(Prisma.sql`
+          SELECT
+            variant."id",
+            variant."name",
+            variant."sku",
+            variant."stockOnHand",
+            variant."stockReserved",
+            product."name" AS "productName",
+            product."slug" AS "productSlug"
+          FROM "ProductVariant" AS variant
+          INNER JOIN "Product" AS product ON product."id" = variant."productId"
+          WHERE product."status" = 'PUBLISHED'
+            AND variant."stockOnHand" - variant."stockReserved" < 7
+          ORDER BY
+            variant."stockOnHand" - variant."stockReserved" ASC,
+            variant."id" ASC
+          LIMIT 50
+        `),
       ],
     );
-    const lowStock = variants
-      .filter((variant) => variant.stockOnHand - variant.stockReserved < 7)
-      .slice(0, 50);
+    const lowStock = lowStockRows.map((variant) => ({
+      id: variant.id,
+      name: variant.name,
+      sku: variant.sku,
+      stockOnHand: variant.stockOnHand,
+      stockReserved: variant.stockReserved,
+      product: { name: variant.productName, slug: variant.productSlug },
+    }));
     return noStore({
       data: {
         paidOrderCount: paidOrderTotals._count._all,
