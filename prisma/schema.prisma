@@ -214,6 +214,7 @@ model Order {
   updatedAt         DateTime              @updatedAt
   @@index([userId, createdAt])
   @@index([guestEmail])
+  @@index([paymentStatus, updatedAt])
 }
 
 model OrderItem {
