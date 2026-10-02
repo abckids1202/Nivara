@@ -3,6 +3,7 @@ import {
   createPendingOrder,
   releaseReservationsForOrder,
 } from '@/lib/checkout';
+import { markPaymentFailed } from '@/lib/payment-state';
 import { badRequest, noStore, unavailable } from '@/lib/http';
 import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
@@ -11,6 +12,18 @@ import { consumeRateLimit } from '@/lib/access-rate';
 import { hasConfiguredValue } from '@/lib/configuration';
 import { logServerError } from '@/lib/safe-logging';
 import { readRazorpayOrderId } from '@/lib/razorpay-order';
+
+async function cancelPendingCheckout(
+  pending: Awaited<ReturnType<typeof createPendingOrder>>,
+) {
+  const paymentAttemptId = pending.order.payments[0]?.id;
+  if (paymentAttemptId) {
+    await markPaymentFailed(paymentAttemptId, 'CANCELLED');
+    return;
+  }
+  // Keep the cleanup fallback for malformed legacy records without a payment.
+  await releaseReservationsForOrder(pending.order.id);
+}
 
 export async function POST(request: Request) {
   if (
@@ -50,7 +63,7 @@ export async function POST(request: Request) {
       !hasConfiguredValue(process.env.RAZORPAY_KEY_ID) ||
       !hasConfiguredValue(process.env.RAZORPAY_KEY_SECRET)
     ) {
-      await releaseReservationsForOrder(pending.order.id);
+      await cancelPendingCheckout(pending);
       return unavailable('Razorpay test credentials are not configured');
     }
 
@@ -68,7 +81,7 @@ export async function POST(request: Request) {
     });
 
     if (!razorpayResponse.ok) {
-      await releaseReservationsForOrder(pending.order.id);
+      await cancelPendingCheckout(pending);
       return unavailable('Razorpay could not create the test payment');
     }
 
@@ -82,7 +95,7 @@ export async function POST(request: Request) {
       pending.order.totalPaise,
     );
     if (!razorpayOrderId) {
-      await releaseReservationsForOrder(pending.order.id);
+      await cancelPendingCheckout(pending);
       return unavailable('Razorpay returned a mismatched payment order');
     }
 
@@ -112,7 +125,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof CheckoutConflict) return badRequest(error.message);
     if (pending)
-      await releaseReservationsForOrder(pending.order.id).catch(() => undefined);
+      await cancelPendingCheckout(pending).catch(() => undefined);
     logServerError('checkout_create_failed', error);
     return unavailable('Checkout is temporarily unavailable');
   }

@@ -3,12 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const {
   createPendingOrder,
   releaseReservationsForOrder,
+  markPaymentFailed,
   getIdentity,
   consumeRateLimit,
   providerFetch,
 } = vi.hoisted(() => ({
   createPendingOrder: vi.fn(),
   releaseReservationsForOrder: vi.fn(),
+  markPaymentFailed: vi.fn(),
   getIdentity: vi.fn(),
   consumeRateLimit: vi.fn(),
   providerFetch: vi.fn(),
@@ -22,6 +24,7 @@ vi.mock('@/lib/checkout', () => ({
 vi.mock('@/lib/server-auth', () => ({ getAuthenticatedIdentity: getIdentity }));
 vi.mock('@/lib/access-rate', () => ({ consumeRateLimit }));
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
+vi.mock('@/lib/payment-state', () => ({ markPaymentFailed }));
 
 import { POST } from '@/app/api/checkout/route';
 
@@ -32,6 +35,7 @@ afterEach(() => {
   Object.assign(process.env, originalEnvironment);
   createPendingOrder.mockReset();
   releaseReservationsForOrder.mockReset();
+  markPaymentFailed.mockReset();
   getIdentity.mockReset();
   consumeRateLimit.mockReset();
   providerFetch.mockReset();
@@ -76,7 +80,7 @@ describe('checkout route payment setup', () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toBe('Razorpay test credentials are not configured');
-    expect(releaseReservationsForOrder).toHaveBeenCalledWith('order-1');
+    expect(markPaymentFailed).toHaveBeenCalledWith('payment-1', 'CANCELLED');
   });
 
   it('releases reservations when Razorpay rejects order creation', async () => {
@@ -105,6 +109,6 @@ describe('checkout route payment setup', () => {
 
     expect(response.status).toBe(503);
     expect(body.error).toBe('Razorpay could not create the test payment');
-    expect(releaseReservationsForOrder).toHaveBeenCalledWith('order-2');
+    expect(markPaymentFailed).toHaveBeenCalledWith('payment-2', 'CANCELLED');
   });
 });
