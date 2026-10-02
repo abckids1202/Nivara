@@ -11,11 +11,12 @@ export async function GET(request: Request): Promise<Response> {
   if (!(await isAdministrator(identity))) return forbidden();
 
   try {
-    const [paidOrders, reviewOrders, adjustments, variants] = await Promise.all(
+    const [paidOrderTotals, reviewOrders, adjustments, variants] = await Promise.all(
       [
-        prisma.order.findMany({
+        prisma.order.aggregate({
           where: { paymentStatus: 'PAID' },
-          select: { totalPaise: true },
+          _count: { _all: true },
+          _sum: { totalPaise: true },
         }),
         prisma.order.count({
           where: { paymentStatus: { in: ['PAYMENT_REVIEW', 'PAID_REVIEW'] } },
@@ -40,11 +41,8 @@ export async function GET(request: Request): Promise<Response> {
       .slice(0, 50);
     return noStore({
       data: {
-        paidOrderCount: paidOrders.length,
-        paidOrderTotalPaise: paidOrders.reduce(
-          (sum, order) => sum + order.totalPaise,
-          0,
-        ),
+        paidOrderCount: paidOrderTotals._count._all,
+        paidOrderTotalPaise: paidOrderTotals._sum.totalPaise ?? 0,
         paymentReviewCount: reviewOrders,
         lowStock,
         adjustments,

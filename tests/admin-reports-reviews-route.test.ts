@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const {
   orderFindMany,
+  orderAggregate,
   orderCount,
   adjustmentFindMany,
   variantFindMany,
@@ -11,6 +12,7 @@ const {
   logServerError,
 } = vi.hoisted(() => ({
   orderFindMany: vi.fn(),
+  orderAggregate: vi.fn(),
   orderCount: vi.fn(),
   adjustmentFindMany: vi.fn(),
   variantFindMany: vi.fn(),
@@ -22,7 +24,11 @@ const {
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    order: { findMany: orderFindMany, count: orderCount },
+    order: {
+      findMany: orderFindMany,
+      aggregate: orderAggregate,
+      count: orderCount,
+    },
     inventoryAdjustment: { findMany: adjustmentFindMany },
     productVariant: { findMany: variantFindMany },
     review: { findMany: reviewFindMany },
@@ -43,6 +49,7 @@ afterEach(() => {
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, originalEnvironment);
   orderFindMany.mockReset();
+  orderAggregate.mockReset();
   orderCount.mockReset();
   adjustmentFindMany.mockReset();
   variantFindMany.mockReset();
@@ -61,7 +68,7 @@ function configureAdmin() {
 describe('admin reports and moderation resilience', () => {
   it('returns a safe response when reporting data cannot be loaded', async () => {
     configureAdmin();
-    orderFindMany.mockRejectedValue(new Error('private report details'));
+    orderAggregate.mockRejectedValue(new Error('private report details'));
 
     const response = await getReports(
       new Request('https://nivara.example/api/admin/reports'),
