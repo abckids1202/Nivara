@@ -311,9 +311,17 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                setSignedIn(false);
-                await refreshCart();
+                try {
+                  const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                  });
+                  if (!response.ok) throw new Error('Logout failed');
+                  setSignedIn(false);
+                  setMessage('You’re signed out.');
+                  await refreshCart().catch(() => undefined);
+                } catch {
+                  setMessage('Could not sign out. Please try again.');
+                }
               }}
               className="button-secondary"
             >
