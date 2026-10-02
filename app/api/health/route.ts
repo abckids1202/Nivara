@@ -17,13 +17,32 @@ export async function GET() {
   if (process.env.DATABASE_URL) {
     try {
       const rows = await prisma.$queryRaw<
-        Array<{ userTable: string | null; cleanupTable: string | null }>
+        Array<{
+          userTable: string | null;
+          productTable: string | null;
+          orderTable: string | null;
+          paymentEventTable: string | null;
+          inventoryTable: string | null;
+          cleanupTable: string | null;
+        }>
       >`
         SELECT
           to_regclass('public."User"') AS "userTable",
+          to_regclass('public."Product"') AS "productTable",
+          to_regclass('public."Order"') AS "orderTable",
+          to_regclass('public."PaymentEvent"') AS "paymentEventTable",
+          to_regclass('public."InventoryReservation"') AS "inventoryTable",
           to_regclass('public."StorageCleanupTask"') AS "cleanupTable"
       `;
-      schemaConfigured = Boolean(rows[0]?.userTable && rows[0]?.cleanupTable);
+      const schema = rows[0];
+      schemaConfigured = Boolean(
+        schema?.userTable &&
+          schema.productTable &&
+          schema.orderTable &&
+          schema.paymentEventTable &&
+          schema.inventoryTable &&
+          schema.cleanupTable,
+      );
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {
       database = 'unreachable';

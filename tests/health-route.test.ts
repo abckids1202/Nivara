@@ -35,7 +35,14 @@ describe('health readiness', () => {
     process.env.SUPPORT_EMAIL = 'support@example.com';
     process.env.CRON_SECRET = 'replace-me-server-only';
     queryRaw.mockResolvedValue([
-      { userTable: 'User', cleanupTable: 'StorageCleanupTask' },
+      {
+        userTable: 'User',
+        productTable: 'Product',
+        orderTable: 'Order',
+        paymentEventTable: 'PaymentEvent',
+        inventoryTable: 'InventoryReservation',
+        cleanupTable: 'StorageCleanupTask',
+      },
     ]);
 
     const response = await GET();
@@ -91,7 +98,14 @@ describe('health readiness', () => {
     process.env.SUPPORT_EMAIL = 'support@nivara.in';
     process.env.CRON_SECRET = 'cron-secret';
     queryRaw.mockResolvedValue([
-      { userTable: 'User', cleanupTable: 'StorageCleanupTask' },
+      {
+        userTable: 'User',
+        productTable: 'Product',
+        orderTable: 'Order',
+        paymentEventTable: 'PaymentEvent',
+        inventoryTable: 'InventoryReservation',
+        cleanupTable: 'StorageCleanupTask',
+      },
     ]);
 
     const response = await GET();
