@@ -1,5 +1,5 @@
 import { consumeRateLimit } from '@/lib/access-rate';
-import { badRequest, json, unavailable } from '@/lib/http';
+import { badRequest, noStore, unavailable } from '@/lib/http';
 import { providerFetch } from '@/lib/provider-fetch';
 import { supportRequestSchema } from '@/lib/schemas';
 import { hasConfiguredValue } from '@/lib/configuration';
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       windowMs: 15 * 60 * 1000,
     }))
   )
-    return json({ error: 'Too many messages. Please try again later.' }, 429);
+    return noStore({ error: 'Too many messages. Please try again later.' }, 429);
 
   const parsed = supportRequestSchema.safeParse(
     await request.json().catch(() => null),
@@ -57,5 +57,5 @@ export async function POST(request: Request) {
     return unavailable('Support message could not be delivered');
   }
 
-  return json({ sent: true });
+  return noStore({ sent: true });
 }

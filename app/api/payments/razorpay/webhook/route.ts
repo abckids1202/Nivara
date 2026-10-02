@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { markPaymentFailed, markPaymentPaid } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
-import { json, unavailable } from '@/lib/http';
+import { noStore, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
 import { razorpaySignatureMatches } from '@/lib/razorpay-webhook';
 import { logServerError, safeErrorMessage } from '@/lib/safe-logging';
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     !signature ||
     !razorpaySignatureMatches(rawBody, signature, webhookSecret)
   ) {
-    return json({ error: 'Invalid webhook signature' }, 401);
+    return noStore({ error: 'Invalid webhook signature' }, 401);
   }
 
   const payload = (() => {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       return null;
     }
   })();
-  if (!payload) return json({ error: 'Webhook body is invalid JSON' }, 400);
+  if (!payload) return noStore({ error: 'Webhook body is invalid JSON' }, 400);
   /* Keep the raw body for the provider-event audit hash. */
   const typedPayload = payload as {
     id?: string;
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const providerEventId =
     request.headers.get('x-razorpay-event-id') ?? typedPayload.id;
   if (!providerEventId)
-    return json({ error: 'Missing provider event ID' }, 400);
+    return noStore({ error: 'Missing provider event ID' }, 400);
 
   try {
     const payloadHash = createHmac('sha256', webhookSecret)
@@ -85,10 +85,10 @@ export async function POST(request: Request) {
         select: { payloadHash: true },
       });
       if (previous?.payloadHash !== payloadHash)
-        return json({ error: 'Provider event ID was reused' }, 400);
+        return noStore({ error: 'Provider event ID was reused' }, 400);
     }
 
-    if (!attempt) return json({ received: true, matched: false, duplicate });
+    if (!attempt) return noStore({ received: true, matched: false, duplicate });
 
     if (
       typedPayload.event === 'payment.captured' ||
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         const email = await sendOrderConfirmationEmail(result.orderId);
         if (!email.sent) {
           console.error('order_confirmation_email_pending', safeErrorMessage(email.reason));
-          return json(
+          return noStore(
             { error: 'Payment accepted; confirmation email will be retried' },
             503,
           );
@@ -117,9 +117,9 @@ export async function POST(request: Request) {
       await markPaymentFailed(attempt.id, 'CANCELLED');
     }
 
-    return json({ received: true, duplicate });
+    return noStore({ received: true, duplicate });
   } catch (error) {
     logServerError('razorpay_webhook_failed', error);
-    return json({ error: 'Webhook processing failed' }, 500);
+    return noStore({ error: 'Webhook processing failed' }, 500);
   }
 }

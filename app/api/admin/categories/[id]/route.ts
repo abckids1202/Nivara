@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { badRequest, conflict, forbidden, json, notFound, unauthorized, unavailable } from '@/lib/http';
+import { badRequest, conflict, forbidden, noStore, notFound, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 
@@ -29,7 +29,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     await prisma.auditLog.create({
       data: { actorId: access.identity.id, action: 'category.updated', entityType: 'Category', entityId: id, details: { before: existing, after: parsed.data } },
     });
-    return json({ data: category });
+    return noStore({ data: category });
   } catch {
     return conflict('That category slug is already in use');
   }
@@ -47,5 +47,5 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   await prisma.auditLog.create({
     data: { actorId: access.identity.id, action: 'category.deleted', entityType: 'Category', entityId: id, details: { name: category.name, slug: category.slug } },
   });
-  return json({ data: { id } });
+  return noStore({ data: { id } });
 }

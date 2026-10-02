@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { CheckoutConflict, prepareRetryPayment, releaseReservationsForOrder } from '@/lib/checkout';
 import { consumeRateLimit } from '@/lib/access-rate';
-import { badRequest, conflict, json, noStore, unavailable } from '@/lib/http';
+import { badRequest, conflict, noStore, unavailable } from '@/lib/http';
 import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
@@ -23,7 +23,7 @@ export async function POST(
 ) {
   if (!process.env.DATABASE_URL) return unavailable('Guest payment retry is not configured');
   if (!(await consumeRateLimit({ request, endpoint: 'guest-payment-retry', maxAttempts: 5 })))
-    return json({ error: 'Too many payment retry attempts' }, 429);
+    return noStore({ error: 'Too many payment retry attempts' }, 429);
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay test credentials are not configured');
   const { token } = await params;
@@ -32,7 +32,7 @@ export async function POST(
     where: { guestAccessHash, guestAccessExpiry: { gt: new Date() } },
     select: { orderNumber: true },
   });
-  if (!order) return json({ error: 'Order link is invalid or expired' }, 404);
+  if (!order) return noStore({ error: 'Order link is invalid or expired' }, 404);
 
   let pending;
   try {

@@ -1,5 +1,5 @@
 import { CheckoutConflict, prepareRetryPayment, releaseReservationsForOrder } from '@/lib/checkout';
-import { badRequest, conflict, json, noStore, unauthorized, unavailable } from '@/lib/http';
+import { badRequest, conflict, noStore, unauthorized, unavailable } from '@/lib/http';
 import { markPaymentFailed } from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
@@ -31,7 +31,7 @@ export async function POST(
       maxAttempts: 5,
     }))
   )
-    return json({ error: 'Too many payment retry attempts' }, 429);
+    return noStore({ error: 'Too many payment retry attempts' }, 429);
   const auth = razorpayAuth();
   if (!auth) return unavailable('Razorpay test credentials are not configured');
   const { orderNumber } = await params;
