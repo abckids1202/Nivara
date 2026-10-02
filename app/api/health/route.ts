@@ -1,11 +1,40 @@
 import { noStore } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { providerFetch } from '@/lib/provider-fetch';
 
 function hasHttpsUrl(value: string | undefined) {
   if (!value) return false;
   try {
     return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+async function isStorageBucketReachable() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET;
+  if (
+    !hasConfiguredValue(supabaseUrl, ['your-project']) ||
+    !hasConfiguredValue(serviceRoleKey, ['replace-me']) ||
+    !hasConfiguredValue(bucket, ['replace-me'])
+  )
+    return false;
+
+  try {
+    const response = await providerFetch(
+      `${supabaseUrl}/storage/v1/bucket/${encodeURIComponent(bucket)}`,
+      {
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+        cache: 'no-store',
+      },
+    );
+    return response.ok;
   } catch {
     return false;
   }
@@ -94,15 +123,7 @@ export async function GET() {
         'replace-me',
       ]),
   );
-  const storageConfigured = Boolean(
-    hasConfiguredValue(process.env.NEXT_PUBLIC_SUPABASE_URL, [
-      'your-project',
-    ]) &&
-      hasConfiguredValue(process.env.SUPABASE_SERVICE_ROLE_KEY, [
-        'replace-me',
-      ]) &&
-      hasConfiguredValue(process.env.SUPABASE_STORAGE_BUCKET, ['replace-me']),
-  );
+  const storageConfigured = await isStorageBucketReachable();
   const emailConfigured = Boolean(
     hasConfiguredValue(process.env.RESEND_API_KEY, ['replace-me']) &&
       hasConfiguredValue(process.env.RESEND_FROM_EMAIL, ['example.com']),

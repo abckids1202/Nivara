@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { queryRaw } = vi.hoisted(() => ({ queryRaw: vi.fn() }));
+const { providerFetch, queryRaw } = vi.hoisted(() => ({
+  providerFetch: vi.fn(),
+  queryRaw: vi.fn(),
+}));
 
 vi.mock('../lib/prisma', () => ({ prisma: { $queryRaw: queryRaw } }));
+vi.mock('../lib/provider-fetch', () => ({ providerFetch }));
 
 import { GET } from '../app/api/health/route';
 
@@ -44,6 +48,7 @@ function restoreEnvironment() {
 afterEach(() => {
   restoreEnvironment();
   queryRaw.mockReset();
+  providerFetch.mockReset();
 });
 
 describe('health readiness', () => {
@@ -117,6 +122,7 @@ describe('health readiness', () => {
     process.env.SUPPORT_EMAIL = 'support@nivara.in';
     process.env.CRON_SECRET = 'cron-secret';
     queryRaw.mockResolvedValue([completeSchema]);
+    providerFetch.mockResolvedValue(new Response(null, { status: 200 }));
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
