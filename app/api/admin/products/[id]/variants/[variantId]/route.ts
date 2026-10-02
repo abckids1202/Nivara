@@ -63,28 +63,31 @@ export async function PATCH(
           : parsed.data.compareAtRupees * 100;
     if (!isValidComparisonPrice(pricePaise, compareAtPaise))
       return badRequest('Comparison price must be at least the selling price');
-    const variant = await prisma.productVariant.update({
-      where: { id: variantId },
-      data: {
-        ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
-        ...(parsed.data.sku === undefined ? {} : { sku: parsed.data.sku }),
-        ...(parsed.data.priceRupees === undefined ? {} : { pricePaise }),
-        ...(parsed.data.compareAtRupees === undefined
-          ? {}
-          : {
-              compareAtPaise:
-                parsed.data.compareAtRupees === null ? null : compareAtPaise,
-            }),
-      },
-    });
-    await prisma.auditLog.create({
-      data: {
-        actorId: access.identity.id,
-        action: 'variant.updated',
-        entityType: 'ProductVariant',
-        entityId: variant.id,
-        details: parsed.data,
-      },
+    const variant = await prisma.$transaction(async (transaction) => {
+      const updatedVariant = await transaction.productVariant.update({
+        where: { id: variantId },
+        data: {
+          ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
+          ...(parsed.data.sku === undefined ? {} : { sku: parsed.data.sku }),
+          ...(parsed.data.priceRupees === undefined ? {} : { pricePaise }),
+          ...(parsed.data.compareAtRupees === undefined
+            ? {}
+            : {
+                compareAtPaise:
+                  parsed.data.compareAtRupees === null ? null : compareAtPaise,
+              }),
+        },
+      });
+      await transaction.auditLog.create({
+        data: {
+          actorId: access.identity.id,
+          action: 'variant.updated',
+          entityType: 'ProductVariant',
+          entityId: updatedVariant.id,
+          details: parsed.data,
+        },
+      });
+      return updatedVariant;
     });
     return noStore({ data: variant });
   } catch (error) {
