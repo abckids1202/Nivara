@@ -35,6 +35,6 @@ describe('provider readiness helpers', () => {
     };
     expect(isReadyHealthPayload(ready)).toBe(true);
     expect(isReadyHealthPayload({ ...ready, ready: false })).toBe(false);
-    expect(healthChecks(ready)).toHaveLength(7);
+    expect(healthChecks(ready)).toHaveLength(8);
   });
 });

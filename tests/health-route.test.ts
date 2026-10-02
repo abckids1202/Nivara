@@ -21,6 +21,8 @@ afterEach(() => {
 describe('health readiness', () => {
   it('returns degraded readiness for placeholder provider configuration', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.DIRECT_URL = 'postgresql://database.example/nivara';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
     process.env.RAZORPAY_KEY_ID = 'rzp_test_replace_me';
     process.env.RAZORPAY_KEY_SECRET = 'replace-me-server-only';
     process.env.RAZORPAY_WEBHOOK_SECRET = 'replace-me-server-only';
@@ -47,6 +49,8 @@ describe('health readiness', () => {
 
   it('returns ready only when the database and all required providers are configured', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.DIRECT_URL = 'postgresql://database.example/nivara';
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
     process.env.RAZORPAY_KEY_ID = 'provider-test-id';
     process.env.RAZORPAY_KEY_SECRET = 'provider-test-secret';
     process.env.RAZORPAY_WEBHOOK_SECRET = 'provider-test-webhook';
@@ -67,6 +71,7 @@ describe('health readiness', () => {
     expect(body.status).toBe('ok');
     expect(body.ready).toBe(true);
     expect(body.database).toBe('connected');
+    expect(body.deploymentConfigured).toBe(true);
     expect(body.paymentsConfigured).toBe(true);
     expect(body.authConfigured).toBe(true);
     expect(body.storageConfigured).toBe(true);

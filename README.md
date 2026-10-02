@@ -114,9 +114,10 @@ secrets:
 npm run check:provider -- --url https://your-deployment.example
 ```
 
-The check calls `/api/health` and requires a connected database plus configured
-Auth, Storage, Razorpay, Resend, support email, and cron secret. A degraded
-response is a launch blocker.
+The check calls `/api/health` and requires a connected database, direct
+migration URL, canonical HTTPS site URL, and configured Auth, Storage,
+Razorpay, Resend, support email, and cron secret. A degraded response is a
+launch blocker.
 
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
 

@@ -2,6 +2,15 @@ import { noStore } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { hasConfiguredValue } from '@/lib/configuration';
 
+function hasHttpsUrl(value: string | undefined) {
+  if (!value) return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export async function GET() {
   let database = 'not_configured';
   if (process.env.DATABASE_URL) {
@@ -45,8 +54,13 @@ export async function GET() {
   const cronConfigured = Boolean(
     hasConfiguredValue(process.env.CRON_SECRET, ['replace-me']),
   );
+  const deploymentConfigured = Boolean(
+    hasConfiguredValue(process.env.DIRECT_URL, ['localhost']) &&
+      hasHttpsUrl(process.env.NEXT_PUBLIC_SITE_URL),
+  );
   const ready =
     database === 'connected' &&
+    deploymentConfigured &&
     authConfigured &&
     paymentsConfigured &&
     storageConfigured &&
@@ -57,6 +71,7 @@ export async function GET() {
     service: 'nivara-store',
     status: ready ? 'ok' : 'degraded',
     database,
+    deploymentConfigured,
     paymentsConfigured,
     authConfigured,
     storageConfigured,
