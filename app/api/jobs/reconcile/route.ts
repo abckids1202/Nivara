@@ -60,6 +60,7 @@ export async function GET(request: Request) {
       released: 0,
       review: 0,
       skipped: 0,
+      emailRetried: 0,
       deletedRateLogs: deletedRateLogs.count,
       deletedGuestAttempts: deletedGuestAttempts.count,
     };
@@ -121,6 +122,27 @@ export async function GET(request: Request) {
         await expireReservationsForOrder(reservation.orderId);
         await markPaymentReview(payment.id);
         processed.review += 1;
+      }
+    }
+
+    if (
+      hasConfiguredValue(process.env.RESEND_API_KEY) &&
+      hasConfiguredValue(process.env.RESEND_FROM_EMAIL, ['example.com'])
+    ) {
+      const ordersNeedingConfirmation = await prisma.order.findMany({
+        where: {
+          paymentStatus: 'PAID',
+          emailDeliveries: {
+            none: { kind: 'ORDER_CONFIRMATION', status: 'SENT' },
+          },
+        },
+        select: { id: true },
+        orderBy: { updatedAt: 'asc' },
+        take: 100,
+      });
+      for (const order of ordersNeedingConfirmation) {
+        const result = await sendOrderConfirmationEmail(order.id);
+        if (result.sent) processed.emailRetried += 1;
       }
     }
 
