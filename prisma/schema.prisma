@@ -187,7 +187,7 @@ model Order {
   orderNumber       String                @unique
   userId            String?
   guestEmail        String?
-  guestAccessHash   String?
+  guestAccessHash   String?               @unique
   guestAccessExpiry DateTime?
   addressId         String?
   subtotalPaise     Int
