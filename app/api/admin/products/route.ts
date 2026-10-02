@@ -5,7 +5,10 @@ import {
   unauthorized,
   unavailable,
 } from '@/lib/http';
-import { productMutationSchema } from '@/lib/schemas';
+import {
+  adminProductQuerySchema,
+  productMutationSchema,
+} from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { logServerError } from '@/lib/safe-logging';
@@ -23,16 +26,52 @@ export async function GET(request: Request): Promise<Response> {
     return unavailable('Product database is not configured');
   const access = await requireAdmin(request);
   if ('response' in access && access.response) return access.response;
+  const parsedQuery = adminProductQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams.entries()),
+  );
+  if (!parsedQuery.success)
+    return badRequest(
+      'Product search query is invalid',
+      parsedQuery.error.flatten(),
+    );
   try {
-    const products = await prisma.product.findMany({
-      include: {
-        category: true,
-        variants: { orderBy: { sku: 'asc' } },
-        images: { orderBy: { sortOrder: 'asc' } },
+    const { q, page, pageSize } = parsedQuery.data;
+    const where = q
+      ? {
+          OR: [
+            { name: { contains: q, mode: 'insensitive' as const } },
+            { slug: { contains: q, mode: 'insensitive' as const } },
+            {
+              category: {
+                name: { contains: q, mode: 'insensitive' as const },
+              },
+            },
+          ],
+        }
+      : undefined;
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          variants: { orderBy: { sku: 'asc' } },
+          images: { orderBy: { sortOrder: 'asc' } },
+        },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.product.count({ where }),
+    ]);
+    return noStore({
+      data: products,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
       },
-      orderBy: { updatedAt: 'desc' },
     });
-    return noStore({ data: products });
   } catch (error) {
     logServerError('admin_products_read_failed', error);
     return unavailable('Products are temporarily unavailable');

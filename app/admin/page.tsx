@@ -32,6 +32,12 @@ type AdminProduct = {
     stockReserved: number;
   }>;
 };
+type ProductPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 type AdminOrder = {
   id: string;
   orderNumber: string;
@@ -132,6 +138,14 @@ function adminLoadError(
 
 export default function AdminPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [productPage, setProductPage] = useState(1);
+  const [productPagination, setProductPagination] =
+    useState<ProductPagination>({
+      page: 1,
+      pageSize: 24,
+      total: 0,
+      totalPages: 1,
+    });
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [report, setReport] = useState<AdminReport | null>(null);
@@ -178,11 +192,19 @@ export default function AdminPage() {
     useState<CataloguePreview | null>(null);
   const [catalogueBusy, setCatalogueBusy] = useState(false);
 
-  async function loadProducts() {
+  async function loadProducts(search = query, page = productPage) {
     setLoading(true);
-    const response = await fetch('/api/admin/products', { cache: 'no-store' });
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: '24',
+    });
+    if (search.trim()) params.set('q', search.trim());
+    const response = await fetch(`/api/admin/products?${params}`, {
+      cache: 'no-store',
+    });
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminProduct[];
+      pagination?: ProductPagination;
       error?: string;
     };
     if (!response.ok)
@@ -193,6 +215,7 @@ export default function AdminPage() {
       );
     else {
       setProducts(payload.data ?? []);
+      if (payload.pagination) setProductPagination(payload.pagination);
     }
     setLoading(false);
   }
@@ -358,12 +381,22 @@ export default function AdminPage() {
     setCatalogueBusy(false);
   }
 
-  // The loaders intentionally read the current query and are invoked only when the search changes.
+  // Product search is server-side and debounced so large catalogues do not
+  // require loading every product into the browser.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setProductPage(1);
+      void loadProducts(query, 1);
+    }, query ? 250 : 0);
+    return () => window.clearTimeout(timer);
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  // The remaining loaders are refreshed with the order search.
   // oxlint-disable react-hooks/exhaustive-deps
   useEffect(() => {
     queueMicrotask(() => {
       setError('');
-      void loadProducts();
       void loadOrders();
       void loadReviews();
       void loadCategories();
@@ -373,15 +406,7 @@ export default function AdminPage() {
   }, [orderQuery]);
   // oxlint-enable react-hooks/exhaustive-deps
 
-  const filteredProducts = useMemo(
-    () =>
-      products.filter((product) =>
-        `${product.name} ${product.category.name} ${product.slug}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    [products, query],
-  );
+  const filteredProducts = products;
   const stats = useMemo(() => {
     const variants = products.flatMap((product) => product.variants);
     return {
@@ -1527,6 +1552,44 @@ export default function AdminPage() {
                           )}
                         </article>
                       ))
+                    )}
+                    {productPagination.totalPages > 1 && (
+                      <nav
+                        aria-label="Product pages"
+                        className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ebe2] pt-4"
+                      >
+                        <p className="text-sm text-[#718078]">
+                          Showing page {productPagination.page} of{' '}
+                          {productPagination.totalPages} ({productPagination.total}{' '}
+                          products)
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={productPage <= 1}
+                            onClick={() => {
+                              const nextPage = productPage - 1;
+                              setProductPage(nextPage);
+                              void loadProducts(query, nextPage);
+                            }}
+                          >
+                            Previous
+                          </button>
+                          <button
+                            type="button"
+                            className="button-secondary"
+                            disabled={productPage >= productPagination.totalPages}
+                            onClick={() => {
+                              const nextPage = productPage + 1;
+                              setProductPage(nextPage);
+                              void loadProducts(query, nextPage);
+                            }}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </nav>
                     )}
                   </div>
                 )}
