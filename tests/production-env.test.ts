@@ -1,0 +1,37 @@
+import { describe, expect, it } from 'vitest';
+import { validateProductionEnvironment } from '@/lib/production-env';
+
+const validEnvironment = {
+  NODE_ENV: 'production' as const,
+  DATABASE_URL: 'postgresql://user:password@db.example.test:5432/store',
+  DIRECT_URL: 'postgres://user:password@db.example.test:5432/store',
+  NEXT_PUBLIC_SUPABASE_URL: 'https://project.supabase.co',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+  SUPABASE_STORAGE_BUCKET: 'product-images',
+  RESEND_API_KEY: 'resend-key',
+  RESEND_FROM_EMAIL: 'Nivara <orders@nivara.test>',
+  SUPPORT_EMAIL: 'support@nivara.test',
+  RAZORPAY_KEY_ID: 'provider-test-id',
+  RAZORPAY_KEY_SECRET: 'provider-test-secret',
+  RAZORPAY_WEBHOOK_SECRET: 'provider-test-webhook',
+  CRON_SECRET: 'cron-secret',
+  NEXT_PUBLIC_SITE_URL: 'https://nivara.test',
+};
+
+describe('production environment validation', () => {
+  it('accepts a complete production-shaped environment', () => {
+    expect(validateProductionEnvironment(validEnvironment)).toEqual([]);
+  });
+
+  it('rejects non-PostgreSQL database URLs', () => {
+    const failures = validateProductionEnvironment({
+      ...validEnvironment,
+      DATABASE_URL: 'https://db.example.test',
+      DIRECT_URL: 'mysql://db.example.test/store',
+    });
+
+    expect(failures).toContain('DATABASE_URL must use a PostgreSQL URL');
+    expect(failures).toContain('DIRECT_URL must use a PostgreSQL URL');
+  });
+});
