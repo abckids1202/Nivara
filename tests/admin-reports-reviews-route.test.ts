@@ -7,6 +7,7 @@ const {
   adjustmentFindMany,
   queryRaw,
   reviewFindMany,
+  reviewCount,
   getIdentity,
   isAdministrator,
   logServerError,
@@ -17,6 +18,7 @@ const {
   adjustmentFindMany: vi.fn(),
   queryRaw: vi.fn(),
   reviewFindMany: vi.fn(),
+  reviewCount: vi.fn(),
   getIdentity: vi.fn(),
   isAdministrator: vi.fn(),
   logServerError: vi.fn(),
@@ -31,7 +33,7 @@ vi.mock('@/lib/prisma', () => ({
     },
     inventoryAdjustment: { findMany: adjustmentFindMany },
     $queryRaw: queryRaw,
-    review: { findMany: reviewFindMany },
+    review: { findMany: reviewFindMany, count: reviewCount },
   },
 }));
 vi.mock('@/lib/server-auth', () => ({
@@ -54,6 +56,7 @@ afterEach(() => {
   adjustmentFindMany.mockReset();
   queryRaw.mockReset();
   reviewFindMany.mockReset();
+  reviewCount.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
   logServerError.mockReset();
@@ -142,5 +145,40 @@ describe('admin reports and moderation resilience', () => {
       'admin_reviews_read_failed',
       expect.any(Error),
     );
+  });
+
+  it('returns a paginated pending review queue', async () => {
+    configureAdmin();
+    reviewFindMany.mockResolvedValue([
+      { id: 'review-1', body: 'Lovely', product: { name: 'Lamp', slug: 'lamp' } },
+    ]);
+    reviewCount.mockResolvedValue(25);
+
+    const response = await getReviews(
+      new Request('https://nivara.example/api/admin/reviews?page=2&pageSize=10'),
+    );
+    const body = (await response.json()) as {
+      data: Array<{ id: string }>;
+      pagination: { page: number; pageSize: number; total: number; totalPages: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual([
+      { id: 'review-1', body: 'Lovely', product: { name: 'Lamp', slug: 'lamp' } },
+    ]);
+    expect(body.pagination).toEqual({
+      page: 2,
+      pageSize: 10,
+      total: 25,
+      totalPages: 3,
+    });
+    expect(reviewFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skip: 10,
+        take: 10,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+    );
+    expect(reviewCount).toHaveBeenCalledWith({ where: { status: 'PENDING' } });
   });
 });

@@ -64,6 +64,12 @@ type AdminReview = {
   body: string;
   product: { name: string };
 };
+type ReviewPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 type AdminCategory = { id: string; name: string; slug: string; _count?: { products: number } };
 type CataloguePreview = {
   rowCount: number;
@@ -161,6 +167,13 @@ export default function AdminPage() {
     totalPages: 1,
   });
   const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewPagination, setReviewPagination] = useState<ReviewPagination>({
+    page: 1,
+    pageSize: 24,
+    total: 0,
+    totalPages: 1,
+  });
   const [report, setReport] = useState<AdminReport | null>(null);
   const [paymentReviews, setPaymentReviews] = useState<PaymentReviewOrder[]>(
     [],
@@ -253,15 +266,22 @@ export default function AdminPage() {
     }
   }
 
-  async function loadReviews() {
-    const response = await fetch('/api/admin/reviews', { cache: 'no-store' });
+  async function loadReviews(page = reviewPage) {
+    const response = await fetch(
+      `/api/admin/reviews?page=${page}&pageSize=24`,
+      { cache: 'no-store' },
+    );
     const payload = (await response.json().catch(() => ({}))) as {
       data?: AdminReview[];
+      pagination?: ReviewPagination;
       error?: string;
     };
     const failure = adminLoadError(response, payload, 'Reviews could not be loaded');
     if (failure) setError(failure);
-    else setReviews(payload.data ?? []);
+    else {
+      setReviews(payload.data ?? []);
+      if (payload.pagination) setReviewPagination(payload.pagination);
+    }
   }
 
   async function loadCategories() {
@@ -1912,6 +1932,44 @@ export default function AdminPage() {
                         </div>
                       </article>
                     ))
+                  )}
+                  {reviewPagination.totalPages > 1 && (
+                    <nav
+                      aria-label="Review moderation pages"
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ebe2] pt-4"
+                    >
+                      <p className="text-sm text-[#718078]">
+                        Showing page {reviewPagination.page} of{' '}
+                        {reviewPagination.totalPages} ({reviewPagination.total}{' '}
+                        reviews)
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={reviewPage <= 1}
+                          onClick={() => {
+                            const nextPage = reviewPage - 1;
+                            setReviewPage(nextPage);
+                            void loadReviews(nextPage);
+                          }}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={reviewPage >= reviewPagination.totalPages}
+                          onClick={() => {
+                            const nextPage = reviewPage + 1;
+                            setReviewPage(nextPage);
+                            void loadReviews(nextPage);
+                          }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </nav>
                   )}
                 </div>
               </section>

@@ -5,7 +5,7 @@ import {
   unauthorized,
   unavailable,
 } from '@/lib/http';
-import { moderationSchema } from '@/lib/schemas';
+import { adminReviewQuerySchema, moderationSchema } from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { logServerError } from '@/lib/safe-logging';
@@ -21,14 +21,36 @@ export async function GET(request: Request): Promise<Response> {
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
   if (!(await isAdministrator(identity))) return forbidden();
+  const parsedQuery = adminReviewQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams.entries()),
+  );
+  if (!parsedQuery.success)
+    return badRequest(
+      'Review queue query is invalid',
+      parsedQuery.error.flatten(),
+    );
   try {
-    const reviews = await prisma.review.findMany({
-      where: { status: 'PENDING' },
-      include: { product: { select: { name: true, slug: true } } },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
+    const { page, pageSize } = parsedQuery.data;
+    const where = { status: 'PENDING' as const };
+    const [reviews, total] = await Promise.all([
+      prisma.review.findMany({
+        where,
+        include: { product: { select: { name: true, slug: true } } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.review.count({ where }),
+    ]);
+    return noStore({
+      data: reviews,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
     });
-    return noStore({ data: reviews });
   } catch (error) {
     logServerError('admin_reviews_read_failed', error);
     return unavailable('Reviews are temporarily unavailable');
