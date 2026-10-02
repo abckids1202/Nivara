@@ -84,14 +84,14 @@ function candidateQuery({
         AND available_variant."stockOnHand" > available_variant."stockReserved"
     )`);
 
-  const sales = Prisma.sql`COALESCE((
-    SELECT SUM(order_item."quantity")
+  const sales = Prisma.sql`(
+    SELECT COUNT(DISTINCT paid_order."id")
     FROM "OrderItem" order_item
     JOIN "Order" paid_order ON paid_order."id" = order_item."orderId"
     JOIN "ProductVariant" sold_variant ON sold_variant."id" = order_item."variantId"
     WHERE sold_variant."productId" = p."id"
       AND paid_order."paymentStatus" = 'PAID'
-  ), 0)`;
+  )`;
   const averageRating = Prisma.sql`COALESCE((
     SELECT AVG(approved_review."rating")
     FROM "Review" approved_review
