@@ -31,97 +31,106 @@ export async function POST(request: Request) {
     });
 
   try {
-    await prisma.$transaction(async (tx) => {
-    for (const row of parsed.rows) {
-      const category = await tx.category.upsert({
-        where: { slug: row.categorySlug },
-        create: { slug: row.categorySlug, name: row.categoryName },
-        update: { name: row.categoryName },
-      });
-      const product = await tx.product.upsert({
-        where: { slug: row.productSlug },
-        create: {
-          categoryId: category.id,
-          name: row.productName,
-          slug: row.productSlug,
-          description: row.description,
-          material: row.material || null,
-          dimensions: row.dimensions || null,
-          care: row.care || null,
-          status: row.status,
-        },
-        update: {
-          categoryId: category.id,
-          name: row.productName,
-          description: row.description,
-          material: row.material || null,
-          dimensions: row.dimensions || null,
-          care: row.care || null,
-          status: row.status,
-        },
-      });
-      await tx.$queryRaw(Prisma.sql`
+    await prisma.$transaction(
+      async (tx) => {
+        for (const row of parsed.rows) {
+          const category = await tx.category.upsert({
+            where: { slug: row.categorySlug },
+            create: { slug: row.categorySlug, name: row.categoryName },
+            update: { name: row.categoryName },
+          });
+          const product = await tx.product.upsert({
+            where: { slug: row.productSlug },
+            create: {
+              categoryId: category.id,
+              name: row.productName,
+              slug: row.productSlug,
+              description: row.description,
+              material: row.material || null,
+              dimensions: row.dimensions || null,
+              care: row.care || null,
+              status: row.status,
+            },
+            update: {
+              categoryId: category.id,
+              name: row.productName,
+              description: row.description,
+              material: row.material || null,
+              dimensions: row.dimensions || null,
+              care: row.care || null,
+              status: row.status,
+            },
+          });
+          await tx.$queryRaw(Prisma.sql`
         SELECT "id"
         FROM "ProductVariant"
         WHERE "sku" = ${row.sku}
         FOR UPDATE
       `);
-      const existingVariant = await tx.productVariant.findUnique({
-        where: { sku: row.sku },
-        select: { stockReserved: true },
-      });
-      if (existingVariant && row.stockOnHand < existingVariant.stockReserved)
-        throw new Error('STOCK_BELOW_RESERVED');
-      await tx.productVariant.upsert({
-        where: { sku: row.sku },
-        create: {
-          productId: product.id,
-          name: row.variantName,
-          sku: row.sku,
-          pricePaise: row.priceRupees * 100,
-          compareAtPaise:
-            row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
-          stockOnHand: row.stockOnHand,
-        },
-        update: {
-          productId: product.id,
-          name: row.variantName,
-          pricePaise: row.priceRupees * 100,
-          compareAtPaise:
-            row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
-          stockOnHand: row.stockOnHand,
-        },
-      });
-      if (row.imageUrl) {
-        const existingImage = await tx.productImage.findFirst({
-          where: { productId: product.id, url: row.imageUrl },
-          select: { id: true },
-        });
-        if (existingImage)
-          await tx.productImage.update({
-            where: { id: existingImage.id },
-            data: { altText: row.imageAlt || row.productName },
+          const existingVariant = await tx.productVariant.findUnique({
+            where: { sku: row.sku },
+            select: { stockReserved: true },
           });
-        else
-          await tx.productImage.create({
-            data: {
+          if (
+            existingVariant &&
+            row.stockOnHand < existingVariant.stockReserved
+          )
+            throw new Error('STOCK_BELOW_RESERVED');
+          await tx.productVariant.upsert({
+            where: { sku: row.sku },
+            create: {
               productId: product.id,
-              url: row.imageUrl,
-              altText: row.imageAlt || row.productName,
+              name: row.variantName,
+              sku: row.sku,
+              pricePaise: row.priceRupees * 100,
+              compareAtPaise:
+                row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
+              stockOnHand: row.stockOnHand,
+            },
+            update: {
+              productId: product.id,
+              name: row.variantName,
+              pricePaise: row.priceRupees * 100,
+              compareAtPaise:
+                row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
+              stockOnHand: row.stockOnHand,
             },
           });
-      }
-    }
-    await tx.auditLog.create({
-      data: {
-        actorId: identity.id,
-        action: 'catalogue.imported',
-        entityType: 'Catalogue',
-        entityId: 'bulk',
-        details: { rowCount: parsed.rows.length },
+          if (row.imageUrl) {
+            const existingImage = await tx.productImage.findFirst({
+              where: { productId: product.id, url: row.imageUrl },
+              select: { id: true },
+            });
+            if (existingImage)
+              await tx.productImage.update({
+                where: { id: existingImage.id },
+                data: { altText: row.imageAlt || row.productName },
+              });
+            else
+              await tx.productImage.create({
+                data: {
+                  productId: product.id,
+                  url: row.imageUrl,
+                  altText: row.imageAlt || row.productName,
+                },
+              });
+          }
+        }
+        await tx.auditLog.create({
+          data: {
+            actorId: identity.id,
+            action: 'catalogue.imported',
+            entityType: 'Catalogue',
+            entityId: 'bulk',
+            details: { rowCount: parsed.rows.length },
+          },
+        });
       },
-    });
-    });
+      {
+        maxWait: 10_000,
+        timeout: 60_000,
+      },
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'STOCK_BELOW_RESERVED')
       return badRequest('Catalogue stock cannot be below reserved quantity');
