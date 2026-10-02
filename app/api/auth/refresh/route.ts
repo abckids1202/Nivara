@@ -1,6 +1,6 @@
 import { supabaseAuthRequest } from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
-import { authResponse } from '@/lib/auth-response';
+import { authResponse, clearAuthCookies } from '@/lib/auth-response';
 
 function readRefreshToken(request: Request) {
   const value = request.headers
@@ -26,8 +26,12 @@ export async function POST(request: Request) {
   const result = await supabaseAuthRequest('token?grant_type=refresh_token', {
     refresh_token: refreshToken,
   });
-  if (!result || !result.ok || !result.data.access_token)
+  if (!result)
     return authResponse({ error: 'Session could not be refreshed' }, 401);
+  if (!result.ok || !result.data.access_token)
+    return clearAuthCookies(
+      authResponse({ error: 'Session could not be refreshed' }, 401),
+    );
   const response = authResponse({ data: { refreshed: true } });
   response.cookies.set('nivara-access-token', result.data.access_token, {
     httpOnly: true,
