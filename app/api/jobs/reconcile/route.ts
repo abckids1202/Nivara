@@ -116,7 +116,9 @@ export async function GET(request: Request) {
         const result = await markPaymentPaid({ paymentAttemptId: payment.id });
         if (result.status === 'paid' && result.orderId)
           await sendOrderConfirmationEmail(result.orderId);
-        processed.paid += 1;
+        if (result.status === 'paid' || result.status === 'already_paid')
+          processed.paid += 1;
+        else processed.review += 1;
       } else if (providerStatus === 'created') {
         await expireReservationsForOrder(reservation.orderId);
         await markPaymentFailed(payment.id, 'CANCELLED');

@@ -158,4 +158,50 @@ describe('reconciliation payment-review polling', () => {
     expect(response.status).toBe(200);
     expect(markPaymentFailed).toHaveBeenCalledWith('payment-2', 'CANCELLED');
   });
+
+  it('counts a captured payment with unavailable stock as review', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    transaction.mockResolvedValue([{ count: 0 }, { count: 0 }]);
+    processStorageCleanupTasks.mockResolvedValue({
+      completed: 0,
+      failed: 0,
+      purged: 0,
+      skipped: false,
+    });
+    expiredReservations.mockResolvedValue([
+      {
+        orderId: 'order-3',
+        order: {
+          payments: [{ id: 'payment-3', providerOrderId: 'provider-order-3' }],
+        },
+      },
+    ]);
+    reviewPayments.mockResolvedValue([]);
+    providerFetch.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'paid' }), { status: 200 }),
+    );
+    markPaymentPaid.mockResolvedValue({
+      status: 'paid_review',
+      orderId: 'order-3',
+    });
+    orderFindMany.mockResolvedValue([]);
+    accessRateDeleteMany.mockResolvedValue({ count: 0 });
+    guestAttemptDeleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+    const body = (await response.json()) as {
+      processed?: { paid?: number; review?: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toMatchObject({ paid: 0, review: 1 });
+    expect(sendOrderConfirmationEmail).not.toHaveBeenCalled();
+  });
 });
