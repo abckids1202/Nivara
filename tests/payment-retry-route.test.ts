@@ -7,6 +7,7 @@ const {
   getIdentity,
   providerFetch,
   consumeRateLimit,
+  logServerError,
 } = vi.hoisted(() => ({
   prepareRetryPayment: vi.fn(),
   releaseReservationsForOrder: vi.fn(),
@@ -14,6 +15,7 @@ const {
   getIdentity: vi.fn(),
   providerFetch: vi.fn(),
   consumeRateLimit: vi.fn(),
+  logServerError: vi.fn(),
 }));
 
 vi.mock('@/lib/checkout', () => ({
@@ -25,6 +27,7 @@ vi.mock('@/lib/payment-state', () => ({ markPaymentFailed }));
 vi.mock('@/lib/server-auth', () => ({ getAuthenticatedIdentity: getIdentity }));
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
 vi.mock('@/lib/access-rate', () => ({ consumeRateLimit }));
+vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 
 import { POST } from '@/app/api/orders/[orderNumber]/retry-payment/route';
@@ -40,6 +43,7 @@ afterEach(() => {
   getIdentity.mockReset();
   providerFetch.mockReset();
   consumeRateLimit.mockReset();
+  logServerError.mockReset();
 });
 
 describe('authenticated payment retry route', () => {
@@ -74,5 +78,32 @@ describe('authenticated payment retry route', () => {
     expect(body.error).toBe('Payment retry is unavailable');
     expect(markPaymentFailed).toHaveBeenCalledWith('payment-1', 'FAILED');
     expect(releaseReservationsForOrder).toHaveBeenCalledWith('order-1');
+  });
+
+  it('returns a safe response when rate-limit storage fails', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({
+      id: 'user-1',
+      email: 'shopper@example.com',
+    });
+    consumeRateLimit.mockRejectedValue(
+      new Error('rate log database unavailable'),
+    );
+
+    const response = await POST(
+      new Request('https://nivara.example/api/orders/NV-1/retry-payment', {
+        method: 'POST',
+      }),
+      { params: Promise.resolve({ orderNumber: 'NV-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Payment retry is temporarily unavailable');
+    expect(JSON.stringify(body)).not.toContain('rate log');
+    expect(logServerError).toHaveBeenCalledWith(
+      'account_payment_retry_rate_limit_failed',
+      expect.any(Error),
+    );
   });
 });
