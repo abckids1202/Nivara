@@ -121,4 +121,41 @@ describe('reconciliation payment-review polling', () => {
     });
     expect(sendOrderConfirmationEmail).toHaveBeenCalledWith('order-1');
   });
+
+  it('preserves a provider cancellation as CANCELLED', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    transaction.mockResolvedValue([{ count: 0 }, { count: 0 }]);
+    processStorageCleanupTasks.mockResolvedValue({
+      completed: 0,
+      failed: 0,
+      purged: 0,
+      skipped: false,
+    });
+    expiredReservations.mockResolvedValue([]);
+    reviewPayments.mockResolvedValue([
+      { id: 'payment-2', providerOrderId: 'order_Razorpay_2' },
+    ]);
+    providerFetch.mockResolvedValue(
+      new Response(JSON.stringify({ status: 'cancelled' }), { status: 200 }),
+    );
+    markPaymentFailed.mockResolvedValue({
+      status: 'cancelled',
+      orderId: 'order-2',
+    });
+    orderFindMany.mockResolvedValue([]);
+    accessRateDeleteMany.mockResolvedValue({ count: 0 });
+    guestAttemptDeleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(markPaymentFailed).toHaveBeenCalledWith('payment-2', 'CANCELLED');
+  });
 });

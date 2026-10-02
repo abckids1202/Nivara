@@ -159,7 +159,10 @@ export async function GET(request: Request) {
           processed.review += 1;
         }
       } else if (providerStatus === 'failed' || providerStatus === 'cancelled') {
-        await markPaymentFailed(payment.id, 'FAILED');
+        await markPaymentFailed(
+          payment.id,
+          providerStatus === 'cancelled' ? 'CANCELLED' : 'FAILED',
+        );
         processed.released += 1;
       } else {
         // Keep network errors and still-open provider orders in the manual
