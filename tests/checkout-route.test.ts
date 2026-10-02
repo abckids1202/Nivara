@@ -8,6 +8,7 @@ const {
   getIdentity,
   consumeRateLimit,
   providerFetch,
+  logServerError,
 } = vi.hoisted(() => ({
   createPendingOrder: vi.fn(),
   releaseReservationsForOrder: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getIdentity: vi.fn(),
   consumeRateLimit: vi.fn(),
   providerFetch: vi.fn(),
+  logServerError: vi.fn(),
 }));
 
 vi.mock('@/lib/checkout', () => ({
@@ -30,6 +32,7 @@ vi.mock('@/lib/payment-state', () => ({
   markPaymentFailed,
   markPaymentReview,
 }));
+vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
 import { POST } from '@/app/api/checkout/route';
 
@@ -45,6 +48,7 @@ afterEach(() => {
   getIdentity.mockReset();
   consumeRateLimit.mockReset();
   providerFetch.mockReset();
+  logServerError.mockReset();
 });
 
 function checkoutRequest() {
@@ -65,6 +69,23 @@ function checkoutRequest() {
 }
 
 describe('checkout route payment setup', () => {
+  it('returns a safe response when checkout rate-limit storage fails', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    consumeRateLimit.mockRejectedValue(new Error('private rate log details'));
+
+    const response = await POST(checkoutRequest());
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Checkout is temporarily unavailable');
+    expect(JSON.stringify(body)).not.toContain('private');
+    expect(logServerError).toHaveBeenCalledWith(
+      'checkout_rate_limit_failed',
+      expect.any(Error),
+    );
+    expect(createPendingOrder).not.toHaveBeenCalled();
+  });
+
   it('releases reservations when Razorpay credentials are unavailable', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     delete process.env.RAZORPAY_KEY_ID;

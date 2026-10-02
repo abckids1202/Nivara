@@ -37,17 +37,22 @@ async function reviewPendingCheckout(
 }
 
 export async function POST(request: Request) {
-  if (
-    !(await consumeRateLimit({
-      request,
-      endpoint: 'checkout.create',
-      maxAttempts: 20,
-    }))
-  )
-    return noStore(
-      { error: 'Too many checkout attempts. Please try again later.' },
-      429,
-    );
+  try {
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'checkout.create',
+        maxAttempts: 20,
+      }))
+    )
+      return noStore(
+        { error: 'Too many checkout attempts. Please try again later.' },
+        429,
+      );
+  } catch (error) {
+    logServerError('checkout_rate_limit_failed', error);
+    return unavailable('Checkout is temporarily unavailable');
+  }
   if (!process.env.DATABASE_URL) {
     return unavailable('Checkout database is not configured');
   }
