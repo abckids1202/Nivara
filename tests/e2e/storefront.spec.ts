@@ -10,6 +10,13 @@ test('homepage exposes the main shopping journey', async ({
   expect(response?.headers()['referrer-policy']).toBe(
     'strict-origin-when-cross-origin',
   );
+  expect(response?.headers()['permissions-policy']).toBe(
+    'camera=(), microphone=(), geolocation=()',
+  );
+  expect(response?.headers()['x-permitted-cross-domain-policies']).toBe('none');
+  expect(response?.headers()['cross-origin-opener-policy']).toBe(
+    'same-origin-allow-popups',
+  );
   await expect(page).toHaveTitle(/Nivara/);
   await expect(page.getByRole('link', { name: 'Nivara home' })).toBeVisible();
   if (testInfo.project.name === 'mobile') {
