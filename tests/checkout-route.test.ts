@@ -4,6 +4,7 @@ const {
   createPendingOrder,
   releaseReservationsForOrder,
   markPaymentFailed,
+  markPaymentReview,
   getIdentity,
   consumeRateLimit,
   providerFetch,
@@ -11,6 +12,7 @@ const {
   createPendingOrder: vi.fn(),
   releaseReservationsForOrder: vi.fn(),
   markPaymentFailed: vi.fn(),
+  markPaymentReview: vi.fn(),
   getIdentity: vi.fn(),
   consumeRateLimit: vi.fn(),
   providerFetch: vi.fn(),
@@ -24,7 +26,10 @@ vi.mock('@/lib/checkout', () => ({
 vi.mock('@/lib/server-auth', () => ({ getAuthenticatedIdentity: getIdentity }));
 vi.mock('@/lib/access-rate', () => ({ consumeRateLimit }));
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
-vi.mock('@/lib/payment-state', () => ({ markPaymentFailed }));
+vi.mock('@/lib/payment-state', () => ({
+  markPaymentFailed,
+  markPaymentReview,
+}));
 
 import { POST } from '@/app/api/checkout/route';
 
@@ -36,6 +41,7 @@ afterEach(() => {
   createPendingOrder.mockReset();
   releaseReservationsForOrder.mockReset();
   markPaymentFailed.mockReset();
+  markPaymentReview.mockReset();
   getIdentity.mockReset();
   consumeRateLimit.mockReset();
   providerFetch.mockReset();
@@ -110,5 +116,61 @@ describe('checkout route payment setup', () => {
     expect(response.status).toBe(503);
     expect(body.error).toBe('Razorpay could not create the test payment');
     expect(markPaymentFailed).toHaveBeenCalledWith('payment-2', 'CANCELLED');
+  });
+
+  it('moves uncertain provider failures into payment review', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    consumeRateLimit.mockResolvedValue(true);
+    getIdentity.mockResolvedValue(null);
+    createPendingOrder.mockResolvedValue({
+      order: {
+        id: 'order-3',
+        orderNumber: 'NV-3',
+        totalPaise: 72_900,
+        payments: [{ id: 'payment-3' }],
+      },
+      guestAccessToken: 'guest-token',
+    });
+    providerFetch.mockRejectedValue(new Error('provider timeout'));
+
+    const response = await POST(checkoutRequest());
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Checkout is temporarily unavailable');
+    expect(markPaymentReview).toHaveBeenCalledWith('payment-3');
+    expect(markPaymentFailed).not.toHaveBeenCalled();
+  });
+
+  it('moves a malformed provider success into payment review', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    consumeRateLimit.mockResolvedValue(true);
+    getIdentity.mockResolvedValue(null);
+    createPendingOrder.mockResolvedValue({
+      order: {
+        id: 'order-4',
+        orderNumber: 'NV-4',
+        totalPaise: 72_900,
+        payments: [{ id: 'payment-4' }],
+      },
+      guestAccessToken: 'guest-token',
+    });
+    providerFetch.mockResolvedValue(
+      new Response(JSON.stringify({ id: 'order_wrong', amount: 1 }), {
+        status: 200,
+      }),
+    );
+
+    const response = await POST(checkoutRequest());
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Razorpay returned a mismatched payment order');
+    expect(markPaymentReview).toHaveBeenCalledWith('payment-4');
+    expect(markPaymentFailed).not.toHaveBeenCalled();
   });
 });

@@ -3,7 +3,7 @@ import {
   createPendingOrder,
   releaseReservationsForOrder,
 } from '@/lib/checkout';
-import { markPaymentFailed } from '@/lib/payment-state';
+import { markPaymentFailed, markPaymentReview } from '@/lib/payment-state';
 import { badRequest, noStore, unavailable } from '@/lib/http';
 import { checkoutRequestSchema } from '@/lib/schemas';
 import { getAuthenticatedIdentity } from '@/lib/server-auth';
@@ -22,6 +22,17 @@ async function cancelPendingCheckout(
     return;
   }
   // Keep the cleanup fallback for malformed legacy records without a payment.
+  await releaseReservationsForOrder(pending.order.id);
+}
+
+async function reviewPendingCheckout(
+  pending: Awaited<ReturnType<typeof createPendingOrder>>,
+) {
+  const paymentAttemptId = pending.order.payments[0]?.id;
+  if (paymentAttemptId) {
+    await markPaymentReview(paymentAttemptId);
+    return;
+  }
   await releaseReservationsForOrder(pending.order.id);
 }
 
@@ -52,6 +63,7 @@ export async function POST(request: Request) {
   const address = { ...input, email: identity?.email ?? input.email };
 
   let pending: Awaited<ReturnType<typeof createPendingOrder>> | null = null;
+  let providerRequestStarted = false;
   try {
     pending = await createPendingOrder({
       userId: identity?.id,
@@ -67,6 +79,7 @@ export async function POST(request: Request) {
       return unavailable('Razorpay test credentials are not configured');
     }
 
+    providerRequestStarted = true;
     const razorpayResponse = await providerFetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
@@ -95,7 +108,7 @@ export async function POST(request: Request) {
       pending.order.totalPaise,
     );
     if (!razorpayOrderId) {
-      await cancelPendingCheckout(pending);
+      await reviewPendingCheckout(pending);
       return unavailable('Razorpay returned a mismatched payment order');
     }
 
@@ -124,8 +137,12 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     if (error instanceof CheckoutConflict) return badRequest(error.message);
-    if (pending)
-      await cancelPendingCheckout(pending).catch(() => undefined);
+    if (pending) {
+      const settle = providerRequestStarted
+        ? reviewPendingCheckout
+        : cancelPendingCheckout;
+      await settle(pending).catch(() => undefined);
+    }
     logServerError('checkout_create_failed', error);
     return unavailable('Checkout is temporarily unavailable');
   }
