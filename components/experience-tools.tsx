@@ -13,7 +13,7 @@ import {
   Sun,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/components/cart-provider';
 
 type SearchSuggestion = {
@@ -40,6 +40,8 @@ export function StoreHeader({
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLElement>(null);
   const [dark, setDark] = useState(
     () =>
       typeof window !== 'undefined' &&
@@ -102,6 +104,21 @@ export function StoreHeader({
       controller.abort();
     };
   }, [query, searchOpen]);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const firstControl = mobileMenuRef.current?.querySelector<HTMLElement>(
+      'a, button',
+    );
+    firstControl?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setMobileOpen(false);
+      menuButtonRef.current?.focus();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen]);
   const selectSuggestion = (index: number) => {
     const suggestion = suggestions[index];
     if (!suggestion) return;
@@ -212,6 +229,8 @@ export function StoreHeader({
               type="button"
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileOpen}
+              aria-controls="mobile-navigation"
+              ref={menuButtonRef}
               onClick={() => setMobileOpen((open) => !open)}
               className="icon-button md:hidden"
             >
@@ -297,7 +316,12 @@ export function StoreHeader({
           </search>
         )}
         {mobileOpen && (
-          <nav className="mobile-nav md:hidden" aria-label="Mobile navigation">
+          <nav
+            id="mobile-navigation"
+            ref={mobileMenuRef}
+            className="mobile-nav md:hidden"
+            aria-label="Mobile navigation"
+          >
             <Link href="/shop" onClick={closeMenu}>
               Shop
             </Link>

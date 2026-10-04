@@ -231,6 +231,11 @@ test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
     await expect(
       page.getByRole('navigation', { name: 'Mobile navigation' }),
     ).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(
+      page.getByRole('navigation', { name: 'Mobile navigation' }),
+    ).toBeHidden();
+    await expect(menuButton).toBeFocused();
   }
 });
 
