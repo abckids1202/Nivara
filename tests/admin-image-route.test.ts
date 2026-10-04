@@ -8,6 +8,7 @@ const {
   createAudit,
   createCleanup,
   transaction,
+  lockProduct,
   providerFetch,
   deleteStorageObject,
   getIdentity,
@@ -21,6 +22,7 @@ const {
   createAudit: vi.fn(),
   createCleanup: vi.fn(),
   transaction: vi.fn(),
+  lockProduct: vi.fn(),
   providerFetch: vi.fn(),
   deleteStorageObject: vi.fn(),
   getIdentity: vi.fn(),
@@ -66,6 +68,7 @@ afterEach(() => {
   createAudit.mockReset();
   createCleanup.mockReset();
   transaction.mockReset();
+  lockProduct.mockReset();
   providerFetch.mockReset();
   deleteStorageObject.mockReset();
   getIdentity.mockReset();
@@ -122,6 +125,7 @@ describe('admin product image lifecycle', () => {
     providerFetch.mockResolvedValue(new Response(null, { status: 201 }));
     transaction.mockImplementation(async (callback) =>
       callback({
+        $queryRaw: lockProduct,
         productImage: { create: createImage, findFirst: findImage },
         auditLog: { create: createAudit },
       }),
@@ -160,6 +164,7 @@ describe('admin product image lifecycle', () => {
     expect(createImage).toHaveBeenCalledWith({
       data: expect.objectContaining({ sortOrder: 5 }),
     });
+    expect(lockProduct).toHaveBeenCalled();
     expect(body.error).toBe('Image metadata or audit record could not be saved');
     expect(deleteStorageObject).toHaveBeenCalledWith(
       expect.stringMatching(/^lamp\//),

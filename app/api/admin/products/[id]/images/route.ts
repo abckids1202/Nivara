@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
   forbidden,
@@ -82,6 +83,12 @@ export async function POST(
     let image;
     try {
       image = await prisma.$transaction(async (transaction) => {
+        await transaction.$queryRaw(Prisma.sql`
+          SELECT "id"
+          FROM "Product"
+          WHERE "id" = ${product.id}
+          FOR UPDATE
+        `);
         const lastImage = await transaction.productImage.findFirst({
           where: { productId: product.id },
           orderBy: [{ sortOrder: 'desc' }, { id: 'desc' }],
