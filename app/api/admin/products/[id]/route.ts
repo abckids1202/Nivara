@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
   conflict,
@@ -55,6 +56,11 @@ export async function PATCH(
     });
     return noStore({ data: product });
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+      return conflict('That product slug is already in use');
     logServerError('product_update_failed', error);
     return unavailable('Product could not be updated');
   }

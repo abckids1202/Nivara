@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const {
   productFindMany,
@@ -198,5 +199,28 @@ describe('admin product creation', () => {
         entityId: 'product-2',
       },
     });
+  });
+
+  it('returns a conflict when a new product reuses an existing slug', async () => {
+    configureAdmin();
+    transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate slug', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const response = await POST(
+      new Request('https://nivara.example/api/admin/products', {
+        method: 'POST',
+        body: JSON.stringify(validPayload),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('That product slug is already in use');
+    expect(logServerError).not.toHaveBeenCalled();
   });
 });

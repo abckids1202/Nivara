@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const {
   update,
@@ -47,6 +48,35 @@ afterEach(() => {
 });
 
 describe('admin product mutation resilience', () => {
+  it('returns a conflict when an update reuses an existing slug', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+    });
+    isAdministrator.mockResolvedValue(true);
+    transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate slug', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const response = await PATCH(
+      new Request('https://nivara.example/api/admin/products/product-1', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ slug: 'existing-slug' }),
+      }),
+      { params: Promise.resolve({ id: 'product-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('That product slug is already in use');
+    expect(logServerError).not.toHaveBeenCalled();
+  });
+
   it('blocks publishing a product without a variant', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({

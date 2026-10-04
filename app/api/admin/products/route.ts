@@ -1,5 +1,7 @@
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
+  conflict,
   forbidden,
   noStore,
   unauthorized,
@@ -106,6 +108,11 @@ export async function POST(request: Request) {
     });
     return noStore({ data: product }, 201);
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+      return conflict('That product slug is already in use');
     logServerError('product_create_failed', error);
     return unavailable('Product could not be created');
   }
