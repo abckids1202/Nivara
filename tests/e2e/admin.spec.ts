@@ -85,6 +85,21 @@ test('authorized admin dashboard renders operational sections', async ({
           },
         }),
       });
+    if (
+      url.pathname === '/api/admin/inventory' &&
+      route.request().method() === 'POST'
+    )
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: 'adjustment-1',
+            quantityDelta: 3,
+            reason: 'Admin catalogue adjustment',
+          },
+        }),
+      });
     if (url.pathname === '/api/admin/orders' && route.request().method() === 'PATCH')
       return route.fulfill({
         status: 200,
@@ -215,6 +230,10 @@ test('authorized admin dashboard renders operational sections', async ({
     .fill('Arc organizer on a desk');
   await page.getByRole('button', { name: 'Upload image' }).click();
   await expect(page.getByText('Product image uploaded.')).toBeVisible();
+
+  await page.getByLabel('Stock adjustment for Single').fill('3');
+  await page.getByRole('button', { name: 'Adjust' }).click();
+  await expect(page.getByText('Stock adjustment saved and audited.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Set draft' }).click();
   await expect(
