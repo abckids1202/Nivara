@@ -61,6 +61,15 @@ test('authorized admin dashboard renders operational sections', async ({
         }),
       });
     }
+    if (
+      url.pathname === '/api/admin/products/product-1' &&
+      ['PATCH', 'DELETE'].includes(route.request().method())
+    )
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'product-1' } }),
+      });
     if (url.pathname === '/api/admin/orders' && route.request().method() === 'PATCH')
       return route.fulfill({
         status: 200,
@@ -171,6 +180,13 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Orders that need attention.')).toBeVisible();
   await expect(page.getByText('NV-ADMIN-1')).toBeVisible();
   await expect(page.getByText('Review queue.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Set draft' }).click();
+  await expect(
+    page.getByText('Arc desk organizer is now draft.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Archive' }).click();
+  await expect(page.getByText('Arc desk organizer was archived.')).toBeVisible();
 
   await page
     .getByLabel('Fulfilment status for NV-ADMIN-1')
