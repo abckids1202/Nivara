@@ -30,6 +30,7 @@ export default function CheckoutPage() {
   const [orderNumber, setOrderNumber] = useState('');
   const [guestAccessToken, setGuestAccessToken] = useState('');
   const [paymentPending, setPaymentPending] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState('');
   const purchaseTracked = useRef(false);
   const subtotal = items.reduce(
     (sum, item) => sum + item.variant.pricePaise * item.quantity,
@@ -50,6 +51,16 @@ export default function CheckoutPage() {
       const response = await fetch(endpoint, { cache: 'no-store' }).catch(
         () => null,
       );
+      if (!response?.ok) {
+        if (!cancelled)
+          setVerificationNotice(
+            'We could not refresh payment status. We will keep trying.',
+          );
+        attempts += 1;
+        if (!cancelled && attempts < 10)
+          timer = window.setTimeout(() => void checkPayment(), 3000);
+        return;
+      }
       const payload = (await response?.json().catch(() => ({}))) as {
         paymentStatus?: string;
         data?: { paymentStatus?: string };
@@ -57,12 +68,21 @@ export default function CheckoutPage() {
       const paymentStatus = payload.paymentStatus ?? payload.data?.paymentStatus;
       if (!cancelled && paymentStatus === 'PAID') {
         purchaseTracked.current = true;
+        setVerificationNotice('');
         trackEvent('Purchase');
         return;
       }
+      if (!cancelled)
+        setVerificationNotice(
+          'Payment is still being verified by the payment provider.',
+        );
       attempts += 1;
       if (!cancelled && attempts < 10)
         timer = window.setTimeout(() => void checkPayment(), 3000);
+      else if (!cancelled)
+        setVerificationNotice(
+          'Verification is taking longer than expected. Open order status to check again later.',
+        );
     };
     void checkPayment();
     return () => {
@@ -237,6 +257,14 @@ export default function CheckoutPage() {
               >
                 {error}
               </p>
+            )}
+            {verificationNotice && (
+              <output
+                aria-live="polite"
+                className="mt-4 block rounded-xl bg-[#e7eee5] px-4 py-3 text-left text-sm text-[#536259]"
+              >
+                {verificationNotice}
+              </output>
             )}
             {guestAccessToken && (
               <Link
