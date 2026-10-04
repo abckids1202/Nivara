@@ -14,7 +14,7 @@ import {
 import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
-import { isSellable } from '@/lib/inventory';
+import { selectDefaultVariant } from '@/lib/catalogue-display';
 
 type CatalogueProduct = {
   id: string;
@@ -193,9 +193,7 @@ export default function ShopPage() {
     [category, categoryOptions],
   );
   const add = async (product: CatalogueProduct) => {
-    const variant = product.variants.find(
-      (item) => isSellable(item.stockOnHand, item.stockReserved),
-    );
+    const variant = selectDefaultVariant(product.variants);
     if (!variant) return;
     try {
       await addItem(variant.id);

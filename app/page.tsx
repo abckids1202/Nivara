@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { formatInr } from '@/lib/format';
 import { MagneticLink, StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
-import { isSellable } from '@/lib/inventory';
+import { selectDefaultVariant } from '@/lib/catalogue-display';
 
 type FeaturedProduct = {
   id: string;
@@ -39,11 +39,7 @@ function ProductCard({
   wishlisted: boolean;
   onToggleWishlist: () => void;
 }) {
-  const variant =
-    product.variants.find(
-      (item) => isSellable(item.stockOnHand, item.stockReserved),
-    ) ??
-    product.variants[0];
+  const variant = selectDefaultVariant(product.variants);
   return (
     <article className="group reveal">
       <div className="product-image relative overflow-hidden rounded-[1.5rem] bg-[#e8e0d4]">
@@ -191,9 +187,7 @@ export default function Home() {
   }, []);
 
   const addToBag = async (product: FeaturedProduct) => {
-    const variant = product.variants.find(
-      (item) => isSellable(item.stockOnHand, item.stockReserved),
-    );
+    const variant = selectDefaultVariant(product.variants);
     if (!variant) return;
     try {
       await addItem(variant.id);
