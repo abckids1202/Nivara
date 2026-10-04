@@ -232,6 +232,19 @@ export default function AdminPage() {
     useState<CataloguePreview | null>(null);
   const [catalogueBusy, setCatalogueBusy] = useState(false);
 
+  async function adminRequest(
+    input: string,
+    init: RequestInit,
+    failureMessage: string,
+  ) {
+    try {
+      return await fetch(input, init);
+    } catch {
+      setNotice(failureMessage);
+      return null;
+    }
+  }
+
   async function loadProducts(search = query, page = productPage) {
     setLoading(true);
     try {
@@ -330,14 +343,16 @@ export default function AdminPage() {
 
   async function createCategory(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch(
+    const response = await adminRequest(
       editingCategoryId ? `/api/admin/categories/${editingCategoryId}` : '/api/admin/categories',
       {
       method: editingCategoryId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(categoryForm),
       },
+      'Category update could not reach the server. Try again.',
     );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -356,7 +371,12 @@ export default function AdminPage() {
 
   async function deleteCategory(category: AdminCategory) {
     if (!window.confirm(`Delete ${category.name}? Categories with products cannot be deleted.`)) return;
-    const response = await fetch(`/api/admin/categories/${category.id}`, { method: 'DELETE' });
+    const response = await adminRequest(
+      `/api/admin/categories/${category.id}`,
+      { method: 'DELETE' },
+      'Category deletion could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     setNotice(response.ok ? 'Category deleted.' : (payload.error ?? 'Category could not be deleted.'));
     if (response.ok) await loadCategories();
@@ -521,11 +541,16 @@ export default function AdminPage() {
 
   async function updateStatus(product: AdminProduct) {
     const status = product.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
-    const response = await fetch(`/api/admin/products/${product.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
+    const response = await adminRequest(
+      `/api/admin/products/${product.id}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      },
+      'Product status could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -542,9 +567,12 @@ export default function AdminPage() {
       !window.confirm(`Archive ${product.name}? It will leave the storefront.`)
     )
       return;
-    const response = await fetch(`/api/admin/products/${product.id}`, {
-      method: 'DELETE',
-    });
+    const response = await adminRequest(
+      `/api/admin/products/${product.id}`,
+      { method: 'DELETE' },
+      'Product archive could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -562,15 +590,20 @@ export default function AdminPage() {
       setNotice('Enter a non-zero whole-number stock adjustment.');
       return;
     }
-    const response = await fetch('/api/admin/inventory', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        variantId,
-        quantityDelta,
-        reason: 'Admin catalogue adjustment',
-      }),
-    });
+    const response = await adminRequest(
+      '/api/admin/inventory',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variantId,
+          quantityDelta,
+          reason: 'Admin catalogue adjustment',
+        }),
+      },
+      'Stock adjustment could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -641,7 +674,7 @@ export default function AdminPage() {
           dimensions: productForm.dimensions || undefined,
           care: productForm.care || undefined,
         };
-    const response = await fetch(
+    const response = await adminRequest(
       editingProductId
         ? `/api/admin/products/${editingProductId}`
         : '/api/admin/products',
@@ -650,7 +683,9 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       },
+      'Product save could not reach the server. Try again.',
     );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -670,7 +705,7 @@ export default function AdminPage() {
   async function saveVariant(productId: string, variantId: string) {
     const form = variantForms[variantId];
     if (!form) return;
-    const response = await fetch(
+    const response = await adminRequest(
       `/api/admin/products/${productId}/variants/${variantId}`,
       {
         method: 'PATCH',
@@ -684,7 +719,9 @@ export default function AdminPage() {
             : null,
         }),
       },
+      'Variant update could not reach the server. Try again.',
     );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -697,16 +734,21 @@ export default function AdminPage() {
   }
 
   async function createVariant(productId: string) {
-    const response = await fetch(`/api/admin/products/${productId}/variants`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: 'Standard',
-        sku: `NIV-${Date.now()}`,
-        priceRupees: 0,
-        stockOnHand: 0,
-      }),
-    });
+    const response = await adminRequest(
+      `/api/admin/products/${productId}/variants`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Standard',
+          sku: `NIV-${Date.now()}`,
+          priceRupees: 0,
+          stockOnHand: 0,
+        }),
+      },
+      'Variant creation could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -727,10 +769,12 @@ export default function AdminPage() {
     const form = new FormData();
     form.set('file', file);
     form.set('altText', imageAlt[productId] ?? '');
-    const response = await fetch(`/api/admin/products/${productId}/images`, {
-      method: 'POST',
-      body: form,
-    });
+    const response = await adminRequest(
+      `/api/admin/products/${productId}/images`,
+      { method: 'POST', body: form },
+      'Image upload could not reach the server. Try again.',
+    );
+    if (!response) return;
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
@@ -746,10 +790,12 @@ export default function AdminPage() {
   }
 
   async function deleteImage(productId: string, imageId: string) {
-    const response = await fetch(
+    const response = await adminRequest(
       `/api/admin/products/${productId}/images?imageId=${encodeURIComponent(imageId)}`,
       { method: 'DELETE' },
+      'Image removal could not reach the server. Try again.',
     );
+    if (!response) return;
     setNotice(
       response.ok ? 'Product image removed.' : 'Image could not be removed.',
     );
