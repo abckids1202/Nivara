@@ -47,7 +47,20 @@ describe('order detail route resilience', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(findFirst).toHaveBeenCalledWith({
       where: { orderNumber: 'NIV-1001', userId: 'user-1' },
-      include: { items: true, shipment: true },
+      select: expect.objectContaining({
+        orderNumber: true,
+        totalPaise: true,
+        items: {
+          select: expect.objectContaining({
+            id: true,
+            productName: true,
+            sku: true,
+          }),
+        },
+        shipment: {
+          select: { courierName: true, trackingReference: true },
+        },
+      }),
     });
   });
 });

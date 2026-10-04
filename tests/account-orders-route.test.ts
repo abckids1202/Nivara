@@ -50,6 +50,18 @@ describe('account orders route resilience', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: 'user-1' },
+        select: expect.objectContaining({
+          id: true,
+          orderNumber: true,
+          items: {
+            select: expect.objectContaining({
+              id: true,
+              productName: true,
+              variant: { select: { productId: true } },
+            }),
+          },
+          shipment: { select: { courierName: true, trackingReference: true } },
+        }),
         skip: 10,
         take: 10,
         orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
