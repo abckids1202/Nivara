@@ -97,6 +97,31 @@ describe('review submission route', () => {
     expect(createReview).not.toHaveBeenCalled();
   });
 
+  it('returns a safe response when review eligibility cannot be checked', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({ id: 'user-1', email: 'shopper@nivara.in' });
+    consumeRateLimit.mockResolvedValue(true);
+    findFirstOrderItem.mockRejectedValue(new Error('private review database details'));
+
+    const response = await POST(
+      new Request('https://nivara.example/api/reviews', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Review submission is temporarily unavailable');
+    expect(JSON.stringify(body)).not.toContain('private');
+    expect(logServerError).toHaveBeenCalledWith(
+      'review_eligibility_lookup_failed',
+      expect.any(Error),
+    );
+    expect(createReview).not.toHaveBeenCalled();
+  });
+
   it('returns a safe response when review rate-limit storage fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({ id: 'user-1', email: 'shopper@nivara.in' });

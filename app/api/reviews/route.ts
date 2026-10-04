@@ -69,17 +69,23 @@ export async function POST(request: Request) {
   if (!parsed.success)
     return badRequest('Review details are invalid', parsed.error.flatten());
 
-  const item = await prisma.orderItem.findFirst({
-    where: {
-      id: parsed.data.orderItemId,
-      variant: { productId: parsed.data.productId },
-      order: {
-        userId: identity.id,
-        paymentStatus: 'PAID',
-        fulfilmentStatus: 'DELIVERED',
+  let item;
+  try {
+    item = await prisma.orderItem.findFirst({
+      where: {
+        id: parsed.data.orderItemId,
+        variant: { productId: parsed.data.productId },
+        order: {
+          userId: identity.id,
+          paymentStatus: 'PAID',
+          fulfilmentStatus: 'DELIVERED',
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    logServerError('review_eligibility_lookup_failed', error);
+    return unavailable('Review submission is temporarily unavailable');
+  }
   if (!item)
     return forbidden(
       'A delivered paid order is required to review this product',
