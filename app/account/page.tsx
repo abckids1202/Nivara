@@ -874,23 +874,29 @@ function ReviewForm({ item }: { item: OrderItem }) {
   async function submit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
-    const response = await fetch('/api/reviews', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        productId: item.variant.productId,
-        orderItemId: item.id,
-        rating,
-        body,
-        displayName,
-      }),
-    });
-    const result = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    if (response.ok) setSubmitted(true);
-    else setMessage(result.error ?? 'Review could not be submitted.');
-    setBusy(false);
+    setMessage('');
+    try {
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: item.variant.productId,
+          orderItemId: item.id,
+          rating,
+          body,
+          displayName,
+        }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (response.ok) setSubmitted(true);
+      else setMessage(result.error ?? 'Review could not be submitted.');
+    } catch {
+      setMessage('We could not reach reviews. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
   }
   if (submitted)
     return (
@@ -948,7 +954,9 @@ function ReviewForm({ item }: { item: OrderItem }) {
           {busy ? 'Submitting…' : 'Submit review'}
         </button>
         {message && (
-          <output className="text-xs text-[#637268]">{message}</output>
+          <output aria-live="polite" className="text-xs text-[#637268]">
+            {message}
+          </output>
         )}
       </div>
     </form>
