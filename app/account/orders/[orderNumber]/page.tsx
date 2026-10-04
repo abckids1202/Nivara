@@ -50,6 +50,7 @@ export default function OrderDetailPage({
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
   const [notice, setNotice] = useState('');
+  const [statusNotice, setStatusNotice] = useState('');
   const paymentStatus = order?.paymentStatus;
   async function retryPayment() {
     setRetrying(true);
@@ -184,13 +185,27 @@ export default function OrderDetailPage({
         `/api/orders/${encodeURIComponent(orderNumber)}`,
         { cache: 'no-store' },
       ).catch(() => null);
-      const result = (await response?.json().catch(() => ({}))) as {
-        data?: OrderDetail;
-      };
-      if (active && response?.ok && result.data) setOrder(result.data);
+      if (!response?.ok) {
+        if (active)
+          setStatusNotice(
+            'We could not refresh payment status. We will keep trying.',
+          );
+      } else {
+        const result = (await response.json().catch(() => null)) as {
+          data?: OrderDetail;
+        } | null;
+        if (active && result?.data) {
+          setOrder(result.data);
+          setStatusNotice('');
+        }
+      }
       attempts += 1;
       if (active && attempts < 10)
         timer = window.setTimeout(() => void poll(), 3000);
+      else if (active)
+        setStatusNotice(
+          'Verification is taking longer than expected. Refresh this page later to check again.',
+        );
     };
     void poll();
     return () => {
@@ -309,6 +324,11 @@ export default function OrderDetailPage({
                         <span className="block text-[#718078]">Payment</span>
                         <strong>{label(order.paymentStatus)}</strong>
                       </div>
+                      {statusNotice && order.paymentStatus === 'PENDING' && (
+                        <output aria-live="polite" className="text-xs text-[#a6503d]">
+                          {statusNotice}
+                        </output>
+                      )}
                       {(order.paymentStatus === 'FAILED' ||
                         order.paymentStatus === 'CANCELLED') && (
                         <button
