@@ -27,6 +27,9 @@ test('admin dashboard exposes server authorization failures', async ({
 test('authorized admin dashboard renders operational sections', async ({
   page,
 }) => {
+  page.on('dialog', async (dialog) => {
+    await dialog.accept(dialog.defaultValue() || 'Approved after moderation');
+  });
   await page.route('**/api/admin/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/admin/products') {
@@ -58,17 +61,54 @@ test('authorized admin dashboard renders operational sections', async ({
         }),
       });
     }
+    if (url.pathname === '/api/admin/orders' && route.request().method() === 'PATCH')
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'order-1' } }),
+      });
     if (url.pathname === '/api/admin/orders')
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [], pagination }),
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'order-1',
+              orderNumber: 'NV-ADMIN-1',
+              guestEmail: 'customer@example.com',
+              paymentStatus: 'PAID',
+              fulfilmentStatus: 'PROCESSING',
+              totalPaise: 72800,
+              items: [{ productName: 'Arc desk organizer', quantity: 1 }],
+              shipment: null,
+            },
+          ],
+          pagination: { ...pagination, total: 1 },
+        }),
+      });
+    if (url.pathname === '/api/admin/reviews' && route.request().method() === 'PATCH')
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'review-1', status: 'APPROVED' } }),
       });
     if (url.pathname === '/api/admin/reviews')
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [], pagination }),
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'review-1',
+              displayName: 'Customer',
+              rating: 5,
+              body: 'This organizer feels excellent in my workspace.',
+              product: { name: 'Arc desk organizer' },
+            },
+          ],
+          pagination: { ...pagination, total: 1 },
+        }),
       });
     if (url.pathname === '/api/admin/categories')
       return route.fulfill({
@@ -103,7 +143,22 @@ test('authorized admin dashboard renders operational sections', async ({
 
   await expect(page.getByRole('heading', { name: 'Store control.' })).toBeVisible();
   await expect(page.getByText('Published products')).toBeVisible();
-  await expect(page.getByText('Arc desk organizer')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Arc desk organizer' }),
+  ).toBeVisible();
   await expect(page.getByText('Paid-order performance.')).toBeVisible();
   await expect(page.getByText('Orders that need attention.')).toBeVisible();
+  await expect(page.getByText('NV-ADMIN-1')).toBeVisible();
+  await expect(page.getByText('Review queue.')).toBeVisible();
+
+  await page
+    .getByLabel('Fulfilment status for NV-ADMIN-1')
+    .selectOption('SHIPPED');
+  await page.getByLabel('Courier').fill('Nivara Express');
+  await page.getByLabel('Tracking reference').fill('TRACK-123');
+  await page.getByRole('button', { name: 'Save status' }).click();
+  await expect(page.getByText('NV-ADMIN-1 updated.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Approve' }).click();
+  await expect(page.getByText('Review approved.')).toBeVisible();
 });
