@@ -1,4 +1,5 @@
 import { cancelPaymentReview, markPaymentPaid } from '@/lib/payment-state';
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
   forbidden,
@@ -6,7 +7,10 @@ import {
   unauthorized,
   unavailable,
 } from '@/lib/http';
-import { paymentReviewResolutionSchema } from '@/lib/schemas';
+import {
+  paymentReviewQuerySchema,
+  paymentReviewResolutionSchema,
+} from '@/lib/schemas';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
 import { logServerError } from '@/lib/safe-logging';
@@ -121,18 +125,42 @@ export async function GET(request: Request): Promise<Response> {
     return unavailable('Order database is not configured');
   const access = await requireAdmin(request);
   if ('response' in access && access.response) return access.response;
+  const parsedQuery = paymentReviewQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams.entries()),
+  );
+  if (!parsedQuery.success)
+    return badRequest(
+      'Payment review query is invalid',
+      parsedQuery.error.flatten(),
+    );
   try {
-    const orders = await prisma.order.findMany({
-      where: { paymentStatus: { in: ['PAYMENT_REVIEW', 'PAID_REVIEW'] } },
-      include: {
-        payments: { orderBy: { createdAt: 'desc' }, take: 1 },
-        items: true,
-        paymentReviewResolution: true,
+    const { page, pageSize } = parsedQuery.data;
+    const where: Prisma.OrderWhereInput = {
+      paymentStatus: { in: ['PAYMENT_REVIEW', 'PAID_REVIEW'] },
+    };
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          payments: { orderBy: { createdAt: 'desc' }, take: 1 },
+          items: true,
+          paymentReviewResolution: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.order.count({ where }),
+    ]);
+    return noStore({
+      data: orders,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
       },
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
     });
-    return noStore({ data: orders });
   } catch (error) {
     logServerError('admin_payment_review_read_failed', error);
     return unavailable('Payment review is temporarily unavailable');

@@ -135,6 +135,12 @@ type PaymentReviewOrder = {
     refundReference: string | null;
   } | null;
 };
+type PaymentReviewPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
 
 function adminLoadError(
@@ -178,6 +184,14 @@ export default function AdminPage() {
   const [paymentReviews, setPaymentReviews] = useState<PaymentReviewOrder[]>(
     [],
   );
+  const [paymentReviewPage, setPaymentReviewPage] = useState(1);
+  const [paymentReviewPagination, setPaymentReviewPagination] =
+    useState<PaymentReviewPagination>({
+      page: 1,
+      pageSize: 24,
+      total: 0,
+      totalPages: 1,
+    });
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [query, setQuery] = useState('');
   const [orderQuery, setOrderQuery] = useState('');
@@ -342,12 +356,16 @@ export default function AdminPage() {
     else setReport(payload.data ?? null);
   }
 
-  async function loadPaymentReviews() {
-    const response = await fetch('/api/admin/orders/payment-review', {
+  async function loadPaymentReviews(page = paymentReviewPage) {
+    const response = await fetch(
+      `/api/admin/orders/payment-review?page=${page}&pageSize=24`,
+      {
       cache: 'no-store',
-    });
+      },
+    );
     const payload = (await response.json().catch(() => ({}))) as {
       data?: PaymentReviewOrder[];
+      pagination?: PaymentReviewPagination;
       error?: string;
     };
     const failure = adminLoadError(
@@ -356,7 +374,11 @@ export default function AdminPage() {
       'Payment-review orders could not be loaded',
     );
     if (failure) setError(failure);
-    else setPaymentReviews(payload.data ?? []);
+    else {
+      setPaymentReviews(payload.data ?? []);
+      if (payload.pagination)
+        setPaymentReviewPagination(payload.pagination);
+    }
   }
 
   async function previewCatalogue() {
@@ -1707,6 +1729,47 @@ export default function AdminPage() {
                         )}
                       </article>
                     ))
+                  )}
+                  {paymentReviewPagination.totalPages > 1 && (
+                    <nav
+                      aria-label="Payment review pages"
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e5ebe2] pt-4"
+                    >
+                      <p className="text-sm text-[#718078]">
+                        Showing page {paymentReviewPagination.page} of{' '}
+                        {paymentReviewPagination.totalPages} (
+                        {paymentReviewPagination.total} orders)
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={paymentReviewPage <= 1}
+                          onClick={() => {
+                            const nextPage = paymentReviewPage - 1;
+                            setPaymentReviewPage(nextPage);
+                            void loadPaymentReviews(nextPage);
+                          }}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          disabled={
+                            paymentReviewPage >=
+                            paymentReviewPagination.totalPages
+                          }
+                          onClick={() => {
+                            const nextPage = paymentReviewPage + 1;
+                            setPaymentReviewPage(nextPage);
+                            void loadPaymentReviews(nextPage);
+                          }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </nav>
                   )}
                 </div>
               </section>
