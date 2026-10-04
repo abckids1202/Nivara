@@ -67,7 +67,7 @@ export function ProductDetail({ slug }: { slug: string }) {
       signal: controller.signal,
     })
       .then(async (response) => {
-        const payload = (await response.json()) as {
+        const payload = (await response.json().catch(() => ({}))) as {
           data?: ProductRecord;
           error?: string;
         };
@@ -105,7 +105,7 @@ export function ProductDetail({ slug }: { slug: string }) {
       .then(async (response) => {
         if (response.status === 401) return [];
         if (!response.ok) throw new Error('Wishlist status could not be loaded');
-        const payload = (await response.json()) as {
+        const payload = (await response.json().catch(() => ({}))) as {
           data?: Array<{ productId: string }>;
         };
         return payload.data ?? [];

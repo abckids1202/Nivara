@@ -142,18 +142,18 @@ export default function AccountPage() {
       if (!ordersResponse.ok || !addressesResponse.ok || !wishlistResponse.ok)
         throw new Error('Some account details could not be loaded.');
 
-      const orderPayload = (await ordersResponse.json()) as {
+      const orderPayload = (await ordersResponse.json().catch(() => ({}))) as {
         data?: AccountOrder[];
         pagination?: OrderPagination;
       };
       setOrders(orderPayload.data ?? []);
       if (orderPayload.pagination) setOrderPagination(orderPayload.pagination);
       setAddresses(
-        ((await addressesResponse.json()) as { data?: AccountAddress[] })
+        ((await addressesResponse.json().catch(() => ({}))) as { data?: AccountAddress[] })
           .data ?? [],
       );
       setWishlist(
-        ((await wishlistResponse.json()) as { data?: WishlistItem[] }).data ??
+        ((await wishlistResponse.json().catch(() => ({}))) as { data?: WishlistItem[] }).data ??
           [],
       );
     } catch (reason: unknown) {
@@ -174,7 +174,7 @@ export default function AccountPage() {
         if (response.status === 401) return null;
         if (!response.ok)
           throw new Error('Account details could not be loaded.');
-        return (await response.json()) as {
+        return (await response.json().catch(() => ({}))) as {
           data?: { email?: string; displayName?: string | null };
         };
       })

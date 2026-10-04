@@ -170,7 +170,7 @@ export default function Home() {
       .then(async (response) => {
         if (response.status === 401) return [];
         if (!response.ok) throw new Error('Wishlist status could not be loaded');
-        const payload = (await response.json()) as {
+        const payload = (await response.json().catch(() => ({}))) as {
           data?: Array<{ productId: string }>;
         };
         return payload.data?.map((item) => item.productId) ?? [];
