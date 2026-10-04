@@ -8,9 +8,10 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nivara.example';
 async function getSeoProduct(slug: string) {
   if (!process.env.DATABASE_URL) return null;
   try {
-    return await prisma.product.findFirst({
+    const product = await prisma.product.findFirst({
       where: { slug, status: 'PUBLISHED' },
       select: {
+        id: true,
         name: true,
         slug: true,
         description: true,
@@ -18,9 +19,19 @@ async function getSeoProduct(slug: string) {
         variants: {
           select: { pricePaise: true, stockOnHand: true, stockReserved: true },
         },
-        reviews: { where: { status: 'APPROVED' }, select: { rating: true } },
       },
     });
+    if (!product) return null;
+    const ratingSummary = await prisma.review.aggregate({
+      where: { productId: product.id, status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+    return {
+      ...product,
+      rating: ratingSummary._avg.rating,
+      reviewCount: ratingSummary._count._all,
+    };
   } catch {
     return null;
   }
@@ -65,7 +76,6 @@ export default async function ProductPage({
   const { slug } = await params;
   const product = await getSeoProduct(slug);
   const prices = product?.variants.map((variant) => variant.pricePaise) ?? [];
-  const ratings = product?.reviews.map((review) => review.rating) ?? [];
   const structuredData = product
     ? {
         '@context': 'https://schema.org',
@@ -86,14 +96,12 @@ export default async function ProductPage({
             ? 'https://schema.org/InStock'
             : 'https://schema.org/OutOfStock',
         },
-        ...(ratings.length
+        ...(product.rating !== null && product.reviewCount > 0
           ? {
               aggregateRating: {
                 '@type': 'AggregateRating',
-                ratingValue:
-                  ratings.reduce((sum, rating) => sum + rating, 0) /
-                  ratings.length,
-                reviewCount: ratings.length,
+                ratingValue: product.rating,
+                reviewCount: product.reviewCount,
               },
             }
           : {}),

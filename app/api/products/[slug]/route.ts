@@ -32,6 +32,7 @@ export async function GET(
         reviews: {
           where: { status: 'APPROVED' },
           orderBy: { createdAt: 'desc' },
+          take: 3,
           select: {
             id: true,
             rating: true,
@@ -52,7 +53,11 @@ export async function GET(
 
     if (!product) return noStore({ error: 'Product not found' }, 404);
 
-    const ratings = product.reviews.map((review) => review.rating);
+    const ratingSummary = await prisma.review.aggregate({
+      where: { productId: product.id, status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
     return noStore({
       data: {
         ...product,
@@ -68,10 +73,8 @@ export async function GET(
         stockAvailable: product.variants.some((variant) =>
           isSellable(variant.stockOnHand, variant.stockReserved),
         ),
-        rating: ratings.length
-          ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
-          : null,
-        reviewCount: ratings.length,
+        rating: ratingSummary._avg.rating,
+        reviewCount: ratingSummary._count._all,
       },
     });
   } catch (error) {

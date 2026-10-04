@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { findFirst, logServerError } = vi.hoisted(() => ({
+const { findFirst, aggregate, logServerError } = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  aggregate: vi.fn(),
   logServerError: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { product: { findFirst } },
+  prisma: { product: { findFirst }, review: { aggregate } },
 }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
@@ -18,10 +19,67 @@ afterEach(() => {
   if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
   else process.env.DATABASE_URL = originalDatabaseUrl;
   findFirst.mockReset();
+  aggregate.mockReset();
   logServerError.mockReset();
 });
 
 describe('product route resilience', () => {
+  it('limits displayed reviews while returning the complete rating summary', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    findFirst.mockResolvedValue({
+      id: 'product-1',
+      name: 'Lamp',
+      variants: [
+        {
+          id: 'variant-1',
+          name: 'Standard',
+          sku: 'LAMP-1',
+          pricePaise: 10000,
+          compareAtPaise: null,
+          stockOnHand: 3,
+          stockReserved: 0,
+        },
+      ],
+      reviews: [
+        {
+          id: 'review-1',
+          rating: 5,
+          body: 'Lovely lamp',
+          displayName: 'Asha',
+          createdAt: new Date('2026-01-01'),
+          orderItem: {
+            order: { paymentStatus: 'PAID', fulfilmentStatus: 'DELIVERED' },
+          },
+        },
+      ],
+    });
+    aggregate.mockResolvedValue({ _avg: { rating: 4.25 }, _count: { _all: 24 } });
+
+    const response = await GET(
+      new Request('https://nivara.example/product/lamp'),
+      { params: Promise.resolve({ slug: 'lamp' }) },
+    );
+    const body = (await response.json()) as {
+      data: { rating: number; reviewCount: number; reviews: unknown[] };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ rating: 4.25, reviewCount: 24 });
+    expect(body.data.reviews).toHaveLength(1);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          reviews: expect.objectContaining({ take: 3 }),
+        }),
+      }),
+    );
+    expect(aggregate).toHaveBeenCalledWith({
+      where: { productId: 'product-1', status: 'APPROVED' },
+      _avg: { rating: true },
+      _count: { _all: true },
+    });
+  });
+
   it('marks a product-not-found response as non-cacheable', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     findFirst.mockResolvedValue(null);
