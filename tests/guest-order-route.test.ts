@@ -59,4 +59,63 @@ describe('guest order route resilience', () => {
       'secret-token',
     );
   });
+
+  it('projects guest order data without internal identifiers', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    consumeRateLimit.mockResolvedValue(true);
+    findFirst.mockResolvedValue({
+      id: 'internal-order-id',
+      orderNumber: 'NV-1001',
+      paymentStatus: 'PAID',
+      fulfilmentStatus: 'PROCESSING',
+      totalPaise: 79900,
+      guestAccessExpiry: new Date(Date.now() + 60_000),
+      items: [
+        {
+          id: 'item-1',
+          productName: 'Arc organizer',
+          variantName: 'Clay',
+          unitPricePaise: 79900,
+          quantity: 1,
+        },
+      ],
+      shipment: { courierName: null, trackingReference: null },
+    });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/guest-orders/secret-token'),
+      { params: Promise.resolve({ token: 'secret-token' }) },
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ orderNumber: 'NV-1001', totalPaise: 79900 });
+    expect(body).not.toHaveProperty('id');
+    expect(body.items).toEqual([
+      {
+        id: 'item-1',
+        productName: 'Arc organizer',
+        variantName: 'Clay',
+        unitPricePaise: 79900,
+        quantity: 1,
+      },
+    ]);
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { guestAccessHash: expect.any(String) },
+      include: {
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            variantName: true,
+            unitPricePaise: true,
+            quantity: true,
+          },
+        },
+        shipment: {
+          select: { courierName: true, trackingReference: true },
+        },
+      },
+    });
+  });
 });

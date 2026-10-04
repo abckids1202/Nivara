@@ -27,7 +27,20 @@ export async function GET(
     const fingerprint = requestFingerprint(request);
     const order = await prisma.order.findFirst({
       where: { guestAccessHash: tokenHash },
-      include: { items: true, shipment: true },
+      include: {
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            variantName: true,
+            unitPricePaise: true,
+            quantity: true,
+          },
+        },
+        shipment: {
+          select: { courierName: true, trackingReference: true },
+        },
+      },
     });
     const valid = Boolean(
       order && order.guestAccessExpiry && order.guestAccessExpiry > new Date(),
