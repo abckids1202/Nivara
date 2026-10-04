@@ -33,6 +33,19 @@ test('authorized admin dashboard renders operational sections', async ({
   await page.route('**/api/admin/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/admin/products') {
+      if (route.request().method() === 'POST')
+        return route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              id: 'product-2',
+              name: 'Linen catchall tray',
+              slug: 'linen-catchall-tray',
+              status: 'DRAFT',
+            },
+          }),
+        });
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -181,7 +194,16 @@ test('authorized admin dashboard renders operational sections', async ({
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [] }),
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'category-1',
+              name: 'Desk',
+              slug: 'desk',
+              _count: { products: 1 },
+            },
+          ],
+        }),
       });
     if (url.pathname === '/api/admin/reports')
       return route.fulfill({
@@ -244,6 +266,18 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Orders that need attention.')).toBeVisible();
   await expect(page.getByText('NV-ADMIN-1')).toBeVisible();
   await expect(page.getByText('Review queue.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'New product' }).click();
+  await page.getByLabel('Product name').fill('Linen catchall tray');
+  await page.getByLabel('Product slug').fill('linen-catchall-tray');
+  await page.getByLabel('Product category').selectOption('category-1');
+  await page
+    .getByLabel('Product description')
+    .fill('A considered tray for everyday objects and small rituals.');
+  await page.getByRole('button', { name: 'Save product' }).click();
+  await expect(
+    page.getByText('Product created. Add a variant before publishing.'),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'New category' }).click();
   await page.getByLabel('Category name').fill('Living room');
