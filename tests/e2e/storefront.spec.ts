@@ -447,6 +447,16 @@ test('account dashboard exposes recovery when an account request fails', async (
   await expect(page.getByText('Loading your account details…')).toHaveCount(0);
 });
 
+test('account entry reports a profile-service failure', async ({ page }) => {
+  await page.route('**/api/account/profile', (route) => route.abort());
+  await page.goto('/account');
+  await expect(
+    page.getByText('Account details could not be loaded. Please try again.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
 test('offline connection state is announced accessibly', async ({ page }) => {
   await page.goto('/');
   await expect(

@@ -167,13 +167,14 @@ export default function AccountPage() {
 
   useEffect(() => {
     fetch('/api/account/profile', { cache: 'no-store' })
-      .then(async (response) =>
-        response.ok
-          ? ((await response.json()) as {
-              data?: { email?: string; displayName?: string | null };
-            })
-          : null,
-      )
+      .then(async (response) => {
+        if (response.status === 401) return null;
+        if (!response.ok)
+          throw new Error('Account details could not be loaded.');
+        return (await response.json()) as {
+          data?: { email?: string; displayName?: string | null };
+        };
+      })
       .then((result) => {
         if (result?.data?.email) {
           setEmail(result.data.email);
@@ -182,7 +183,13 @@ export default function AccountPage() {
           void loadDashboard();
         }
       })
-      .catch(() => undefined);
+      .catch((reason: unknown) => {
+        setMessage(
+          reason instanceof Error && !(reason instanceof TypeError)
+            ? reason.message
+            : 'Account details could not be loaded. Please try again.',
+        );
+      });
   }, [refreshCart]);
 
   useEffect(() => {
