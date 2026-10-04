@@ -2138,7 +2138,7 @@ export default function AdminPage() {
         {notice && (
           <output
             aria-live="polite"
-            className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[#314338] px-5 py-3 text-sm font-semibold text-white shadow-xl"
+            className="pointer-events-none fixed bottom-5 left-1/2 z-40 -translate-x-1/2 rounded-full bg-[#314338] px-5 py-3 text-sm font-semibold text-white shadow-xl"
           >
             {notice}
           </output>

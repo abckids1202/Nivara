@@ -70,6 +70,21 @@ test('authorized admin dashboard renders operational sections', async ({
         contentType: 'application/json',
         body: JSON.stringify({ data: { id: 'product-1' } }),
       });
+    if (
+      url.pathname === '/api/admin/products/product-1/images' &&
+      route.request().method() === 'POST'
+    )
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: 'image-1',
+            url: '/uploaded-image.webp',
+            altText: 'Arc organizer on a desk',
+          },
+        }),
+      });
     if (url.pathname === '/api/admin/orders' && route.request().method() === 'PATCH')
       return route.fulfill({
         status: 200,
@@ -169,7 +184,13 @@ test('authorized admin dashboard renders operational sections', async ({
     return route.continue();
   });
 
+  const productsResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/admin/products' &&
+      response.ok(),
+  );
   await page.goto('/admin');
+  await productsResponse;
 
   await expect(page.getByRole('heading', { name: 'Store control.' })).toBeVisible();
   await expect(page.getByText('Published products')).toBeVisible();
@@ -180,6 +201,20 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Orders that need attention.')).toBeVisible();
   await expect(page.getByText('NV-ADMIN-1')).toBeVisible();
   await expect(page.getByText('Review queue.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'View variants' }).click();
+  await page
+    .getByLabel('Image file for Arc desk organizer')
+    .setInputFiles({
+      name: 'arc-organizer.webp',
+      mimeType: 'image/webp',
+      buffer: Buffer.from('test image bytes'),
+    });
+  await page
+    .getByLabel('Image alt text for Arc desk organizer')
+    .fill('Arc organizer on a desk');
+  await page.getByRole('button', { name: 'Upload image' }).click();
+  await expect(page.getByText('Product image uploaded.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Set draft' }).click();
   await expect(
