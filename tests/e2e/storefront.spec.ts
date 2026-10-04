@@ -460,6 +460,93 @@ test('checkout keeps a payment failure visible after hosted checkout closes', as
   ).toBeVisible();
 });
 
+test('checkout hands a created order to hosted payment and keeps it pending', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.Razorpay = class {
+      constructor(private readonly options: { handler?: () => void }) {}
+
+      on() {}
+
+      open() {
+        this.options.handler?.();
+      }
+    } as never;
+  });
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'cart-item-1',
+            quantity: 1,
+            variantId: 'variant-1',
+            variant: {
+              name: 'Single',
+              sku: 'NIV-1',
+              pricePaise: 64900,
+              stockOnHand: 5,
+              stockReserved: 0,
+              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+            },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/api/checkout', (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-TEST-3',
+        razorpayOrderId: 'order_test_3',
+        keyId: 'fixture-payment-key',
+        amountPaise: 72800,
+        currency: 'INR',
+        guestAccessToken: 'guest-test-token-3',
+      }),
+    }),
+  );
+  await page.route('**/api/guest-orders/guest-test-token-3', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-TEST-3',
+        paymentStatus: 'PENDING',
+        fulfilmentStatus: 'PROCESSING',
+        totalPaise: 72800,
+        items: [],
+        shipment: null,
+      }),
+    }),
+  );
+
+  await page.goto('/checkout');
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByLabel('Full name').fill('Test customer');
+  await page.getByLabel('Address').fill('1 Test Street');
+  await page.getByLabel('City').fill('Delhi');
+  await page.getByLabel('State').fill('Delhi');
+  await page.getByLabel('PIN code').fill('110001');
+  await page.getByRole('button', { name: /Continue to Razorpay/ }).click();
+
+  await expect(
+    page.getByRole('heading', { name: 'Payment is being verified.' }),
+  ).toBeVisible();
+  await expect(page.getByText('Order NV-TEST-3')).toBeVisible();
+  await expect(
+    page.getByText(/not considered paid by the browser/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'View guest order status' }),
+  ).toBeVisible();
+});
+
 test('checkout preserves an order when hosted checkout cannot load', async ({
   page,
 }) => {
