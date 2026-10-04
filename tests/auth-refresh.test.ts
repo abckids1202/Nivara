@@ -68,6 +68,28 @@ describe('session refresh endpoint', () => {
     expect(cookies).toContain('SameSite=lax');
   });
 
+  it('decodes an encoded refresh cookie before calling Supabase', async () => {
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({
+      ok: true,
+      data: { access_token: 'new-access-token' },
+    });
+
+    const response = await POST(
+      new Request('https://nivara.example/api/auth/refresh', {
+        headers: {
+          cookie: 'nivara-refresh-token=%22refresh%2Btoken%22',
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(supabaseAuthRequest).toHaveBeenCalledWith(
+      'token?grant_type=refresh_token',
+      { refresh_token: 'refresh+token' },
+    );
+  });
+
   it('clears local cookies when the provider definitively rejects refresh', async () => {
     consumeRateLimit.mockResolvedValue(true);
     supabaseAuthRequest.mockResolvedValue({ ok: false, data: {} });

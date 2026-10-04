@@ -4,11 +4,24 @@ import { authResponse, clearAuthCookies } from '@/lib/auth-response';
 import { logServerError } from '@/lib/safe-logging';
 
 function readRefreshToken(request: Request) {
-  const value = request.headers
-    .get('cookie')
-    ?.split(';')
-    .find((part) => part.trim().startsWith('nivara-refresh-token='));
-  return value?.slice(value.indexOf('=') + 1).trim() ?? '';
+  const cookieHeader = request.headers.get('cookie');
+  if (!cookieHeader) return '';
+  for (const part of cookieHeader.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator < 0 || part.slice(0, separator).trim() !== 'nivara-refresh-token')
+      continue;
+    const rawValue = part.slice(separator + 1).trim();
+    let decodedValue = rawValue;
+    try {
+      decodedValue = decodeURIComponent(rawValue);
+    } catch {
+      // Preserve malformed cookie text and let the provider reject it.
+    }
+    return decodedValue.startsWith('"') && decodedValue.endsWith('"')
+      ? decodedValue.slice(1, -1)
+      : decodedValue;
+  }
+  return '';
 }
 
 export async function POST(request: Request): Promise<Response> {
