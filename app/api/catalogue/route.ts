@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { badRequest, noStore, unavailable } from '@/lib/http';
 import { isSellable } from '@/lib/inventory';
+import { selectDefaultVariant } from '@/lib/catalogue-display';
 import { catalogueQuerySchema } from '@/lib/schemas';
 import { logServerError } from '@/lib/safe-logging';
 
@@ -130,7 +131,7 @@ function candidateQuery({
 }
 
 function serializeCatalogueProduct(product: CatalogueProduct) {
-  const prices = product.variants.map((variant) => variant.pricePaise);
+  const displayVariant = selectDefaultVariant(product.variants);
   const ratings = product.reviews.map((review) => review.rating);
   return {
     id: product.id,
@@ -140,7 +141,7 @@ function serializeCatalogueProduct(product: CatalogueProduct) {
     category: product.category,
     image: product.images[0] ?? null,
     variants: product.variants,
-    minPricePaise: prices.length ? Math.min(...prices) : null,
+    minPricePaise: displayVariant?.pricePaise ?? null,
     stockAvailable: product.variants.some((variant) =>
       isSellable(variant.stockOnHand, variant.stockReserved),
     ),

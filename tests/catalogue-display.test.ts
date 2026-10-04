@@ -32,4 +32,13 @@ describe('catalogue display variant selection', () => {
   it('returns undefined for a product with no variants', () => {
     expect(selectDefaultVariant([])).toBeUndefined();
   });
+
+  it('prefers a purchasable price when a cheaper variant is sold out', () => {
+    expect(
+      selectDefaultVariant([
+        variant('sold', 30000, 2, 2),
+        variant('available', 70000, 1),
+      ])?.pricePaise,
+    ).toBe(70000);
+  });
 });
