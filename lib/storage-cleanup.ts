@@ -20,7 +20,22 @@ export function storagePathForImage(
   if (!config) return null;
   const marker = `/storage/v1/object/public/${config.bucket}/`;
   if (!url.startsWith(`${config.url}${marker}`)) return null;
-  return decodeURIComponent(url.slice(`${config.url}${marker}`.length));
+  try {
+    const path = decodeURIComponent(url.slice(`${config.url}${marker}`.length));
+    const segments = path.split('/');
+    if (
+      !path ||
+      path.startsWith('/') ||
+      path.includes('\\') ||
+      segments.some((segment) => segment === '.' || segment === '..') ||
+      Array.from(path).some((character) => character.charCodeAt(0) < 0x20)
+    ) {
+      return null;
+    }
+    return path;
+  } catch {
+    return null;
+  }
 }
 
 export async function deleteStorageObject(

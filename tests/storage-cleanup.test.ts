@@ -15,7 +15,10 @@ vi.mock('@/lib/prisma', () => ({
 }));
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
 
-import { processStorageCleanupTasks } from '@/lib/storage-cleanup';
+import {
+  processStorageCleanupTasks,
+  storagePathForImage,
+} from '@/lib/storage-cleanup';
 
 const originalEnvironment = { ...process.env };
 
@@ -108,5 +111,43 @@ describe('storage cleanup worker', () => {
     });
     expect(providerFetch).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('storage image path parsing', () => {
+  const config = {
+    url: 'https://nivara.supabase.co',
+    key: 'server-key',
+    bucket: 'product-images',
+  };
+
+  it('accepts only URLs belonging to the configured public bucket', () => {
+    expect(
+      storagePathForImage(
+        'https://nivara.supabase.co/storage/v1/object/public/product-images/lamp/image%20one.webp',
+        config,
+      ),
+    ).toBe('lamp/image one.webp');
+    expect(
+      storagePathForImage(
+        'https://other.example/storage/v1/object/public/product-images/lamp.webp',
+        config,
+      ),
+    ).toBeNull();
+  });
+
+  it('rejects malformed or traversal-like object paths', () => {
+    expect(
+      storagePathForImage(
+        'https://nivara.supabase.co/storage/v1/object/public/product-images/%2E%2E/secret.webp',
+        config,
+      ),
+    ).toBeNull();
+    expect(
+      storagePathForImage(
+        'https://nivara.supabase.co/storage/v1/object/public/product-images/%E0%A4%A',
+        config,
+      ),
+    ).toBeNull();
   });
 });
