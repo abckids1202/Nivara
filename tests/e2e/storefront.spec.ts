@@ -761,6 +761,96 @@ test('account entry reports a profile-service failure', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('delivered orders expose review submission and moderation feedback', async ({
+  page,
+}) => {
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/cart/merge', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ merged: false }),
+    }),
+  );
+  await page.route('**/api/account/profile', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { email: 'customer@example.com', displayName: 'Customer' },
+      }),
+    }),
+  );
+  await page.route('**/api/account/orders**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'order-1',
+            orderNumber: 'NV-DELIVERED-1',
+            totalPaise: 72800,
+            paymentStatus: 'PAID',
+            fulfilmentStatus: 'DELIVERED',
+            createdAt: '2026-09-01T00:00:00.000Z',
+            items: [
+              {
+                id: 'order-item-1',
+                productName: 'Arc desk organizer',
+                variantName: 'Single',
+                unitPricePaise: 64900,
+                quantity: 1,
+                variant: { productId: 'product-1' },
+              },
+            ],
+            shipment: null,
+          },
+        ],
+        pagination: { page: 1, pageSize: 10, total: 1, totalPages: 1 },
+      }),
+    }),
+  );
+  await page.route('**/api/account/addresses', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/reviews', (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { id: 'review-1', status: 'PENDING' } }),
+    }),
+  );
+
+  await page.goto('/account');
+  await expect(page.getByText('Review Arc desk organizer')).toBeVisible();
+  await page.getByLabel('Review display name').fill('Customer');
+  await page
+    .getByLabel('Review text')
+    .fill('This organizer feels excellent in my workspace.');
+  await page.getByRole('button', { name: 'Submit review' }).click();
+  await expect(
+    page.getByText('Review submitted for moderation.', { exact: false }),
+  ).toBeVisible();
+});
+
 test('offline connection state is announced accessibly', async ({ page }) => {
   await page.goto('/');
   await expect(
