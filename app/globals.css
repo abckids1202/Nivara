@@ -284,6 +284,9 @@ textarea:focus-visible {
 .search-suggestion:hover {
   background: #e7eee5;
 }
+.search-suggestion[aria-selected='true'] {
+  background: #e7eee5;
+}
 .search-suggestion span {
   display: grid;
   gap: 0.2rem;

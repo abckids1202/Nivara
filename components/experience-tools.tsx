@@ -40,6 +40,8 @@ export function StoreHeader({
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLElement>(null);
   const [dark, setDark] = useState(
@@ -105,6 +107,9 @@ export function StoreHeader({
     };
   }, [query, searchOpen]);
   useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+  useEffect(() => {
     if (!mobileOpen) return;
     const firstControl = mobileMenuRef.current?.querySelector<HTMLElement>(
       'a, button',
@@ -129,6 +134,7 @@ export function StoreHeader({
       event.preventDefault();
       setSearchOpen(false);
       setActiveSuggestion(-1);
+      searchButtonRef.current?.focus();
       return;
     }
     if (!suggestions.length) return;
@@ -193,6 +199,8 @@ export function StoreHeader({
               type="button"
               aria-label="Search the collection"
               aria-expanded={searchOpen}
+              aria-controls="header-product-search-panel"
+              ref={searchButtonRef}
               onClick={() => setSearchOpen((open) => !open)}
               className="icon-button"
             >
@@ -239,7 +247,7 @@ export function StoreHeader({
           </div>
         </div>
         {searchOpen && (
-          <search className="search-panel">
+          <search id="header-product-search-panel" className="search-panel">
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -267,6 +275,7 @@ export function StoreHeader({
                       : undefined
                   }
                   aria-busy={suggestionsLoading}
+                  ref={searchInputRef}
                   placeholder="Search products, rooms, materials"
                   onKeyDown={handleSearchKeyDown}
                   className="h-12 w-full rounded-full border border-[#d8cec1] bg-[#fffaf3] px-11 text-sm outline-none focus:ring-2 focus:ring-[#c6674f]"

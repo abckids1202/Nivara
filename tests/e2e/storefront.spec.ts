@@ -156,7 +156,15 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   await expect(
     page.getByPlaceholder('Search products, rooms, materials'),
   ).toBeVisible();
+  await expect(
+    page.getByPlaceholder('Search products, rooms, materials'),
+  ).toBeFocused();
   await expect(page.getByRole('search')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('search')).toBeHidden();
+  await expect(
+    page.getByRole('button', { name: 'Search the collection' }),
+  ).toBeFocused();
 });
 
 test('header search suggestions support keyboard selection', async ({ page }) => {
