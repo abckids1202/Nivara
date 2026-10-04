@@ -2,7 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Heart, Minus, Plus, Star } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Minus,
+  Plus,
+  Star,
+} from 'lucide-react';
 import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
@@ -43,6 +52,7 @@ export function ProductDetail({ slug }: { slug: string }) {
   const { addItem } = useCart();
   const [product, setProduct] = useState<ProductRecord | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
@@ -67,6 +77,7 @@ export function ProductDetail({ slug }: { slug: string }) {
         if (!data) throw new Error('Product not found');
         setProduct(data);
         setSelectedVariantId(data.variants[0]?.id ?? '');
+        setSelectedImageIndex(0);
         trackEvent('ProductView', { slug });
       })
       .catch((reason: unknown) => {
@@ -156,7 +167,10 @@ export function ProductDetail({ slug }: { slug: string }) {
     ? sellableStock(variant.stockOnHand, variant.stockReserved)
     : 0;
   const soldOut = !variant || availableQuantity <= 0;
-  const image = product.images[0];
+  const image = product.images[selectedImageIndex] ?? product.images[0];
+  const selectImage = (index: number) => {
+    setSelectedImageIndex(Math.max(0, Math.min(index, product.images.length - 1)));
+  };
 
   const addToBag = async () => {
     if (!variant) return;
@@ -217,12 +231,61 @@ export function ProductDetail({ slug }: { slug: string }) {
             <ArrowLeft size={15} /> Back to shop
           </Link>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-            <div className="product-detail-image overflow-hidden rounded-[2rem] bg-[#d4ded0]">
-              <img
-                src={image?.url ?? '/nivara-editorial.png'}
-                alt={image?.altText ?? product.name}
-                className="h-full w-full object-cover"
-              />
+            <div className="grid gap-3">
+              <div className="product-detail-image relative overflow-hidden rounded-[2rem] bg-[#d4ded0]">
+                <img
+                  src={image?.url ?? '/nivara-editorial.png'}
+                  alt={image?.altText ?? product.name}
+                  className="h-full w-full object-cover"
+                />
+                {product.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous product image"
+                      onClick={() => selectImage(selectedImageIndex - 1)}
+                      disabled={selectedImageIndex === 0}
+                      className="absolute left-4 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-[#fffaf3]/90 text-[#314338] shadow-sm transition hover:bg-white disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Next product image"
+                      onClick={() => selectImage(selectedImageIndex + 1)}
+                      disabled={selectedImageIndex === product.images.length - 1}
+                      className="absolute right-4 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-[#fffaf3]/90 text-[#314338] shadow-sm transition hover:bg-white disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+                  </>
+                )}
+              </div>
+              {product.images.length > 1 && (
+                <div
+                  className="grid grid-cols-4 gap-2 sm:grid-cols-6"
+                  aria-label="Product image gallery"
+                >
+                  {product.images.map((galleryImage, index) => (
+                    <button
+                      type="button"
+                      key={galleryImage.id}
+                      aria-label={`View product image ${index + 1}: ${galleryImage.altText}`}
+                      aria-pressed={selectedImageIndex === index}
+                      onClick={() => selectImage(index)}
+                      className="overflow-hidden rounded-xl border-2 border-transparent bg-[#d4ded0] transition hover:border-[#a6503d] aria-pressed:border-[#314338]"
+                    >
+                      <img
+                        src={galleryImage.url}
+                        alt=""
+                        aria-hidden="true"
+                        className="aspect-square h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="lg:pt-4">
               <p className="eyebrow">{product.category.name}</p>

@@ -115,7 +115,18 @@ test('product page reflects an existing wishlist item', async ({ page }) => {
           dimensions: '32 × 12 × 8 cm',
           care: 'Wipe clean with a soft cloth.',
           category: { name: 'Desk & study' },
-          images: [],
+          images: [
+            {
+              id: 'image-1',
+              url: '/nivara-editorial.png',
+              altText: 'Front angle',
+            },
+            {
+              id: 'image-2',
+              url: '/nivara-editorial.png?side-angle',
+              altText: 'Side angle',
+            },
+          ],
           variants: [
             {
               id: 'variant-1',
@@ -142,6 +153,16 @@ test('product page reflects an existing wishlist item', async ({ page }) => {
   );
 
   await page.goto('/product/arc-desk-organizer');
+  const secondImage = page.getByRole('button', {
+    name: 'View product image 2: Side angle',
+  });
+  await expect(secondImage).toBeVisible();
+  await secondImage.click();
+  await expect(secondImage).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.product-detail-image img')).toHaveAttribute(
+    'alt',
+    'Side angle',
+  );
   await expect(
     page.getByRole('button', { name: 'Remove from wishlist' }),
   ).toBeVisible({ timeout: 10_000 });
