@@ -266,54 +266,66 @@ export default function AdminPage() {
   }
 
   async function loadOrders(search = orderQuery, page = orderPage) {
-    const params = new URLSearchParams({ page: String(page), pageSize: '24' });
-    if (search.trim()) params.set('q', search.trim());
-    const response = await fetch(
-      `/api/admin/orders?${params}`,
-      { cache: 'no-store' },
-    );
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: AdminOrder[];
-      pagination?: OrderPagination;
-      error?: string;
-    };
-    const failure = adminLoadError(response, payload, 'Orders could not be loaded');
-    if (failure) setError(failure);
-    else {
-      setOrders(payload.data ?? []);
-      if (payload.pagination) setOrderPagination(payload.pagination);
+    try {
+      const params = new URLSearchParams({ page: String(page), pageSize: '24' });
+      if (search.trim()) params.set('q', search.trim());
+      const response = await fetch(
+        `/api/admin/orders?${params}`,
+        { cache: 'no-store' },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: AdminOrder[];
+        pagination?: OrderPagination;
+        error?: string;
+      };
+      const failure = adminLoadError(response, payload, 'Orders could not be loaded');
+      if (failure) setError(failure);
+      else {
+        setOrders(payload.data ?? []);
+        if (payload.pagination) setOrderPagination(payload.pagination);
+      }
+    } catch {
+      setError('Orders could not be loaded. Check your connection and try again.');
     }
   }
 
   async function loadReviews(page = reviewPage) {
-    const response = await fetch(
-      `/api/admin/reviews?page=${page}&pageSize=24`,
-      { cache: 'no-store' },
-    );
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: AdminReview[];
-      pagination?: ReviewPagination;
-      error?: string;
-    };
-    const failure = adminLoadError(response, payload, 'Reviews could not be loaded');
-    if (failure) setError(failure);
-    else {
-      setReviews(payload.data ?? []);
-      if (payload.pagination) setReviewPagination(payload.pagination);
+    try {
+      const response = await fetch(
+        `/api/admin/reviews?page=${page}&pageSize=24`,
+        { cache: 'no-store' },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: AdminReview[];
+        pagination?: ReviewPagination;
+        error?: string;
+      };
+      const failure = adminLoadError(response, payload, 'Reviews could not be loaded');
+      if (failure) setError(failure);
+      else {
+        setReviews(payload.data ?? []);
+        if (payload.pagination) setReviewPagination(payload.pagination);
+      }
+    } catch {
+      setError('Reviews could not be loaded. Check your connection and try again.');
     }
   }
 
   async function loadCategories() {
-    const response = await fetch('/api/admin/categories', {
-      cache: 'no-store',
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: AdminCategory[];
-      error?: string;
-    };
-    const failure = adminLoadError(response, payload, 'Categories could not be loaded');
-    if (failure) setError(failure);
-    else setCategories(payload.data ?? []);
+    try {
+      const response = await fetch('/api/admin/categories', {
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: AdminCategory[];
+        error?: string;
+      };
+      const failure = adminLoadError(response, payload, 'Categories could not be loaded');
+      if (failure) setError(failure);
+      else setCategories(payload.data ?? []);
+    } catch {
+      setError('Categories could not be loaded. Check your connection and try again.');
+    }
   }
 
   async function createCategory(event: SyntheticEvent<HTMLFormElement>) {
@@ -351,38 +363,48 @@ export default function AdminPage() {
   }
 
   async function loadReport() {
-    const response = await fetch('/api/admin/reports', { cache: 'no-store' });
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: AdminReport;
-      error?: string;
-    };
-    const failure = adminLoadError(response, payload, 'Reports could not be loaded');
-    if (failure) setError(failure);
-    else setReport(payload.data ?? null);
+    try {
+      const response = await fetch('/api/admin/reports', { cache: 'no-store' });
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: AdminReport;
+        error?: string;
+      };
+      const failure = adminLoadError(response, payload, 'Reports could not be loaded');
+      if (failure) setError(failure);
+      else setReport(payload.data ?? null);
+    } catch {
+      setError('Reports could not be loaded. Check your connection and try again.');
+    }
   }
 
   async function loadPaymentReviews(page = paymentReviewPage) {
-    const response = await fetch(
-      `/api/admin/orders/payment-review?page=${page}&pageSize=24`,
-      {
-      cache: 'no-store',
-      },
-    );
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: PaymentReviewOrder[];
-      pagination?: PaymentReviewPagination;
-      error?: string;
-    };
-    const failure = adminLoadError(
-      response,
-      payload,
-      'Payment-review orders could not be loaded',
-    );
-    if (failure) setError(failure);
-    else {
-      setPaymentReviews(payload.data ?? []);
-      if (payload.pagination)
-        setPaymentReviewPagination(payload.pagination);
+    try {
+      const response = await fetch(
+        `/api/admin/orders/payment-review?page=${page}&pageSize=24`,
+        {
+          cache: 'no-store',
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: PaymentReviewOrder[];
+        pagination?: PaymentReviewPagination;
+        error?: string;
+      };
+      const failure = adminLoadError(
+        response,
+        payload,
+        'Payment-review orders could not be loaded',
+      );
+      if (failure) setError(failure);
+      else {
+        setPaymentReviews(payload.data ?? []);
+        if (payload.pagination)
+          setPaymentReviewPagination(payload.pagination);
+      }
+    } catch {
+      setError(
+        'Payment-review orders could not be loaded. Check your connection and try again.',
+      );
     }
   }
 
