@@ -35,6 +35,8 @@ export function StoreHeader({
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState(false);
   const [dark, setDark] = useState(
     () =>
       typeof window !== 'undefined' &&
@@ -57,21 +59,36 @@ export function StoreHeader({
 
   useEffect(() => {
     if (!searchOpen || !query.trim()) {
-      const resetTimer = window.setTimeout(() => setSuggestions([]), 0);
+      const resetTimer = window.setTimeout(() => {
+        setSuggestions([]);
+        setSuggestionsLoading(false);
+        setSuggestionsError(false);
+      }, 0);
       return () => window.clearTimeout(resetTimer);
     }
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
+      setSuggestionsLoading(true);
+      setSuggestionsError(false);
       void fetch(`/api/catalogue?q=${encodeURIComponent(query.trim())}&pageSize=4`, {
         signal: controller.signal,
         cache: 'no-store',
       })
-        .then((response) => (response.ok ? response.json() : null))
+        .then((response) => {
+          if (!response.ok) throw new Error('Search suggestions unavailable');
+          return response.json();
+        })
         .then((payload: { data?: SearchSuggestion[] } | null) =>
           setSuggestions(payload?.data ?? []),
         )
         .catch(() => {
-          if (!controller.signal.aborted) setSuggestions([]);
+          if (!controller.signal.aborted) {
+            setSuggestions([]);
+            setSuggestionsError(true);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSuggestionsLoading(false);
         });
     }, 180);
     return () => {
@@ -190,11 +207,22 @@ export function StoreHeader({
                   role="combobox"
                   aria-autocomplete="list"
                   aria-controls="header-search-suggestions"
-                  aria-expanded={suggestions.length > 0}
+                  aria-expanded={suggestionsLoading || suggestions.length > 0}
+                  aria-busy={suggestionsLoading}
                   placeholder="Search products, rooms, materials"
                   className="h-12 w-full rounded-full border border-[#d8cec1] bg-[#fffaf3] px-11 text-sm outline-none focus:ring-2 focus:ring-[#c6674f]"
                 />
               </label>
+              {suggestionsLoading && (
+                <output className="mt-2 block px-4 text-xs text-[#718078]">
+                  Loading suggestions…
+                </output>
+              )}
+              {suggestionsError && !suggestionsLoading && (
+                <output className="mt-2 block px-4 text-xs text-[#a44f3d]">
+                  Suggestions are temporarily unavailable. Press Enter to search.
+                </output>
+              )}
               {suggestions.length > 0 && (
                 <nav
                   id="header-search-suggestions"
