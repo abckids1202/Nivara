@@ -102,14 +102,22 @@ export default function ShopPage() {
   useEffect(() => {
     fetch('/api/wishlist', { cache: 'no-store' })
       .then(async (response) => {
-        if (!response.ok) return [];
+        if (response.status === 401) return [];
+        if (!response.ok) throw new Error('Wishlist status could not be loaded');
         const payload = (await response.json()) as {
           data?: Array<{ productId: string }>;
         };
         return payload.data?.map((item) => item.productId) ?? [];
       })
       .then((ids) => setWishlistIds(new Set(ids)))
-      .catch(() => undefined);
+      .catch((reason: unknown) => {
+        setNotice(
+          reason instanceof Error
+            ? reason.message
+            : 'Wishlist status could not be loaded',
+        );
+        window.setTimeout(() => setNotice(''), 2400);
+      });
   }, []);
   useEffect(() => {
     const params = new URLSearchParams();

@@ -91,7 +91,7 @@ export function ProductDetail({ slug }: { slug: string }) {
     })
       .then(async (response) => {
         if (response.status === 401) return [];
-        if (!response.ok) return [];
+        if (!response.ok) throw new Error('Wishlist status could not be loaded');
         const payload = (await response.json()) as {
           data?: Array<{ productId: string }>;
         };
@@ -103,7 +103,11 @@ export function ProductDetail({ slug }: { slug: string }) {
       .catch((reason: unknown) => {
         if (reason instanceof DOMException && reason.name === 'AbortError')
           return;
-        setWishlisted(false);
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : 'Wishlist status could not be loaded',
+        );
       });
     return () => controller.abort();
   }, [product?.id]);
