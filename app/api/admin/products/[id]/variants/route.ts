@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
+  conflict,
   forbidden,
   noStore,
   unauthorized,
@@ -90,6 +92,11 @@ export async function POST(
     });
     return noStore({ data: variant }, 201);
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+      return conflict('That SKU is already in use');
     logServerError('admin_variant_create_failed', error);
     return unavailable('Variant could not be created');
   }

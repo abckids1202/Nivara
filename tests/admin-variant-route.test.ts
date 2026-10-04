@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
 
 const {
   findFirst,
@@ -52,6 +53,75 @@ afterEach(() => {
 });
 
 describe('admin variant route resilience', () => {
+  it('returns a conflict when creating a duplicate SKU', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({ id: 'admin-1', email: 'admin@example.com' });
+    isAdministrator.mockResolvedValue(true);
+    transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate sku', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const response = await POST(
+      new Request(
+        'https://nivara.example/api/admin/products/product-1/variants',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Large',
+            sku: 'ARC-1',
+            priceRupees: 799,
+            stockOnHand: 8,
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'product-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('That SKU is already in use');
+    expect(logServerError).not.toHaveBeenCalled();
+  });
+
+  it('returns a conflict when editing a variant to a duplicate SKU', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({ id: 'admin-1', email: 'admin@example.com' });
+    isAdministrator.mockResolvedValue(true);
+    findFirst.mockResolvedValue({
+      id: 'variant-1',
+      productId: 'product-1',
+      pricePaise: 64900,
+      compareAtPaise: null,
+    });
+    transaction.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate sku', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const response = await PATCH(
+      new Request(
+        'https://nivara.example/api/admin/products/product-1/variants/variant-1',
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sku: 'ARC-1' }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'product-1', variantId: 'variant-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('That SKU is already in use');
+    expect(logServerError).not.toHaveBeenCalled();
+  });
+
   it('returns a safe response when the variant cannot be loaded', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({

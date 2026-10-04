@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import {
   badRequest,
+  conflict,
   forbidden,
   noStore,
   unauthorized,
@@ -91,6 +93,11 @@ export async function PATCH(
     });
     return noStore({ data: variant });
   } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    )
+      return conflict('That SKU is already in use');
     logServerError('admin_variant_update_failed', error);
     return unavailable('Variant update is temporarily unavailable');
   }
