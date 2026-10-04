@@ -1,5 +1,7 @@
 'use client';
 
+/* oxlint-disable jsx-a11y/no-noninteractive-element-to-interactive-role, jsx-a11y/prefer-tag-over-role */
+
 import Link from 'next/link';
 import {
   ArrowUp,
@@ -37,6 +39,7 @@ export function StoreHeader({
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [dark, setDark] = useState(
     () =>
       typeof window !== 'undefined' &&
@@ -63,6 +66,7 @@ export function StoreHeader({
         setSuggestions([]);
         setSuggestionsLoading(false);
         setSuggestionsError(false);
+        setActiveSuggestion(-1);
       }, 0);
       return () => window.clearTimeout(resetTimer);
     }
@@ -70,6 +74,7 @@ export function StoreHeader({
     const timer = window.setTimeout(() => {
       setSuggestionsLoading(true);
       setSuggestionsError(false);
+      setActiveSuggestion(-1);
       void fetch(`/api/catalogue?q=${encodeURIComponent(query.trim())}&pageSize=4`, {
         signal: controller.signal,
         cache: 'no-store',
@@ -84,6 +89,7 @@ export function StoreHeader({
         .catch(() => {
           if (!controller.signal.aborted) {
             setSuggestions([]);
+            setActiveSuggestion(-1);
             setSuggestionsError(true);
           }
         })
@@ -96,6 +102,34 @@ export function StoreHeader({
       controller.abort();
     };
   }, [query, searchOpen]);
+  const selectSuggestion = (index: number) => {
+    const suggestion = suggestions[index];
+    if (!suggestion) return;
+    window.location.href = `/product/${suggestion.slug}`;
+  };
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setSearchOpen(false);
+      setActiveSuggestion(-1);
+      return;
+    }
+    if (!suggestions.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveSuggestion((current) =>
+        current < suggestions.length - 1 ? current + 1 : 0,
+      );
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveSuggestion((current) =>
+        current > 0 ? current - 1 : suggestions.length - 1,
+      );
+    } else if (event.key === 'Enter' && activeSuggestion >= 0) {
+      event.preventDefault();
+      selectSuggestion(activeSuggestion);
+    }
+  };
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
@@ -207,9 +241,15 @@ export function StoreHeader({
                   role="combobox"
                   aria-autocomplete="list"
                   aria-controls="header-search-suggestions"
-                  aria-expanded={suggestionsLoading || suggestions.length > 0}
+                  aria-expanded={suggestions.length > 0}
+                  aria-activedescendant={
+                    activeSuggestion >= 0
+                      ? `header-search-option-${activeSuggestion}`
+                      : undefined
+                  }
                   aria-busy={suggestionsLoading}
                   placeholder="Search products, rooms, materials"
+                  onKeyDown={handleSearchKeyDown}
                   className="h-12 w-full rounded-full border border-[#d8cec1] bg-[#fffaf3] px-11 text-sm outline-none focus:ring-2 focus:ring-[#c6674f]"
                 />
               </label>
@@ -226,15 +266,20 @@ export function StoreHeader({
               {suggestions.length > 0 && (
                 <nav
                   id="header-search-suggestions"
+                  role="listbox"
                   aria-label="Product suggestions"
                   className="search-suggestions"
                 >
                   <ul>
-                    {suggestions.map((product) => (
+                    {suggestions.map((product, index) => (
                       <li key={product.id}>
                         <Link
                           href={`/product/${product.slug}`}
                           onClick={() => setSearchOpen(false)}
+                          id={`header-search-option-${index}`}
+                          role="option"
+                          aria-selected={activeSuggestion === index}
+                          onMouseEnter={() => setActiveSuggestion(index)}
                           className="search-suggestion"
                         >
                           <span>

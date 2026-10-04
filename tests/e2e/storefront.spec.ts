@@ -159,6 +159,45 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   await expect(page.getByRole('search')).toBeVisible();
 });
 
+test('header search suggestions support keyboard selection', async ({ page }) => {
+  await page.route('**/api/catalogue?q=desk**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'product-1',
+            name: 'Arc desk organizer',
+            slug: 'arc-desk-organizer',
+            category: { name: 'Desk & study' },
+          },
+          {
+            id: 'product-2',
+            name: 'Linen desk mat',
+            slug: 'linen-desk-mat',
+            category: { name: 'Desk & study' },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Search the collection' }).click();
+  const search = page.getByPlaceholder('Search products, rooms, materials');
+  await search.fill('desk');
+  await expect(
+    page.getByRole('option', { name: /Arc desk organizer/ }),
+  ).toBeVisible();
+  await search.press('ArrowDown');
+  await expect(search).toHaveAttribute(
+    'aria-activedescendant',
+    'header-search-option-0',
+  );
+  await search.press('Enter');
+  await expect(page).toHaveURL(/\/product\/arc-desk-organizer$/);
+});
+
 test('support form recovers from a network failure', async ({ page }) => {
   await page.route('**/api/support', (route) => route.abort());
   await page.goto('/support');
