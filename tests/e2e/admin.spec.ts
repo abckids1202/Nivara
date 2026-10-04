@@ -335,7 +335,13 @@ test('authorized admin dashboard renders operational sections', async ({
     page.getByText('Move or archive the category products before deleting this category'),
   ).toBeVisible();
 
-  await page.getByRole('button', { name: 'View variants' }).click();
+  await page.getByRole('button', { name: 'Edit product' }).click();
+  await page
+    .getByLabel('Product description')
+    .fill('Updated product copy for the considered desk collection.');
+  await page.getByRole('button', { name: 'Save product' }).click();
+  await expect(page.getByText('Product updated.')).toBeVisible();
+
   await page.getByRole('button', { name: 'Add variant' }).click();
   await expect(page.getByText('Variant created. Update its price and SKU.')).toBeVisible();
   await page.getByLabel('SKU for Single').fill('ARC-UPDATED');
