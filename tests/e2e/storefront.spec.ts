@@ -781,6 +781,82 @@ test('account entry reports a profile-service failure', async ({ page }) => {
   ).toBeVisible();
 });
 
+test('account sign-in merges the guest cart before showing the dashboard', async ({
+  page,
+}) => {
+  let profileRequests = 0;
+  let mergeRequests = 0;
+  await page.route('**/api/account/profile', (route) => {
+    profileRequests += 1;
+    if (profileRequests === 1)
+      return route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Sign in required.' }),
+      });
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { email: 'customer@example.com' } }),
+    });
+  });
+  await page.route('**/api/auth/login', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { userId: 'user-1' } }),
+    }),
+  );
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/cart/merge', (route) => {
+    mergeRequests += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ merged: true }),
+    });
+  });
+  await page.route('**/api/account/orders**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [],
+        pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 },
+      }),
+    }),
+  );
+  await page.route('**/api/account/addresses', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+
+  await page.goto('/account');
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByLabel('Password').fill('Password!123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByText('You’re signed in.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect.poll(() => mergeRequests).toBe(1);
+});
+
 test('delivered orders expose review submission and moderation feedback', async ({
   page,
 }) => {
