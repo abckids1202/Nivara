@@ -118,10 +118,11 @@ describe('admin product image lifecycle', () => {
       slug: 'lamp',
       name: 'Lamp',
     });
+    findImage.mockResolvedValue({ sortOrder: 4 });
     providerFetch.mockResolvedValue(new Response(null, { status: 201 }));
     transaction.mockImplementation(async (callback) =>
       callback({
-        productImage: { create: createImage },
+        productImage: { create: createImage, findFirst: findImage },
         auditLog: { create: createAudit },
       }),
     );
@@ -156,6 +157,9 @@ describe('admin product image lifecycle', () => {
         }),
       }),
     );
+    expect(createImage).toHaveBeenCalledWith({
+      data: expect.objectContaining({ sortOrder: 5 }),
+    });
     expect(body.error).toBe('Image metadata or audit record could not be saved');
     expect(deleteStorageObject).toHaveBeenCalledWith(
       expect.stringMatching(/^lamp\//),

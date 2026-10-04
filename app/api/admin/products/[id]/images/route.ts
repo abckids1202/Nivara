@@ -82,11 +82,17 @@ export async function POST(
     let image;
     try {
       image = await prisma.$transaction(async (transaction) => {
+        const lastImage = await transaction.productImage.findFirst({
+          where: { productId: product.id },
+          orderBy: [{ sortOrder: 'desc' }, { id: 'desc' }],
+          select: { sortOrder: true },
+        });
         const createdImage = await transaction.productImage.create({
           data: {
             productId: product.id,
             url: `${config.url}/storage/v1/object/public/${config.bucket}/${path}`,
             altText: altText || product.name,
+            sortOrder: (lastImage?.sortOrder ?? -1) + 1,
           },
         });
         await transaction.auditLog.create({
