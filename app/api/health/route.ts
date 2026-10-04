@@ -67,6 +67,7 @@ export async function GET() {
   let database = 'not_configured';
   let schemaConfigured = false;
   let inventoryConstraintConfigured = false;
+  let catalogueQueryIndexConfigured = false;
   if (process.env.DATABASE_URL) {
     try {
       const rows = await prisma.$queryRaw<
@@ -97,6 +98,7 @@ export async function GET() {
           emailDeliveryTable: string | null;
           cleanupTable: string | null;
           inventoryConstraint: boolean;
+          catalogueQueryIndex: boolean;
         }>
       >`
         SELECT
@@ -130,16 +132,23 @@ export async function GET() {
             FROM pg_constraint
             WHERE conname = 'ProductVariant_stock_invariants'
               AND conrelid = 'public."ProductVariant"'::regclass
-          ) AS "inventoryConstraint"
+          ) AS "inventoryConstraint",
+          to_regclass(
+            'public."ProductVariant_productId_stockOnHand_stockReserved_pricePaise_idx"'
+          ) IS NOT NULL AS "catalogueQueryIndex"
       `;
       const schema = rows[0];
       schemaConfigured = Boolean(
         schema &&
           Object.entries(schema)
-            .filter(([key]) => key !== 'inventoryConstraint')
+            .filter(
+              ([key]) =>
+                key !== 'inventoryConstraint' && key !== 'catalogueQueryIndex',
+            )
             .every(([, value]) => Boolean(value)),
       );
       inventoryConstraintConfigured = schema?.inventoryConstraint === true;
+      catalogueQueryIndexConfigured = schema?.catalogueQueryIndex === true;
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {
       database = 'unreachable';
@@ -173,6 +182,7 @@ export async function GET() {
     database === 'connected' &&
     schemaConfigured &&
     inventoryConstraintConfigured &&
+    catalogueQueryIndexConfigured &&
     deploymentConfigured &&
     authConfigured &&
     paymentsConfigured &&
@@ -186,6 +196,7 @@ export async function GET() {
     database,
     schemaConfigured,
     inventoryConstraintConfigured,
+    catalogueQueryIndexConfigured,
     deploymentConfigured,
     paymentsConfigured,
     authConfigured,

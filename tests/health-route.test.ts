@@ -39,6 +39,7 @@ const completeSchema = {
   emailDeliveryTable: 'EmailDelivery',
   cleanupTable: 'StorageCleanupTask',
   inventoryConstraint: true,
+  catalogueQueryIndex: true,
 };
 
 function restoreEnvironment() {
@@ -141,6 +142,7 @@ describe('health readiness', () => {
     expect(body.database).toBe('connected');
     expect(body.schemaConfigured).toBe(true);
     expect(body.inventoryConstraintConfigured).toBe(true);
+    expect(body.catalogueQueryIndexConfigured).toBe(true);
     expect(body.deploymentConfigured).toBe(true);
     expect(body.paymentsConfigured).toBe(true);
     expect(body.authConfigured).toBe(true);
