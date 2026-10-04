@@ -38,6 +38,7 @@ const completeSchema = {
   auditTable: 'AuditLog',
   emailDeliveryTable: 'EmailDelivery',
   cleanupTable: 'StorageCleanupTask',
+  inventoryConstraint: true,
 };
 
 function restoreEnvironment() {
@@ -132,6 +133,7 @@ describe('health readiness', () => {
     expect(body.ready).toBe(true);
     expect(body.database).toBe('connected');
     expect(body.schemaConfigured).toBe(true);
+    expect(body.inventoryConstraintConfigured).toBe(true);
     expect(body.deploymentConfigured).toBe(true);
     expect(body.paymentsConfigured).toBe(true);
     expect(body.authConfigured).toBe(true);

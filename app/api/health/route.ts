@@ -63,6 +63,7 @@ async function isSupabaseAuthReachable() {
 export async function GET() {
   let database = 'not_configured';
   let schemaConfigured = false;
+  let inventoryConstraintConfigured = false;
   if (process.env.DATABASE_URL) {
     try {
       const rows = await prisma.$queryRaw<
@@ -92,6 +93,7 @@ export async function GET() {
           auditTable: string | null;
           emailDeliveryTable: string | null;
           cleanupTable: string | null;
+          inventoryConstraint: boolean;
         }>
       >`
         SELECT
@@ -119,12 +121,22 @@ export async function GET() {
           to_regclass('public."AccessRateLog"') AS "accessRateTable",
           to_regclass('public."AuditLog"') AS "auditTable",
           to_regclass('public."EmailDelivery"') AS "emailDeliveryTable",
-          to_regclass('public."StorageCleanupTask"') AS "cleanupTable"
+          to_regclass('public."StorageCleanupTask"') AS "cleanupTable",
+          EXISTS (
+            SELECT 1
+            FROM pg_constraint
+            WHERE conname = 'ProductVariant_stock_invariants'
+              AND conrelid = 'public."ProductVariant"'::regclass
+          ) AS "inventoryConstraint"
       `;
       const schema = rows[0];
       schemaConfigured = Boolean(
-      schema && Object.values(schema).every(Boolean),
+        schema &&
+          Object.entries(schema)
+            .filter(([key]) => key !== 'inventoryConstraint')
+            .every(([, value]) => Boolean(value)),
       );
+      inventoryConstraintConfigured = schema?.inventoryConstraint === true;
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {
       database = 'unreachable';
@@ -157,6 +169,7 @@ export async function GET() {
   const ready =
     database === 'connected' &&
     schemaConfigured &&
+    inventoryConstraintConfigured &&
     deploymentConfigured &&
     authConfigured &&
     paymentsConfigured &&
@@ -169,6 +182,7 @@ export async function GET() {
     status: ready ? 'ok' : 'degraded',
     database,
     schemaConfigured,
+    inventoryConstraintConfigured,
     deploymentConfigured,
     paymentsConfigured,
     authConfigured,
