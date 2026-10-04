@@ -180,14 +180,20 @@ export default function CheckoutPage() {
         payload.amountPaise &&
         payload.currency
       )
-        await openHostedCheckout({
-          orderNumber: payload.orderNumber,
-          razorpayOrderId: payload.razorpayOrderId,
-          keyId: payload.keyId,
-          amountPaise: payload.amountPaise,
-          currency: payload.currency,
-          guestAccessToken: payload.guestAccessToken,
-        });
+        try {
+          await openHostedCheckout({
+            orderNumber: payload.orderNumber,
+            razorpayOrderId: payload.razorpayOrderId,
+            keyId: payload.keyId,
+            amountPaise: payload.amountPaise,
+            currency: payload.currency,
+            guestAccessToken: payload.guestAccessToken,
+          });
+        } catch (reason: unknown) {
+          setOrderNumber(payload.orderNumber);
+          setGuestAccessToken(payload.guestAccessToken ?? '');
+          throw reason;
+        }
       else {
         setOrderNumber(payload.orderNumber ?? '');
         setGuestAccessToken(payload.guestAccessToken ?? '');

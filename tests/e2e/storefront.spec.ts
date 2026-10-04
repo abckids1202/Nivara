@@ -285,6 +285,71 @@ test('checkout keeps a payment failure visible after hosted checkout closes', as
   ).toBeVisible();
 });
 
+test('checkout preserves an order when hosted checkout cannot load', async ({
+  page,
+}) => {
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'cart-item-1',
+            quantity: 1,
+            variantId: 'variant-1',
+            variant: {
+              name: 'Single',
+              sku: 'NIV-1',
+              pricePaise: 64900,
+              stockOnHand: 5,
+              stockReserved: 0,
+              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+            },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/api/checkout', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-TEST-2',
+        razorpayOrderId: 'order_test_2',
+        keyId: 'fixture-payment-key',
+        amountPaise: 72800,
+        currency: 'INR',
+        guestAccessToken: 'guest-test-token-2',
+      }),
+    }),
+  );
+  await page.route('**/api/guest-orders/guest-test-token-2', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ paymentStatus: 'PENDING' }),
+    }),
+  );
+  await page.route('**/checkout.js', (route) => route.abort());
+
+  await page.goto('/checkout');
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByLabel('Full name').fill('Test customer');
+  await page.getByLabel('Address').fill('1 Test Street');
+  await page.getByLabel('City').fill('Delhi');
+  await page.getByLabel('State').fill('Delhi');
+  await page.getByLabel('PIN code').fill('110001');
+  await page.getByRole('button', { name: /Continue to Razorpay/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Payment is being verified.' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Razorpay checkout could not load' }),
+  ).toBeVisible();
+});
+
 test('guest order page exposes only scoped order details and retry action', async ({
   page,
 }) => {
