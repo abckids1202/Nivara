@@ -63,13 +63,6 @@ function candidateQuery({
   }
   if (category)
     conditions.push(Prisma.sql`c."slug" = ${category}`);
-  if (maxPricePaise !== undefined)
-    conditions.push(Prisma.sql`EXISTS (
-      SELECT 1
-      FROM "ProductVariant" price_variant
-      WHERE price_variant."productId" = p."id"
-        AND price_variant."pricePaise" <= ${maxPricePaise}
-    )`);
   if (availability === 'available')
     conditions.push(Prisma.sql`EXISTS (
       SELECT 1
@@ -105,18 +98,27 @@ function candidateQuery({
     WHERE approved_review."productId" = p."id"
       AND approved_review."status" = 'APPROVED'
   )`;
-  const minimumPrice = Prisma.sql`COALESCE((
-    SELECT MIN(price_variant."pricePaise")
-    FROM "ProductVariant" price_variant
-    WHERE price_variant."productId" = p."id"
-  ), 2147483647)`;
+  // Match the storefront display rule: use the cheapest sellable variant,
+  // falling back to the cheapest variant only when the product is sold out.
+  const displayPrice = Prisma.sql`COALESCE((
+    SELECT MIN(sellable_variant."pricePaise")
+    FROM "ProductVariant" sellable_variant
+    WHERE sellable_variant."productId" = p."id"
+      AND sellable_variant."stockOnHand" > sellable_variant."stockReserved"
+  ), COALESCE((
+    SELECT MIN(any_variant."pricePaise")
+    FROM "ProductVariant" any_variant
+    WHERE any_variant."productId" = p."id"
+  ), 2147483647))`;
+  if (maxPricePaise !== undefined)
+    conditions.push(Prisma.sql`${displayPrice} <= ${maxPricePaise}`);
   const orderBy =
     sort === 'best'
       ? Prisma.sql`${sales} DESC, ${averageRating} DESC, ${reviewCount} DESC, p."createdAt" DESC`
       : sort === 'price-low'
-        ? Prisma.sql`${minimumPrice} ASC, p."createdAt" DESC`
+        ? Prisma.sql`${displayPrice} ASC, p."createdAt" DESC`
         : sort === 'price-high'
-          ? Prisma.sql`${minimumPrice} DESC, p."createdAt" DESC`
+          ? Prisma.sql`${displayPrice} DESC, p."createdAt" DESC`
           : Prisma.sql`p."createdAt" DESC`;
 
   return Prisma.sql`
