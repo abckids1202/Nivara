@@ -38,4 +38,23 @@ ready for a tested Next major-version migration.
 
 Do not run `npm audit fix --force` automatically. A forced repair may replace the framework or build tooling with a breaking major version. Each remaining finding needs a package-owner review, a compatible upgrade, or a documented risk decision.
 
+At the current lockfile, `npm audit fix --dry-run` also stops before proposing a
+safe repair because the installed preview toolchain has an unsatisfied peer
+range: `vinext@1.0.1` requests `@vitejs/plugin-rsc@^0.5.34`, while the project
+pins `@vitejs/plugin-rsc@0.5.26`. Do not work around this with
+`--legacy-peer-deps`; first test a coordinated preview-toolchain update (or
+remove the unused preview path), then run `npm ci`, the full quality check, and
+the deployment preview before changing the lockfile. `npm ci --dry-run` remains
+the reproducible-install check for the current lockfile.
+
+Release gate for this finding:
+
+1. Create a dependency-only branch and record the intended package versions.
+2. Resolve the Vinext/RSC peer range without force flags.
+3. Confirm the production Vercel build does not include Sites/Cloudflare/Vinext
+   code paths.
+4. Run `npm audit --omit=dev`, `npm run check:quality`, and a deployed preview.
+5. Keep the current lockfile if the coordinated update introduces a build,
+   preview, or test regression; reassess at the next supported Next release.
+
 This document does not treat a clean local audit as proof of production security. Provider configuration, deployment permissions, database policies, webhook secrets, and operational access still require a client-owned deployment review.
