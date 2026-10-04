@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readCookie } from '../lib/cart';
-import { getAuthenticatedIdentity } from '../lib/server-auth';
+import { getAccessToken, getAuthenticatedIdentity } from '../lib/server-auth';
 
 describe('cookie parsing', () => {
   it('fails closed for malformed guest cart cookies', () => {
@@ -17,5 +17,19 @@ describe('cookie parsing', () => {
     });
 
     await expect(getAuthenticatedIdentity(request)).resolves.toBeNull();
+  });
+
+  it('reassembles auth cookie chunks in numeric order', () => {
+    const serialized = JSON.stringify({ access_token: 'access-token' });
+    const chunkSize = Math.ceil(serialized.length / 11);
+    const cookies = Array.from({ length: 11 }, (_, index) => {
+      const start = index * chunkSize;
+      return `sb-demo-auth-token.${index}=${serialized.slice(start, start + chunkSize)}`;
+    }).join('; ');
+    const request = new Request('http://localhost/api/account/profile', {
+      headers: { cookie: cookies },
+    });
+
+    expect(getAccessToken(request)).toBe('access-token');
   });
 });

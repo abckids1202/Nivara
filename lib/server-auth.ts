@@ -28,15 +28,24 @@ function getCookieToken(request: Request) {
   if (directToken) return directToken;
   const sessionNames = [...cookies.keys()]
     .filter((name) => /^sb-[^-]+-auth-token(?:\.\d+)?$/.test(name))
-    .sort();
+    .sort((left, right) => {
+      const leftChunk = Number(left.match(/\.(\d+)$/)?.[1] ?? 0);
+      const rightChunk = Number(right.match(/\.(\d+)$/)?.[1] ?? 0);
+      return leftChunk - rightChunk;
+    });
   if (!sessionNames.length) return null;
   const encoded = sessionNames.map((name) => cookies.get(name) ?? '').join('');
-  let decoded = encoded;
-  try {
-    decoded = decodeURIComponent(encoded);
-  } catch {
-    // Ignore malformed cookie encoding and continue with the raw candidate.
-  }
+  const decoded = sessionNames
+    .map((name) => {
+      const value = cookies.get(name) ?? '';
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        // Preserve malformed chunks so the full candidate still fails closed.
+        return value;
+      }
+    })
+    .join('');
   const candidates = [encoded, decoded];
   for (const candidate of candidates) {
     try {
