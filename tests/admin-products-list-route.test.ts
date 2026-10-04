@@ -3,12 +3,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const {
   productFindMany,
   productCount,
+  productCreate,
+  auditCreate,
+  transaction,
   getIdentity,
   isAdministrator,
   logServerError,
 } = vi.hoisted(() => ({
   productFindMany: vi.fn(),
   productCount: vi.fn(),
+  productCreate: vi.fn(),
+  auditCreate: vi.fn(),
+  transaction: vi.fn(),
   getIdentity: vi.fn(),
   isAdministrator: vi.fn(),
   logServerError: vi.fn(),
@@ -19,7 +25,12 @@ vi.mock('@/lib/prisma', () => ({
     product: {
       findMany: productFindMany,
       count: productCount,
+      create: productCreate,
     },
+    auditLog: {
+      create: auditCreate,
+    },
+    $transaction: transaction,
   },
 }));
 vi.mock('@/lib/server-auth', () => ({
@@ -28,7 +39,7 @@ vi.mock('@/lib/server-auth', () => ({
 }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
-import { GET } from '@/app/api/admin/products/route';
+import { GET, POST } from '@/app/api/admin/products/route';
 
 const originalEnvironment = { ...process.env };
 
@@ -37,6 +48,9 @@ afterEach(() => {
   Object.assign(process.env, originalEnvironment);
   productFindMany.mockReset();
   productCount.mockReset();
+  productCreate.mockReset();
+  auditCreate.mockReset();
+  transaction.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
   logServerError.mockReset();
@@ -108,6 +122,81 @@ describe('admin product list pagination', () => {
     );
     expect(productCount).toHaveBeenCalledWith({
       where: expect.objectContaining({ OR: expect.any(Array) }),
+    });
+  });
+});
+
+describe('admin product creation', () => {
+  const validPayload = {
+    name: 'Linen catchall tray',
+    slug: 'linen-catchall-tray',
+    description: 'A considered tray for everyday objects and small rituals.',
+    material: 'Linen composite',
+    dimensions: '30 × 20 cm',
+    care: 'Wipe clean with a soft cloth.',
+    categoryId: 'category-1',
+    status: 'DRAFT',
+  };
+
+  it('requires an administrator before creating a product', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue(null);
+
+    const response = await POST(
+      new Request('https://nivara.example/api/admin/products', {
+        method: 'POST',
+        body: JSON.stringify(validPayload),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(productCreate).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid product details before opening a transaction', async () => {
+    configureAdmin();
+
+    const response = await POST(
+      new Request('https://nivara.example/api/admin/products', {
+        method: 'POST',
+        body: JSON.stringify({ ...validPayload, slug: 'Not valid' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('creates the product and records an audit event atomically', async () => {
+    configureAdmin();
+    const createdProduct = { id: 'product-2', ...validPayload };
+    productCreate.mockResolvedValue(createdProduct);
+    auditCreate.mockResolvedValue({ id: 'audit-1' });
+    transaction.mockImplementation(async (callback) =>
+      callback({ product: { create: productCreate }, auditLog: { create: auditCreate } }),
+    );
+
+    const response = await POST(
+      new Request('https://nivara.example/api/admin/products', {
+        method: 'POST',
+        body: JSON.stringify(validPayload),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const body = (await response.json()) as { data: typeof createdProduct };
+
+    expect(response.status).toBe(201);
+    expect(body.data).toEqual(createdProduct);
+    expect(productCreate).toHaveBeenCalledWith({ data: validPayload });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'admin-1',
+        action: 'product.created',
+        entityType: 'Product',
+        entityId: 'product-2',
+      },
     });
   });
 });
