@@ -208,6 +208,17 @@ test('authorized admin dashboard renders operational sections', async ({
           data: { id: 'category-2', name: 'Living room', slug: 'living-room' },
         }),
       });
+    if (
+      url.pathname === '/api/admin/categories/category-1' &&
+      route.request().method() === 'PATCH'
+    )
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { id: 'category-1', name: 'Workspace', slug: 'workspace' },
+        }),
+      });
     if (url.pathname === '/api/admin/categories')
       return route.fulfill({
         status: 200,
@@ -302,6 +313,12 @@ test('authorized admin dashboard renders operational sections', async ({
   await page.getByLabel('Category slug').fill('living-room');
   await page.getByRole('button', { name: 'Create' }).click();
   await expect(page.getByText('Category created.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByLabel('Category name').fill('Workspace');
+  await page.getByLabel('Category slug').fill('workspace');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Category updated.')).toBeVisible();
 
   await page.getByRole('button', { name: 'View variants' }).click();
   await page.getByRole('button', { name: 'Add variant' }).click();
