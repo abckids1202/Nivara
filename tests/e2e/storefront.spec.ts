@@ -352,6 +352,29 @@ test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
 });
 
+test('checkout offers cart recovery after a cart-service failure', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route('**/api/cart', (route) => {
+    attempts += 1;
+    if (attempts === 1) return route.abort();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    });
+  });
+  await page.goto('/checkout');
+  await expect(
+    page.getByRole('heading', { name: "We couldn't load your bag." }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Add something before checkout.' }),
+  ).toBeVisible();
+});
+
 test('checkout keeps a payment failure visible after hosted checkout closes', async ({
   page,
 }) => {

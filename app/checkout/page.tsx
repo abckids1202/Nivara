@@ -22,6 +22,7 @@ export default function CheckoutPage() {
     items,
     loading,
     error: cartError,
+    refresh: refreshCart,
     updateItem,
     removeItem,
   } = useCart();
@@ -305,15 +306,26 @@ export default function CheckoutPage() {
           <div>
             <p className="eyebrow justify-center">Your bag is quiet</p>
             <h1 className="mt-3 font-display text-4xl tracking-[-0.06em]">
-              Add something before checkout.
+              {cartError ? "We couldn't load your bag." : 'Add something before checkout.'}
             </h1>
             <p className="mt-4 text-sm text-[#718078]">
               {cartError ||
                 'Browse the collection and choose a piece for your home.'}
             </p>
-            <Link href="/shop" className="button-primary mt-7">
-              Browse the collection
-            </Link>
+            <div className="mt-7 flex flex-wrap justify-center gap-3">
+              {cartError && (
+                <button
+                  type="button"
+                  onClick={() => void refreshCart()}
+                  className="button-primary"
+                >
+                  Try again
+                </button>
+              )}
+              <Link href="/shop" className="button-secondary">
+                Browse the collection
+              </Link>
+            </div>
           </div>
         </main>
       </>
