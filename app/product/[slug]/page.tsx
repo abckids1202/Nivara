@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { ProductDetail } from '@/components/product-detail';
 import { prisma } from '@/lib/prisma';
-import { isSellable } from '@/lib/inventory';
+import { summarizeSeoOffers } from '@/lib/seo-offers';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nivara.example';
 
@@ -75,7 +75,7 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
   const product = await getSeoProduct(slug);
-  const prices = product?.variants.map((variant) => variant.pricePaise) ?? [];
+  const offerSummary = summarizeSeoOffers(product?.variants ?? []);
   const structuredData = product
     ? {
         '@context': 'https://schema.org',
@@ -87,14 +87,10 @@ export default async function ProductPage({
         offers: {
           '@type': 'AggregateOffer',
           priceCurrency: 'INR',
-          lowPrice: prices.length ? Math.min(...prices) / 100 : undefined,
-          highPrice: prices.length ? Math.max(...prices) / 100 : undefined,
-          offerCount: product.variants.length,
-          availability: product.variants.some(
-            (variant) => isSellable(variant.stockOnHand, variant.stockReserved),
-          )
-            ? 'https://schema.org/InStock'
-            : 'https://schema.org/OutOfStock',
+          lowPrice: offerSummary.lowPrice,
+          highPrice: offerSummary.highPrice,
+          offerCount: offerSummary.offerCount,
+          availability: offerSummary.availability,
         },
         ...(product.rating !== null && product.reviewCount > 0
           ? {
