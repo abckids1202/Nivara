@@ -24,6 +24,49 @@ afterEach(() => {
 });
 
 describe('product route resilience', () => {
+  it('uses the cheapest sellable variant for the displayed price', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    findFirst.mockResolvedValue({
+      id: 'product-1',
+      variants: [
+        {
+          id: 'sold-out',
+          name: 'Small',
+          sku: 'LAMP-S',
+          pricePaise: 8000,
+          compareAtPaise: null,
+          stockOnHand: 0,
+          stockReserved: 0,
+        },
+        {
+          id: 'available',
+          name: 'Large',
+          sku: 'LAMP-L',
+          pricePaise: 12000,
+          compareAtPaise: null,
+          stockOnHand: 2,
+          stockReserved: 0,
+        },
+      ],
+      reviews: [],
+    });
+    aggregate.mockResolvedValue({ _avg: { rating: null }, _count: { _all: 0 } });
+
+    const response = await GET(
+      new Request('https://nivara.example/product/lamp'),
+      { params: Promise.resolve({ slug: 'lamp' }) },
+    );
+    const body = (await response.json()) as {
+      data: { minPricePaise: number; stockAvailable: boolean };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({
+      minPricePaise: 12000,
+      stockAvailable: true,
+    });
+  });
+
   it('limits displayed reviews while returning the complete rating summary', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     findFirst.mockResolvedValue({

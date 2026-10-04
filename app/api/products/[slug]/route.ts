@@ -1,6 +1,7 @@
 import { noStore, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { isSellable } from '@/lib/inventory';
+import { selectDefaultVariant } from '@/lib/catalogue-display';
 import { logServerError } from '@/lib/safe-logging';
 
 export async function GET(
@@ -52,6 +53,7 @@ export async function GET(
     });
 
     if (!product) return noStore({ error: 'Product not found' }, 404);
+    const displayVariant = selectDefaultVariant(product.variants);
 
     const ratingSummary = await prisma.review.aggregate({
       where: { productId: product.id, status: 'APPROVED' },
@@ -67,9 +69,7 @@ export async function GET(
             orderItem.order.paymentStatus === 'PAID' &&
             orderItem.order.fulfilmentStatus === 'DELIVERED',
         })),
-        minPricePaise: product.variants.length
-          ? Math.min(...product.variants.map((variant) => variant.pricePaise))
-          : null,
+        minPricePaise: displayVariant?.pricePaise ?? null,
         stockAvailable: product.variants.some((variant) =>
           isSellable(variant.stockOnHand, variant.stockReserved),
         ),
