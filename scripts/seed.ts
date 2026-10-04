@@ -1,5 +1,6 @@
 import { PrismaClient, ProductStatus } from '@prisma/client';
 import { products } from '../lib/demo-data.ts';
+import { rupeesToPaise } from '../lib/money.ts';
 
 if (
   process.env.NODE_ENV === 'production' &&
@@ -65,6 +66,10 @@ async function seed() {
       });
 
       const colors = product.colors.length ? product.colors : ['Standard'];
+      const pricePaise = rupeesToPaise(product.price);
+      const compareAtPaise = product.compareAt
+        ? rupeesToPaise(product.compareAt)
+        : null;
       const baseStock = Math.floor(product.stock / colors.length);
       const remainder = product.stock % colors.length;
 
@@ -74,16 +79,16 @@ async function seed() {
           where: { sku },
           update: {
             name: color,
-            pricePaise: product.price * 100,
-            compareAtPaise: product.compareAt ? product.compareAt * 100 : null,
+            pricePaise,
+            compareAtPaise,
             productId: record.id,
           },
           create: {
             productId: record.id,
             name: color,
             sku,
-            pricePaise: product.price * 100,
-            compareAtPaise: product.compareAt ? product.compareAt * 100 : null,
+            pricePaise,
+            compareAtPaise,
             stockOnHand: baseStock + (index < remainder ? 1 : 0),
           },
         });

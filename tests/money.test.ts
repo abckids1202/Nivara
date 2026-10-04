@@ -4,6 +4,7 @@ import {
   calculateOrderTotal,
   FREE_SHIPPING_THRESHOLD_PAISE,
   STANDARD_DELIVERY_FEE_PAISE,
+  rupeesToPaise,
 } from '../lib/money.ts';
 import { canConvertReservation } from '../lib/payment-rules.ts';
 import { checkoutRequestSchema } from '../lib/schemas.ts';
@@ -26,6 +27,12 @@ describe('money and reservation rules', () => {
   it('rejects invalid money values', () => {
     expect(() => calculateDeliveryFee(-1)).toThrow(/non-negative integer/);
     expect(() => calculateDeliveryFee(10.5)).toThrow(/non-negative integer/);
+  });
+
+  it('converts seed rupee values to integer paise', () => {
+    expect(rupeesToPaise(649)).toBe(64_900);
+    expect(rupeesToPaise(12.34)).toBe(1_234);
+    expect(() => rupeesToPaise(Number.NaN)).toThrow(/finite/);
   });
 
   it('converts only active reservations with enough stock', () => {
