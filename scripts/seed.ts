@@ -73,7 +73,6 @@ async function seed() {
           name: color,
           pricePaise: product.price * 100,
           compareAtPaise: product.compareAt ? product.compareAt * 100 : null,
-          stockOnHand: baseStock + (index < remainder ? 1 : 0),
           productId: record.id,
         },
         create: {
