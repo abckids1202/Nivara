@@ -34,7 +34,10 @@ async function isStorageBucketReachable() {
         cache: 'no-store',
       },
     );
-    return response.ok;
+    const metadata = (await response.json().catch(() => null)) as {
+      public?: unknown;
+    } | null;
+    return response.ok && metadata?.public === true;
   } catch {
     return false;
   }

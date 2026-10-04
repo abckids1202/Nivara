@@ -123,7 +123,14 @@ describe('health readiness', () => {
     process.env.SUPPORT_EMAIL = 'support@nivara.in';
     process.env.CRON_SECRET = 'cron-secret';
     queryRaw.mockResolvedValue([completeSchema]);
-    providerFetch.mockResolvedValue(new Response(null, { status: 200 }));
+    providerFetch
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ public: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
 
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
