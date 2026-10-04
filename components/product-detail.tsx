@@ -58,6 +58,7 @@ export function ProductDetail({ slug }: { slug: string }) {
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -91,7 +92,7 @@ export function ProductDetail({ slug }: { slug: string }) {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [slug]);
+  }, [reload, slug]);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -139,7 +140,7 @@ export function ProductDetail({ slug }: { slug: string }) {
         </main>
       </>
     );
-  if (error || !product)
+  if (!product)
     return (
       <>
         <StoreHeader />
@@ -152,9 +153,23 @@ export function ProductDetail({ slug }: { slug: string }) {
             <p className="mt-4 text-sm text-[#718078]">
               {error || 'This product may have been archived.'}
             </p>
-            <Link href="/shop" className="button-primary mt-7">
-              Back to shop
-            </Link>
+            <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setProduct(null);
+                  setLoading(true);
+                  setError('');
+                  setReload((value) => value + 1);
+                }}
+                className="button-primary"
+              >
+                Try again
+              </button>
+              <Link href="/shop" className="button-secondary">
+                Back to shop
+              </Link>
+            </div>
           </div>
         </main>
       </>

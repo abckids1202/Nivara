@@ -182,6 +182,61 @@ test('product page reflects an existing wishlist item', async ({ page }) => {
   ).toBeVisible({ timeout: 10_000 });
 });
 
+test('product page recovers from a transient product-service failure', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route('**/api/products/transient-product', (route) => {
+    attempts += 1;
+    if (attempts === 1) return route.abort();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          id: 'product-1',
+          name: 'Transient product',
+          description: 'A product available after a temporary outage.',
+          material: null,
+          dimensions: null,
+          care: null,
+          category: { name: 'Desk & study' },
+          images: [],
+          variants: [
+            {
+              id: 'variant-1',
+              name: 'Single',
+              pricePaise: 64900,
+              compareAtPaise: null,
+              stockOnHand: 5,
+              stockReserved: 0,
+            },
+          ],
+          rating: null,
+          reviewCount: 0,
+          reviews: [],
+        },
+      }),
+    });
+  });
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    }),
+  );
+
+  await page.goto('/product/transient-product');
+  await expect(
+    page.getByRole('heading', { name: 'We couldn’t find that piece.' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Transient product' }),
+  ).toBeVisible();
+});
+
 test('header search opens an accessible live-search form', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Search the collection' }).click();
