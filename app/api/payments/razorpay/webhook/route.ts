@@ -11,6 +11,7 @@ import {
 import { logServerError, safeErrorMessage } from '@/lib/safe-logging';
 
 const MAX_WEBHOOK_BYTES = 1_000_000;
+const MAX_PROVIDER_EVENT_ID_LENGTH = 256;
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
@@ -52,10 +53,15 @@ export async function POST(request: Request) {
       order?: { entity?: { id?: string } };
     };
   };
-  const providerEventId =
+  const providerEventIdCandidate =
     request.headers.get('x-razorpay-event-id') ?? typedPayload.id;
-  if (!providerEventId)
+  if (
+    typeof providerEventIdCandidate !== 'string' ||
+    providerEventIdCandidate.length === 0 ||
+    providerEventIdCandidate.length > MAX_PROVIDER_EVENT_ID_LENGTH
+  )
     return noStore({ error: 'Missing provider event ID' }, 400);
+  const providerEventId = providerEventIdCandidate;
 
   try {
     const payloadHash = createHmac('sha256', webhookSecret)
