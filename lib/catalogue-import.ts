@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+const rupeeAmountSchema = z
+  .coerce.number()
+  .finite()
+  .positive()
+  .refine(
+    (value) => Math.abs(value * 100 - Math.round(value * 100)) < 1e-7,
+    'must use no more than two decimal places',
+  );
+
 export const catalogueRowSchema = z.object({
   categorySlug: z.string().trim().min(1).max(80),
   categoryName: z.string().trim().min(1).max(120),
@@ -15,8 +24,8 @@ export const catalogueRowSchema = z.object({
   status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']),
   variantName: z.string().trim().min(1).max(100),
   sku: z.string().trim().min(1).max(80),
-  priceRupees: z.coerce.number().int().positive(),
-  compareAtRupees: z.union([z.literal(''), z.coerce.number().int().positive()]),
+  priceRupees: rupeeAmountSchema,
+  compareAtRupees: z.union([z.literal(''), rupeeAmountSchema]),
   stockOnHand: z.coerce.number().int().nonnegative(),
   imageUrl: z.string().trim().url().or(z.literal('')),
   imageAlt: z.string().trim().max(200),

@@ -116,4 +116,48 @@ describe('admin catalogue import route', () => {
     });
     expect(auditCreate).toHaveBeenCalled();
   });
+
+  it('converts decimal rupee prices to integer paise', async () => {
+    configureAdmin();
+    categoryUpsert.mockResolvedValue({ id: 'category-1' });
+    productUpsert.mockResolvedValue({ id: 'product-1' });
+    variantFindUnique.mockResolvedValue(null);
+    variantUpsert.mockResolvedValue({ id: 'variant-1' });
+    auditCreate.mockResolvedValue({ id: 'audit-1' });
+    transaction.mockImplementation(async (callback) =>
+      callback({
+        category: { upsert: categoryUpsert },
+        product: { upsert: productUpsert },
+        $queryRaw: queryRaw,
+        productVariant: {
+          findUnique: variantFindUnique,
+          upsert: variantUpsert,
+        },
+        auditLog: { create: auditCreate },
+      }),
+    );
+
+    const response = await POST(
+      new Request(
+        'https://nivara.example/api/admin/catalogue/import?dryRun=false',
+        {
+          method: 'POST',
+          body: `${header}\norganise,Organise,Desk organiser,desk-organiser,A useful piece thoughtfully made,Oak,24 x 12 cm,Wipe clean,DRAFT,Natural,NIV-001,649.50,799.99,8,,`,
+        },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(variantUpsert).toHaveBeenCalledWith({
+      where: { sku: 'NIV-001' },
+      create: expect.objectContaining({
+        pricePaise: 64_950,
+        compareAtPaise: 79_999,
+      }),
+      update: expect.objectContaining({
+        pricePaise: 64_950,
+        compareAtPaise: 79_999,
+      }),
+    });
+  });
 });

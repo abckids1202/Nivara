@@ -6,6 +6,7 @@ import {
   unavailable,
 } from '@/lib/http';
 import { parseCatalogueCsv } from '@/lib/catalogue-import';
+import { rupeesToPaise } from '@/lib/money';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
@@ -34,6 +35,11 @@ export async function POST(request: Request) {
     await prisma.$transaction(
       async (tx) => {
         for (const row of parsed.rows) {
+          const pricePaise = rupeesToPaise(row.priceRupees);
+          const compareAtPaise =
+            row.compareAtRupees === ''
+              ? null
+              : rupeesToPaise(row.compareAtRupees);
           const category = await tx.category.upsert({
             where: { slug: row.categorySlug },
             create: { slug: row.categorySlug, name: row.categoryName },
@@ -82,17 +88,15 @@ export async function POST(request: Request) {
               productId: product.id,
               name: row.variantName,
               sku: row.sku,
-              pricePaise: row.priceRupees * 100,
-              compareAtPaise:
-                row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
+              pricePaise,
+              compareAtPaise,
               stockOnHand: row.stockOnHand,
             },
             update: {
               productId: product.id,
               name: row.variantName,
-              pricePaise: row.priceRupees * 100,
-              compareAtPaise:
-                row.compareAtRupees === '' ? null : row.compareAtRupees * 100,
+              pricePaise,
+              compareAtPaise,
               stockOnHand: row.stockOnHand,
             },
           });

@@ -14,6 +14,21 @@ it('parses valid catalogue rows and quoted commas', () => {
   expect(result.rows[0]?.priceRupees).toBe(1499);
 });
 
+it('accepts paise in rupee prices while rejecting more than two decimals', () => {
+  const valid = parseCatalogueCsv(
+    `${header}\norganise,Organise,Desk organiser,desk-organiser,A useful piece thoughtfully made,Oak,24 x 12 cm,Wipe clean,PUBLISHED,Natural,NIV-001,649.50,799.99,8,,Desk organiser`,
+  );
+  expect(valid.errors).toEqual([]);
+  expect(valid.rows[0]?.priceRupees).toBe(649.5);
+  expect(valid.rows[0]?.compareAtRupees).toBe(799.99);
+
+  const invalid = parseCatalogueCsv(
+    `${header}\norganise,Organise,Desk organiser,desk-organiser,A useful piece thoughtfully made,Oak,24 x 12 cm,Wipe clean,PUBLISHED,Natural,NIV-002,649.999,,8,,Desk organiser`,
+  );
+  expect(invalid.rows).toHaveLength(0);
+  expect(invalid.errors).toContain('Row 2: priceRupees');
+});
+
 it('reports invalid catalogue rows without importing them', () => {
   const result = parseCatalogueCsv(
     `${header}\norganise,Organise,Bad product,INVALID SLUG,short,,,,PUBLISHED,Natural,NIV-002,0,,0,,`,
