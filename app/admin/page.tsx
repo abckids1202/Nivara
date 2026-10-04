@@ -761,22 +761,26 @@ export default function AdminPage() {
       courierName: order.shipment?.courierName ?? '',
       trackingReference: order.shipment?.trackingReference ?? '',
     };
-    const response = await fetch('/api/admin/orders', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderId: order.id,
-        status: orderStatus[order.id] ?? order.fulfilmentStatus,
-        ...details,
-      }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    if (!response.ok) setNotice(payload.error ?? 'Order update failed');
-    else {
-      setNotice(`${order.orderNumber} updated.`);
-      await loadOrders();
+    try {
+      const response = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          status: orderStatus[order.id] ?? order.fulfilmentStatus,
+          ...details,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) setNotice(payload.error ?? 'Order update failed');
+      else {
+        setNotice(`${order.orderNumber} updated.`);
+        await loadOrders();
+      }
+    } catch {
+      setNotice('Order update could not reach the server. Try again.');
     }
   }
 
@@ -788,18 +792,22 @@ export default function AdminPage() {
         : 'Does not meet review policy',
     );
     if (!reason) return;
-    const response = await fetch('/api/admin/reviews', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewId, status, reason }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    if (!response.ok) setNotice(payload.error ?? 'Review decision failed');
-    else {
-      setNotice(`Review ${status.toLowerCase()}.`);
-      await loadReviews();
+    try {
+      const response = await fetch('/api/admin/reviews', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId, status, reason }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) setNotice(payload.error ?? 'Review decision failed');
+      else {
+        setNotice(`Review ${status.toLowerCase()}.`);
+        await loadReviews();
+      }
+    } catch {
+      setNotice('Review decision could not reach the server. Try again.');
     }
   }
 
@@ -820,28 +828,32 @@ export default function AdminPage() {
       action === 'REFUND'
         ? (window.prompt('Razorpay refund reference (optional)', '') ?? '')
         : '';
-    const response = await fetch('/api/admin/orders/payment-review', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderId: order.id,
-        action,
-        reason,
-        refundReference: refundReference || undefined,
-      }),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    setNotice(
-      response.ok
-        ? `${order.orderNumber} resolved.`
-        : (payload.error ?? 'Payment review could not be resolved.'),
-    );
-    if (response.ok) {
-      await loadPaymentReviews();
-      await loadOrders();
-      await loadReport();
+    try {
+      const response = await fetch('/api/admin/orders/payment-review', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          action,
+          reason,
+          refundReference: refundReference || undefined,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setNotice(
+        response.ok
+          ? `${order.orderNumber} resolved.`
+          : (payload.error ?? 'Payment review could not be resolved.'),
+      );
+      if (response.ok) {
+        await loadPaymentReviews();
+        await loadOrders();
+        await loadReport();
+      }
+    } catch {
+      setNotice('Payment review could not reach the server. Try again.');
     }
   }
 
