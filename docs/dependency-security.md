@@ -16,16 +16,19 @@ pipeline. These updates were applied without a forced framework migration.
 
 ## Remaining audit findings
 
-The current `npm audit --omit=dev` report contains four findings:
+The current `npm audit --omit=dev --audit-level=high` report contains four
+vulnerable dependency paths and ten advisories (including lower-severity
+advisories in the same paths):
 
+- `braces@3.0.3`, reached through the Shadcn/fast-glob tooling path, is reported
+  for a high-severity deeply nested-pattern denial-of-service advisory.
 - `postcss@8.4.31`, bundled by the pinned Next 15.5.27 release, is reported for
   the PostCSS XSS/source-map advisories. npm recommends `next@16.3.8`, which is
   a breaking framework upgrade and is not applied automatically.
 - `esbuild@0.27.3` is reached through Prisma/Vite tooling and is relevant to
   development-server behavior, not the standard Next runtime bundle.
 - `undici@7.24.8` and `7.29.1` are reached through Shadcn and Cloudflare/Vite
-  tooling; the latter is development-only and the former is not imported by
-  Nivara application routes.
+  tooling; these findings are not imported by Nivara application routes.
 
 Sites/Cloudflare and Vinext preview dependencies are development-only and are
 not part of the standard Vercel production dependency set. Run
