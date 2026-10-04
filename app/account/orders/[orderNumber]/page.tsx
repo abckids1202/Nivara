@@ -49,6 +49,7 @@ export default function OrderDetailPage({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState('');
   const [statusNotice, setStatusNotice] = useState('');
   const paymentStatus = order?.paymentStatus;
@@ -172,7 +173,7 @@ export default function OrderDetailPage({
     return () => {
       active = false;
     };
-  }, [params]);
+  }, [params, reload]);
 
   useEffect(() => {
     if (paymentStatus !== 'PENDING') return;
@@ -247,9 +248,23 @@ export default function OrderDetailPage({
               <p className="mt-4 text-sm text-[#637268]">
                 {error || 'The order could not be found.'}
               </p>
-              <Link href="/account" className="button-primary mt-7">
-                Return to account
-              </Link>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    setOrder(null);
+                    setLoading(true);
+                    setReload((value) => value + 1);
+                  }}
+                  className="button-primary"
+                >
+                  Try again
+                </button>
+                <Link href="/account" className="button-secondary">
+                  Return to account
+                </Link>
+              </div>
             </section>
           ) : (
             <>

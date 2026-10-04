@@ -567,6 +567,33 @@ test('guest order page exposes only scoped order details and retry action', asyn
   await expect(page.getByRole('button', { name: 'Retry payment' })).toBeVisible();
 });
 
+test('guest order page recovers from a transient order-service failure', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.route('**/api/guest-orders/recovery-token', (route) => {
+    attempts += 1;
+    if (attempts === 1) return route.abort();
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-1001',
+        paymentStatus: 'PAID',
+        fulfilmentStatus: 'PROCESSING',
+        totalPaise: 72800,
+        items: [],
+        shipment: null,
+      }),
+    });
+  });
+
+  await page.goto('/guest-order/recovery-token');
+  await expect(page.getByRole('heading', { name: 'This link is unavailable.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('heading', { name: 'NV-1001' })).toBeVisible();
+});
+
 test('password reset page explains how to request an expired link', async ({
   page,
 }) => {

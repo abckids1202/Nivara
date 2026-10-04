@@ -39,6 +39,7 @@ export default function GuestOrderPage({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState('');
   const paymentStatus = order?.paymentStatus;
   async function retryPayment() {
@@ -134,7 +135,7 @@ export default function GuestOrderPage({
     return () => {
       active = false;
     };
-  }, [params]);
+  }, [params, reload]);
 
   useEffect(() => {
     if (paymentStatus !== 'PENDING') return;
@@ -201,9 +202,23 @@ export default function GuestOrderPage({
               <p className="mt-4 text-sm leading-6 text-[#637268]">
                 {error || 'The order link may have expired.'}
               </p>
-              <Link href="/shop" className="button-primary mt-7">
-                Continue shopping
-              </Link>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    setOrder(null);
+                    setLoading(true);
+                    setReload((value) => value + 1);
+                  }}
+                  className="button-primary"
+                >
+                  Try again
+                </button>
+                <Link href="/shop" className="button-secondary">
+                  Continue shopping
+                </Link>
+              </div>
             </section>
           ) : (
             <>
