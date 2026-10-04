@@ -922,6 +922,13 @@ test('account sign-in merges the guest cart before showing the dashboard', async
       body: JSON.stringify({ data: { userId: 'user-1' } }),
     }),
   );
+  await page.route('**/api/auth/logout', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { loggedOut: true } }),
+    }),
+  );
   await page.route('**/api/cart', (route) =>
     route.fulfill({
       status: 200,
@@ -970,6 +977,10 @@ test('account sign-in merges the guest cart before showing the dashboard', async
   await expect(page.getByText('You’re signed in.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
   await expect.poll(() => mergeRequests).toBe(1);
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByText('You’re signed out.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 });
 
 test('account signup explains the email-verification handoff', async ({
