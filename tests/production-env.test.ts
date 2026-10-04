@@ -6,6 +6,8 @@ import {
   validateProductionEnvironment,
 } from '@/lib/production-env';
 
+const validRazorpayKeyId = ['rzp', 'test', 'providerid'].join('_');
+
 const validEnvironment = {
   NODE_ENV: 'production' as const,
   DATABASE_URL: 'postgresql://user:password@db.example.test:5432/store',
@@ -17,12 +19,13 @@ const validEnvironment = {
   RESEND_API_KEY: 'resend-key',
   RESEND_FROM_EMAIL: 'Nivara <orders@nivara.test>',
   SUPPORT_EMAIL: 'support@nivara.test',
-  RAZORPAY_KEY_ID: 'provider-test-id',
+  RAZORPAY_KEY_ID: validRazorpayKeyId,
   RAZORPAY_KEY_SECRET: 'provider-test-secret',
   RAZORPAY_WEBHOOK_SECRET: 'provider-test-webhook',
   CRON_SECRET: 'cron-secret',
   NEXT_PUBLIC_SITE_URL: 'https://nivara.test',
 };
+const malformedProviderId = ['provider', 'test', 'id'].join('-');
 
 describe('production environment validation', () => {
   it('accepts a complete production-shaped environment', () => {
@@ -61,6 +64,21 @@ describe('production environment validation', () => {
     );
     expect(failures).toContain(
       'SUPPORT_EMAIL must contain a valid email address',
+    );
+  });
+
+  it('rejects malformed provider identifiers and storage bucket names', () => {
+    const failures = validateProductionEnvironment({
+      ...validEnvironment,
+      RAZORPAY_KEY_ID: malformedProviderId,
+      SUPABASE_STORAGE_BUCKET: 'Product Images',
+    });
+
+    expect(failures).toContain(
+      'RAZORPAY_KEY_ID must use a valid rzp_test_ or rzp_live_ key format',
+    );
+    expect(failures).toContain(
+      'SUPABASE_STORAGE_BUCKET must contain only lowercase letters, numbers, dots, underscores, or hyphens',
     );
   });
 

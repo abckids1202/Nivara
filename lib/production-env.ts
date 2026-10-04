@@ -22,6 +22,8 @@ const placeholderMarkers = [
   'localhost',
 ];
 const emailPattern = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const razorpayKeyIdPattern = /^rzp_(?:test|live)_[A-Za-z0-9]+$/;
+const storageBucketPattern = /^[a-z0-9](?:[a-z0-9._-]{1,61}[a-z0-9])?$/;
 
 function hasValidEmail(value: string) {
   const address = value.match(/<([^<>]+)>/)?.[1] ?? value;
@@ -74,6 +76,18 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
     if (value && !hasValidEmail(value))
       failures.push(`${name} must contain a valid email address`);
   }
+
+  const razorpayKeyId = environment.RAZORPAY_KEY_ID?.trim();
+  if (razorpayKeyId && !razorpayKeyIdPattern.test(razorpayKeyId))
+    failures.push(
+      'RAZORPAY_KEY_ID must use a valid rzp_test_ or rzp_live_ key format',
+    );
+
+  const bucket = environment.SUPABASE_STORAGE_BUCKET?.trim();
+  if (bucket && !storageBucketPattern.test(bucket))
+    failures.push(
+      'SUPABASE_STORAGE_BUCKET must contain only lowercase letters, numbers, dots, underscores, or hyphens',
+    );
 
   return failures;
 }
