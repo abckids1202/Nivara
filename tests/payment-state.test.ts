@@ -6,13 +6,79 @@ const { transaction } = vi.hoisted(() => ({
 
 vi.mock('@/lib/prisma', () => ({ prisma: { $transaction: transaction } }));
 
-import { markPaymentPaid } from '@/lib/payment-state';
+import {
+  fulfilPaymentReview,
+  markPaymentPaid,
+} from '@/lib/payment-state';
 
 afterEach(() => {
   transaction.mockReset();
 });
 
 describe('payment-state capture transitions', () => {
+  it('manually fulfils a captured review when expired reservations still have stock', async () => {
+    const paymentAttempt = {
+      id: 'payment-review',
+      orderId: 'order-review',
+      status: 'PAID_REVIEW' as const,
+      providerPaymentId: 'pay-review',
+      order: { paymentStatus: 'PAID_REVIEW' as const },
+    };
+    const paymentAttemptFindUnique = vi
+      .fn()
+      .mockResolvedValueOnce({ orderId: 'order-review' })
+      .mockResolvedValueOnce(paymentAttempt);
+    const paymentAttemptUpdate = vi.fn().mockResolvedValue(paymentAttempt);
+    const orderUpdate = vi.fn().mockResolvedValue({});
+    const reservationUpdate = vi.fn().mockResolvedValue({});
+    const variantUpdate = vi.fn().mockResolvedValue({});
+    const tx = {
+      $queryRaw: vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ id: 'variant-1', stockOnHand: 4 }]),
+      paymentAttempt: {
+        findUnique: paymentAttemptFindUnique,
+        update: paymentAttemptUpdate,
+      },
+      order: { update: orderUpdate },
+      inventoryReservation: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'reservation-review',
+            variantId: 'variant-1',
+            quantity: 1,
+            status: 'EXPIRED' as const,
+          },
+        ]),
+        update: reservationUpdate,
+      },
+      productVariant: { update: variantUpdate },
+    };
+    transaction.mockImplementation(async (callback) => callback(tx));
+
+    await expect(
+      fulfilPaymentReview({
+        paymentAttemptId: 'payment-review',
+        orderId: 'order-review',
+      }),
+    ).resolves.toEqual({ status: 'fulfilled', orderId: 'order-review' });
+    expect(variantUpdate).toHaveBeenCalledWith({
+      where: { id: 'variant-1' },
+      data: { stockOnHand: { decrement: 1 }, stockReserved: undefined },
+    });
+    expect(reservationUpdate).toHaveBeenCalledWith({
+      where: { id: 'reservation-review' },
+      data: { status: 'CONVERTED' },
+    });
+    expect(paymentAttemptUpdate).toHaveBeenCalledWith({
+      where: { id: 'payment-review' },
+      data: { status: 'PAID', providerPaymentId: undefined },
+    });
+  });
+
   it('routes a capture with no reservations to manual review', async () => {
     const paymentAttempt = {
       id: 'payment-empty',

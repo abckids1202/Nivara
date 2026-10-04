@@ -158,6 +158,78 @@ export async function markPaymentPaid({
   });
 }
 
+export async function fulfilPaymentReview({
+  paymentAttemptId,
+  orderId,
+  providerPaymentId,
+}: {
+  paymentAttemptId: string;
+  orderId: string;
+  providerPaymentId?: string;
+}) {
+  return prisma.$transaction(async (tx) => {
+    const payment = await lockPaymentAttempt(tx, paymentAttemptId);
+    if (!payment || payment.orderId !== orderId)
+      return { status: 'missing' as const };
+    if (
+      payment.order.paymentStatus !== 'PAID_REVIEW' ||
+      payment.status !== 'PAID_REVIEW'
+    )
+      return { status: 'not_review' as const, orderId };
+
+    const reservations = await lockOrderReservations(tx, orderId);
+    if (!reservations.length)
+      return { status: 'stock_unavailable' as const, orderId };
+    const variantIds = reservations.map((reservation) => reservation.variantId);
+    const lockedVariants = await tx.$queryRaw<
+      Array<{ id: string; stockOnHand: number }>
+    >(Prisma.sql`
+      SELECT "id", "stockOnHand"
+      FROM "ProductVariant"
+      WHERE "id" IN (${Prisma.join(variantIds)})
+      FOR UPDATE
+    `);
+    const byVariant = new Map(
+      lockedVariants.map((variant) => [variant.id, variant]),
+    );
+    for (const reservation of reservations) {
+      const variant = byVariant.get(reservation.variantId);
+      if (
+        !variant ||
+        !['ACTIVE', 'EXPIRED', 'RELEASED'].includes(reservation.status) ||
+        variant.stockOnHand < reservation.quantity
+      )
+        return { status: 'stock_unavailable' as const, orderId };
+    }
+
+    for (const reservation of reservations) {
+      await tx.productVariant.update({
+        where: { id: reservation.variantId },
+        data: {
+          stockOnHand: { decrement: reservation.quantity },
+          stockReserved:
+            reservation.status === 'ACTIVE'
+              ? { decrement: reservation.quantity }
+              : undefined,
+        },
+      });
+      await tx.inventoryReservation.update({
+        where: { id: reservation.id },
+        data: { status: 'CONVERTED' },
+      });
+    }
+    await tx.paymentAttempt.update({
+      where: { id: paymentAttemptId },
+      data: { status: 'PAID', providerPaymentId },
+    });
+    await tx.order.update({
+      where: { id: orderId },
+      data: { paymentStatus: 'PAID' },
+    });
+    return { status: 'fulfilled' as const, orderId };
+  });
+}
+
 export async function markPaymentFailed(
   paymentAttemptId: string,
   status: 'FAILED' | 'CANCELLED',

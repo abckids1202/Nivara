@@ -1,4 +1,7 @@
-import { cancelPaymentReview, markPaymentPaid } from '@/lib/payment-state';
+import {
+  cancelPaymentReview,
+  fulfilPaymentReview,
+} from '@/lib/payment-state';
 import { Prisma } from '@prisma/client';
 import {
   badRequest,
@@ -61,14 +64,19 @@ export async function PATCH(request: Request): Promise<Response> {
       if (order.paymentStatus !== 'PAID_REVIEW') {
         return badRequest('Fulfilment requires verified captured payment');
       }
-      const result = await markPaymentPaid({
+      const result = await fulfilPaymentReview({
         paymentAttemptId: payment.id,
+        orderId: order.id,
         providerPaymentId: payment.providerPaymentId ?? undefined,
       });
-      if (result.status === 'paid_review')
+      if (result.status === 'stock_unavailable')
         return badRequest(
           'Stock is no longer available; resolve this order by refund or cancellation',
         );
+      if (result.status === 'missing')
+        return noStore({ error: 'Payment not found' }, 404);
+      if (result.status === 'not_review')
+        return badRequest('This order is no longer waiting for payment review');
     } else {
       const result = await cancelPaymentReview({
         paymentAttemptId: payment.id,
