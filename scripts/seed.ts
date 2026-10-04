@@ -50,7 +50,6 @@ async function seed() {
           dimensions: product.dimensions,
           care: product.care,
           categoryId: category.id,
-          status: ProductStatus.PUBLISHED,
         },
         create: {
           name: product.name,

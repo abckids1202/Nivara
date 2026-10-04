@@ -30,7 +30,7 @@ npm run db:seed
 npm run dev
 ```
 
-`npm run db:seed` is safe to run repeatedly on a development or rehearsal database. It upserts the demonstration catalogue, categories, variants, and placeholder product images; existing variant stock is preserved so a repeat seed cannot silently reset inventory, while newly created variants receive the demonstration stock quantity. It requires a reachable `DATABASE_URL`. In `NODE_ENV=production`, the script refuses to run unless `ALLOW_DEMO_SEED=true` is explicitly set.
+`npm run db:seed` is safe to run repeatedly on a development or rehearsal database. It upserts the demonstration catalogue, categories, variants, and placeholder product images; existing variant stock and existing product publication status are preserved so a repeat seed cannot silently reset inventory or republish an archived product, while newly created variants receive the demonstration stock quantity and newly created products start as published. It requires a reachable `DATABASE_URL`. In `NODE_ENV=production`, the script refuses to run unless `ALLOW_DEMO_SEED=true` is explicitly set.
 
 Then open `http://localhost:3000`.
 
