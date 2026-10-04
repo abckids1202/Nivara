@@ -681,6 +681,26 @@ test('guest order page recovers from a transient order-service failure', async (
   await expect(page.getByRole('heading', { name: 'NV-1001' })).toBeVisible();
 });
 
+test('expired guest order links expose no order details', async ({ page }) => {
+  await page.route('**/api/guest-orders/expired-token', (route) =>
+    route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'This order link is no longer available.' }),
+    }),
+  );
+
+  await page.goto('/guest-order/expired-token');
+
+  await expect(
+    page.getByRole('heading', { name: 'This link is unavailable.' }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('This order link is no longer available.'),
+  ).toBeVisible();
+  await expect(page.getByText('NV-1001')).toHaveCount(0);
+});
+
 test('password reset page explains how to request an expired link', async ({
   page,
 }) => {
