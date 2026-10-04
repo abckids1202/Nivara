@@ -234,30 +234,35 @@ export default function AdminPage() {
 
   async function loadProducts(search = query, page = productPage) {
     setLoading(true);
-    const params = new URLSearchParams({
-      page: String(page),
-      pageSize: '24',
-    });
-    if (search.trim()) params.set('q', search.trim());
-    const response = await fetch(`/api/admin/products?${params}`, {
-      cache: 'no-store',
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      data?: AdminProduct[];
-      pagination?: ProductPagination;
-      error?: string;
-    };
-    if (!response.ok)
-      setError(
-        response.status === 401 || response.status === 403
-          ? 'Administrator authentication is required to manage the store.'
-          : (payload.error ?? 'Catalogue could not be loaded'),
-      );
-    else {
-      setProducts(payload.data ?? []);
-      if (payload.pagination) setProductPagination(payload.pagination);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: '24',
+      });
+      if (search.trim()) params.set('q', search.trim());
+      const response = await fetch(`/api/admin/products?${params}`, {
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: AdminProduct[];
+        pagination?: ProductPagination;
+        error?: string;
+      };
+      if (!response.ok)
+        setError(
+          response.status === 401 || response.status === 403
+            ? 'Administrator authentication is required to manage the store.'
+            : (payload.error ?? 'Catalogue could not be loaded'),
+        );
+      else {
+        setProducts(payload.data ?? []);
+        if (payload.pagination) setProductPagination(payload.pagination);
+      }
+    } catch {
+      setError('Catalogue could not be loaded. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function loadOrders(search = orderQuery, page = orderPage) {
@@ -387,27 +392,33 @@ export default function AdminPage() {
       return;
     }
     setCatalogueBusy(true);
-    const response = await fetch('/api/admin/catalogue/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/csv' },
-      body: catalogueCsv,
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-      preview?: CataloguePreview['preview'];
-      rowCount?: number;
-    };
-    if (!response.ok) {
-      setCataloguePreview(null);
-      setNotice(payload.error ?? 'Catalogue preview failed.');
-    } else {
-      setCataloguePreview({
-        rowCount: payload.rowCount ?? 0,
-        preview: payload.preview ?? [],
+    try {
+      const response = await fetch('/api/admin/catalogue/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: catalogueCsv,
       });
-      setNotice('Catalogue preview validated.');
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        preview?: CataloguePreview['preview'];
+        rowCount?: number;
+      };
+      if (!response.ok) {
+        setCataloguePreview(null);
+        setNotice(payload.error ?? 'Catalogue preview failed.');
+      } else {
+        setCataloguePreview({
+          rowCount: payload.rowCount ?? 0,
+          preview: payload.preview ?? [],
+        });
+        setNotice('Catalogue preview validated.');
+      }
+    } catch {
+      setCataloguePreview(null);
+      setNotice('Catalogue preview could not reach the server. Try again.');
+    } finally {
+      setCatalogueBusy(false);
     }
-    setCatalogueBusy(false);
   }
 
   async function importCatalogue() {
@@ -419,27 +430,32 @@ export default function AdminPage() {
     )
       return;
     setCatalogueBusy(true);
-    const response = await fetch('/api/admin/catalogue/import?dryRun=false', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/csv' },
-      body: catalogueCsv,
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-      imported?: number;
-    };
-    setNotice(
-      response.ok
-        ? `${payload.imported ?? 0} catalogue rows imported.`
-        : (payload.error ?? 'Catalogue import failed.'),
-    );
-    if (response.ok) {
-      setCatalogueCsv('');
-      setCatalogueFileName('');
-      setCataloguePreview(null);
-      await Promise.all([loadProducts(), loadCategories()]);
+    try {
+      const response = await fetch('/api/admin/catalogue/import?dryRun=false', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: catalogueCsv,
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        imported?: number;
+      };
+      setNotice(
+        response.ok
+          ? `${payload.imported ?? 0} catalogue rows imported.`
+          : (payload.error ?? 'Catalogue import failed.'),
+      );
+      if (response.ok) {
+        setCatalogueCsv('');
+        setCatalogueFileName('');
+        setCataloguePreview(null);
+        await Promise.all([loadProducts(), loadCategories()]);
+      }
+    } catch {
+      setNotice('Catalogue import could not reach the server. Try again.');
+    } finally {
+      setCatalogueBusy(false);
     }
-    setCatalogueBusy(false);
   }
 
   // Product search is server-side and debounced so large catalogues do not
