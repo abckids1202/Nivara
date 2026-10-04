@@ -3,13 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, type SyntheticEvent } from 'react';
 import { ArrowLeft, Check, ShieldCheck, Trash2 } from 'lucide-react';
-import { formatInr } from '@/lib/format';
-import { calculateDeliveryFee } from '@/lib/money';
+import { calculateDeliveryFee, formatInrFromPaise } from '@/lib/money';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { trackEvent } from '@/lib/analytics';
 
-const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
+const formatPaise = (paise: number) => formatInrFromPaise(paise);
 
 function cartMutationMessage(reason: unknown) {
   return reason instanceof Error

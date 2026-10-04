@@ -25,9 +25,11 @@ export function calculateOrderTotal(subtotalPaise: number) {
 }
 
 export function formatInrFromPaise(amountPaise: number) {
-  return new Intl.NumberFormat('en-IN', {
+  const formatted = new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amountPaise / 100);
+  return formatted.replace(/\.00$/, '');
 }

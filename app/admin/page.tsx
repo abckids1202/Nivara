@@ -14,7 +14,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 
 type AdminProduct = {
   id: string;
@@ -141,7 +141,7 @@ type PaymentReviewPagination = {
   total: number;
   totalPages: number;
 };
-const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
+const formatPaise = (paise: number) => formatInrFromPaise(paise);
 
 function adminLoadError(
   response: Response,

@@ -12,7 +12,7 @@ import {
   Plus,
   Star,
 } from 'lucide-react';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { selectDefaultVariant } from '@/lib/catalogue-display';
@@ -47,7 +47,7 @@ type ProductRecord = {
   }>;
 };
 
-const formatPaise = (paise: number) => formatInr(Math.round(paise / 100));
+const formatPaise = (paise: number) => formatInrFromPaise(paise);
 
 export function ProductDetail({ slug }: { slug: string }) {
   const { addItem } = useCart();

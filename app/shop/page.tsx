@@ -12,6 +12,7 @@ import {
   Star,
 } from 'lucide-react';
 import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { selectDefaultVariant } from '@/lib/catalogue-display';
@@ -39,7 +40,7 @@ type CatalogueProduct = {
 type CategoryOption = { id: string; name: string; slug: string };
 
 const formatPaise = (paise: number | null) =>
-  formatInr(Math.round((paise ?? 0) / 100));
+  formatInrFromPaise(paise ?? 0);
 
 export default function ShopPage() {
   const searchParams = useSearchParams();

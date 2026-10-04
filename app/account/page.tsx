@@ -14,7 +14,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { useCart } from '@/components/cart-provider';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 
 type Mode = 'login' | 'signup' | 'reset';
 type OrderItem = {
@@ -483,7 +483,7 @@ export default function AccountPage() {
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
-                          {formatInr(Math.round(order.totalPaise / 100))}
+                          {formatInrFromPaise(order.totalPaise)}
                         </p>
                         <p className="text-xs uppercase tracking-[0.12em] text-[#a6503d]">
                           {statusLabel(order.paymentStatus)} ·{' '}
@@ -502,7 +502,7 @@ export default function AccountPage() {
                             {item.quantity}
                           </span>
                           <span>
-                            {formatInr(Math.round(item.unitPricePaise / 100))}
+                            {formatInrFromPaise(item.unitPricePaise)}
                           </span>
                         </div>
                       ))}
@@ -594,10 +594,8 @@ export default function AccountPage() {
                       </Link>
                       <p className="mt-1 text-sm text-[#718078]">
                         {item.product.variants[0]
-                          ? formatInr(
-                              Math.round(
-                                item.product.variants[0].pricePaise / 100,
-                              ),
+                          ? formatInrFromPaise(
+                              item.product.variants[0].pricePaise,
                             )
                           : 'Price unavailable'}
                       </p>

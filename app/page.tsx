@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Heart, Sparkles, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 import { MagneticLink, StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
 import { selectDefaultVariant } from '@/lib/catalogue-display';
@@ -91,10 +91,10 @@ function ProductCard({
           <p className="mt-1 text-sm text-[#718078]">{product.category.name}</p>
         </div>
         <div className="text-right text-sm font-semibold">
-          <p>{formatInr(Math.round((product.minPricePaise ?? 0) / 100))}</p>
+          <p>{formatInrFromPaise(product.minPricePaise ?? 0)}</p>
           {variant?.compareAtPaise && (
             <p className="mt-1 text-xs font-normal text-[#9b9084] line-through">
-              {formatInr(Math.round(variant.compareAtPaise / 100))}
+              {formatInrFromPaise(variant.compareAtPaise)}
             </p>
           )}
         </div>

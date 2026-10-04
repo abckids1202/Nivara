@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Package, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 
 type GuestOrder = {
   orderNumber: string;
@@ -275,18 +275,14 @@ export default function GuestOrderPage({
                         </span>
                       </span>
                       <span className="font-semibold">
-                        {formatInr(
-                          Math.round(
-                            (item.unitPricePaise * item.quantity) / 100,
-                          ),
-                        )}
+                        {formatInrFromPaise(item.unitPricePaise * item.quantity)}
                       </span>
                     </div>
                   ))}
                 </div>
                 <div className="mt-5 flex justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span>{formatInr(Math.round(order.totalPaise / 100))}</span>
+                  <span>{formatInrFromPaise(order.totalPaise)}</span>
                 </div>
                 <div className="mt-6 flex gap-3 rounded-xl bg-[#e7eee5] p-3 text-xs leading-5 text-[#536259]">
                   <ShieldCheck size={18} className="shrink-0" /> This private

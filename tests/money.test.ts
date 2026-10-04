@@ -3,6 +3,7 @@ import {
   calculateDeliveryFee,
   calculateOrderTotal,
   FREE_SHIPPING_THRESHOLD_PAISE,
+  formatInrFromPaise,
   STANDARD_DELIVERY_FEE_PAISE,
   rupeesToPaise,
 } from '../lib/money.ts';
@@ -33,6 +34,11 @@ describe('money and reservation rules', () => {
     expect(rupeesToPaise(649)).toBe(64_900);
     expect(rupeesToPaise(12.34)).toBe(1_234);
     expect(() => rupeesToPaise(Number.NaN)).toThrow(/finite/);
+  });
+
+  it('preserves paise in display formatting', () => {
+    expect(formatInrFromPaise(64_950)).toContain('649.50');
+    expect(formatInrFromPaise(64_900)).not.toContain('.00');
   });
 
   it('converts only active reservations with enough stock', () => {

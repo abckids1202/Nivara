@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Package, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { StoreHeader } from '@/components/experience-tools';
-import { formatInr } from '@/lib/format';
+import { formatInrFromPaise } from '@/lib/money';
 
 type OrderDetail = {
   orderNumber: string;
@@ -33,7 +33,7 @@ type OrderDetail = {
   } | null;
 };
 
-const money = (paise: number) => formatInr(Math.round(paise / 100));
+const money = (paise: number) => formatInrFromPaise(paise);
 const label = (value: string) =>
   value
     .replaceAll('_', ' ')
