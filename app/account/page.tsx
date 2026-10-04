@@ -91,6 +91,8 @@ export default function AccountPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileReload, setProfileReload] = useState(0);
   const [signedIn, setSignedIn] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [orders, setOrders] = useState<AccountOrder[]>([]);
@@ -166,6 +168,7 @@ export default function AccountPage() {
   }
 
   useEffect(() => {
+    let active = true;
     fetch('/api/account/profile', { cache: 'no-store' })
       .then(async (response) => {
         if (response.status === 401) return null;
@@ -176,6 +179,7 @@ export default function AccountPage() {
         };
       })
       .then((result) => {
+        if (!active) return;
         if (result?.data?.email) {
           setEmail(result.data.email);
           setDisplayName(result.data.displayName ?? '');
@@ -184,13 +188,20 @@ export default function AccountPage() {
         }
       })
       .catch((reason: unknown) => {
-        setMessage(
+        if (!active) return;
+        const nextError =
           reason instanceof Error && !(reason instanceof TypeError)
             ? reason.message
-            : 'Account details could not be loaded. Please try again.',
+            : 'Account details could not be loaded. Please try again.';
+        setProfileError(nextError);
+        setMessage(
+          nextError,
         );
       });
-  }, [refreshCart]);
+    return () => {
+      active = false;
+    };
+  }, [profileReload, refreshCart]);
 
   useEffect(() => {
     if (!signedIn) return;
@@ -828,6 +839,24 @@ export default function AccountPage() {
             >
               {message}
             </output>
+          )}
+          {profileError && (
+            <div
+              role="alert"
+              className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-xl bg-[#f7ddd5] px-4 py-3 text-sm text-[#8f3f31]"
+            >
+              <span>{profileError}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileError('');
+                  setProfileReload((value) => value + 1);
+                }}
+                className="rounded-full border border-[#c98271] px-4 py-2 font-semibold hover:bg-[#f1cfc5]"
+              >
+                Try again
+              </button>
+            </div>
           )}
           <button
             type="submit"

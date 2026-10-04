@@ -623,12 +623,27 @@ test('account dashboard exposes recovery when an account request fails', async (
 });
 
 test('account entry reports a profile-service failure', async ({ page }) => {
-  await page.route('**/api/account/profile', (route) => route.abort());
+  let attempts = 0;
+  await page.route('**/api/account/profile', (route) => {
+    attempts += 1;
+    if (attempts === 1) return route.abort();
+    return route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    });
+  });
   await page.goto('/account');
   await expect(
-    page.getByText('Account details could not be loaded. Please try again.', {
-      exact: true,
-    }),
+    page
+      .getByRole('alert')
+      .filter({
+        hasText: 'Account details could not be loaded. Please try again.',
+      }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
   ).toBeVisible();
 });
 
