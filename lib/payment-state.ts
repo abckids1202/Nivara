@@ -79,6 +79,17 @@ export async function markPaymentPaid({
     }
 
     const reservations = await lockOrderReservations(tx, payment.orderId);
+    if (!reservations.length) {
+      await tx.paymentAttempt.update({
+        where: { id: paymentAttemptId },
+        data: { status: 'PAID_REVIEW', providerPaymentId },
+      });
+      await tx.order.update({
+        where: { id: payment.orderId },
+        data: { paymentStatus: 'PAID_REVIEW' },
+      });
+      return { status: 'paid_review' as const, orderId: payment.orderId };
+    }
     const variantIds = reservations.map((reservation) => reservation.variantId);
     const lockedVariants = await tx.$queryRaw<
       Array<{

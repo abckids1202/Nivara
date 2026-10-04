@@ -13,6 +13,46 @@ afterEach(() => {
 });
 
 describe('payment-state capture transitions', () => {
+  it('routes a capture with no reservations to manual review', async () => {
+    const paymentAttempt = {
+      id: 'payment-empty',
+      orderId: 'order-empty',
+      status: 'PENDING' as const,
+      order: { paymentStatus: 'PENDING' as const },
+    };
+    const paymentAttemptFindUnique = vi
+      .fn()
+      .mockResolvedValueOnce({ orderId: 'order-empty' })
+      .mockResolvedValueOnce(paymentAttempt);
+    const paymentAttemptUpdate = vi.fn().mockResolvedValue(paymentAttempt);
+    const orderUpdate = vi.fn().mockResolvedValue({});
+    const tx = {
+      $queryRaw: vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([]),
+      paymentAttempt: {
+        findUnique: paymentAttemptFindUnique,
+        update: paymentAttemptUpdate,
+      },
+      order: { update: orderUpdate },
+      inventoryReservation: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    transaction.mockImplementation(async (callback) => callback(tx));
+
+    await expect(
+      markPaymentPaid({
+        paymentAttemptId: 'payment-empty',
+        providerPaymentId: 'pay-empty',
+      }),
+    ).resolves.toEqual({ status: 'paid_review', orderId: 'order-empty' });
+    expect(paymentAttemptUpdate).toHaveBeenCalledWith({
+      where: { id: 'payment-empty' },
+      data: { status: 'PAID_REVIEW', providerPaymentId: 'pay-empty' },
+    });
+    expect(orderUpdate).toHaveBeenCalledWith({
+      where: { id: 'order-empty' },
+      data: { paymentStatus: 'PAID_REVIEW' },
+    });
+  });
+
   it('routes a capture against an expired reservation to manual review', async () => {
     const paymentAttempt = {
       id: 'payment-1',
