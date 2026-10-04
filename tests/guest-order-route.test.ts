@@ -102,7 +102,13 @@ describe('guest order route resilience', () => {
     ]);
     expect(findFirst).toHaveBeenCalledWith({
       where: { guestAccessHash: expect.any(String) },
-      include: {
+      select: {
+        orderNumber: true,
+        paymentStatus: true,
+        fulfilmentStatus: true,
+        totalPaise: true,
+        id: true,
+        guestAccessExpiry: true,
         items: {
           select: {
             id: true,
