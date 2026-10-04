@@ -42,6 +42,7 @@ vi.mock('@/lib/storage-cleanup', () => ({
     key: 'server-key',
     bucket: 'product-images',
   }),
+  isConfiguredStoragePublicUrl: () => false,
   storagePathForImage: () => 'lamp/image.webp',
   deleteStorageObject,
 }));

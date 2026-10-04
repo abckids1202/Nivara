@@ -16,6 +16,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/provider-fetch', () => ({ providerFetch }));
 
 import {
+  isConfiguredStoragePublicUrl,
   processStorageCleanupTasks,
   storagePathForImage,
 } from '@/lib/storage-cleanup';
@@ -134,6 +135,20 @@ describe('storage image path parsing', () => {
         config,
       ),
     ).toBeNull();
+  });
+
+  it('recognizes managed public URLs without requiring the service key', () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = config.url;
+    process.env.SUPABASE_STORAGE_BUCKET = config.bucket;
+
+    expect(
+      isConfiguredStoragePublicUrl(
+        `${config.url}/storage/v1/object/public/${config.bucket}/lamp.webp`,
+      ),
+    ).toBe(true);
+    expect(isConfiguredStoragePublicUrl('https://cdn.example/lamp.webp')).toBe(
+      false,
+    );
   });
 
   it('rejects malformed or traversal-like object paths', () => {

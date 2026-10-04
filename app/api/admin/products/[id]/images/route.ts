@@ -12,6 +12,7 @@ import { providerFetch } from '@/lib/provider-fetch';
 import { hasAllowedImageSignature } from '@/lib/image-validation';
 import {
   deleteStorageObject,
+  isConfiguredStoragePublicUrl,
   storageConfig,
   storagePathForImage,
 } from '@/lib/storage-cleanup';
@@ -129,6 +130,8 @@ export async function DELETE(
     });
     if (!image) return noStore({ error: 'Image not found' }, 404);
     const config = storageConfig();
+    if (!config && isConfiguredStoragePublicUrl(image.url))
+      return unavailable('Supabase Storage is not configured');
     const path = storagePathForImage(image.url, config);
     await prisma.$transaction(async (transaction) => {
       await transaction.productImage.delete({ where: { id: image.id } });

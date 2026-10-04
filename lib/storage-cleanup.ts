@@ -38,6 +38,15 @@ export function storagePathForImage(
   }
 }
 
+export function isConfiguredStoragePublicUrl(url: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'product-images';
+  if (!hasConfiguredValue(supabaseUrl, ['your-project']) || !bucket) return false;
+  return url.startsWith(
+    `${supabaseUrl}/storage/v1/object/public/${bucket}/`,
+  );
+}
+
 export async function deleteStorageObject(
   path: string,
   bucket: string,
