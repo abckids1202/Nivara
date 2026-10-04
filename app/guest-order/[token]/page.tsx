@@ -109,7 +109,7 @@ export default function GuestOrderPage({
         }),
       )
       .then(async (response) => {
-        const result = (await response.json()) as GuestOrder & {
+        const result = (await response.json().catch(() => ({}))) as GuestOrder & {
           error?: string;
         };
         if (!response.ok)
