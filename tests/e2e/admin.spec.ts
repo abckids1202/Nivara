@@ -131,10 +131,31 @@ test('authorized admin dashboard renders operational sections', async ({
         }),
       });
     if (url.pathname === '/api/admin/orders/payment-review')
+      if (route.request().method() === 'PATCH')
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { id: 'payment-order-1' } }),
+        });
+    if (url.pathname === '/api/admin/orders/payment-review')
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: [], pagination }),
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'payment-order-1',
+              orderNumber: 'NV-PAY-1',
+              guestEmail: 'customer@example.com',
+              paymentStatus: 'PAYMENT_REVIEW',
+              totalPaise: 72800,
+              items: [{ productName: 'Arc desk organizer', quantity: 1 }],
+              payments: [{ providerPaymentId: 'pay_test_1' }],
+              paymentReviewResolution: null,
+            },
+          ],
+          pagination: { ...pagination, total: 1 },
+        }),
       });
     return route.continue();
   });
@@ -161,4 +182,7 @@ test('authorized admin dashboard renders operational sections', async ({
 
   await page.getByRole('button', { name: 'Approve' }).click();
   await expect(page.getByText('Review approved.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Record refund' }).click();
+  await expect(page.getByText('NV-PAY-1 resolved.')).toBeVisible();
 });
