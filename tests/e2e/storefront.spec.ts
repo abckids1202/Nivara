@@ -239,6 +239,16 @@ test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
     await expect(
       page.getByRole('navigation', { name: 'Mobile navigation' }),
     ).toBeVisible();
+    const mobileNavigation = page.getByRole('navigation', {
+      name: 'Mobile navigation',
+    });
+    const firstMobileLink = mobileNavigation.getByRole('link').first();
+    const themeButton = mobileNavigation.getByRole('button');
+    await expect(firstMobileLink).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(themeButton).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(firstMobileLink).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(
       page.getByRole('navigation', { name: 'Mobile navigation' }),
