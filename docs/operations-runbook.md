@@ -5,7 +5,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 ## First deployment
 
 1. Create the client-owned Supabase project and copy its pooled PostgreSQL URL to `DATABASE_URL` and direct connection URL to `DIRECT_URL`.
-2. From the release commit, run `npm run db:validate`, `npm run db:generate`, and `npm run db:migrate` against the production database. This applies the inventory invariant that prevents negative stock and reserved stock above on-hand stock. Run `npm run db:seed` only when demonstration catalogue data is intentionally wanted; in production mode it requires the explicit `ALLOW_DEMO_SEED=true` override. Use the protected CSV import flow for approved production catalogue data.
+2. From the release commit, run `npm run db:validate`, `npm run db:generate`, and `npm run db:migrate` against the production database. This applies the inventory invariant that prevents negative stock and reserved stock above on-hand stock, plus the catalogue availability/price index used by shop search and sorting. Run `npm run db:seed` only when demonstration catalogue data is intentionally wanted; in production mode it requires the explicit `ALLOW_DEMO_SEED=true` override. Use the protected CSV import flow for approved production catalogue data.
    This applies the access-rate log migration used by authentication and other sensitive endpoints.
 3. Enable Supabase Auth email/password, email confirmation, and password recovery redirects for the deployed site.
 4. Create a private Supabase service-role key and a `product-images` Storage bucket with public reads and admin-only application writes. Set `SUPABASE_STORAGE_BUCKET` if using another bucket name.
@@ -14,7 +14,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 7. Configure Resend and verify the client sender domain before sending real order mail.
 8. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
    The same job retries queued Supabase Storage image deletions, and retains rate-limit and guest-access-attempt records for 30 days before removing older entries.
-9. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready.
+9. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready, including `catalogue query index`. A degraded response means the migration or provider configuration is incomplete.
 
 ## Acceptance sequence
 
