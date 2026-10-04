@@ -159,6 +159,21 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   await expect(page.getByRole('search')).toBeVisible();
 });
 
+test('support form recovers from a network failure', async ({ page }) => {
+  await page.route('**/api/support', (route) => route.abort());
+  await page.goto('/support');
+  await page.getByLabel('Name').fill('Test customer');
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByLabel('Message').fill('I need help with a recent order.');
+  await page.getByRole('button', { name: 'Send feedback' }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'could not reach support' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Send feedback' }),
+  ).toBeEnabled();
+});
+
 test('primary controls are keyboard focusable', async ({ page }, testInfo) => {
   await page.goto('/');
   const searchButton = page.getByRole('button', {

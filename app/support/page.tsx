@@ -30,17 +30,25 @@ export default function SupportPage() {
     event.preventDefault();
     setBusy(true);
     setError('');
-    const response = await fetch('/api/support', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
-    });
-    const payload = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-    if (!response.ok) setError(payload.error ?? 'Message could not be sent.');
-    else setSent(true);
-    setBusy(false);
+    try {
+      const response = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        setError(payload.error ?? 'Message could not be sent.');
+      } else {
+        setSent(true);
+      }
+    } catch {
+      setError('We could not reach support. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
