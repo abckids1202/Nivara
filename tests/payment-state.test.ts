@@ -32,6 +32,8 @@ describe('payment-state capture transitions', () => {
     const orderUpdate = vi.fn().mockResolvedValue({});
     const reservationUpdate = vi.fn().mockResolvedValue({});
     const variantUpdate = vi.fn().mockResolvedValue({});
+    const resolutionUpsert = vi.fn().mockResolvedValue({ id: 'resolution-1' });
+    const auditCreate = vi.fn().mockResolvedValue({});
     const tx = {
       $queryRaw: vi
         .fn()
@@ -56,6 +58,8 @@ describe('payment-state capture transitions', () => {
         update: reservationUpdate,
       },
       productVariant: { update: variantUpdate },
+      paymentReviewResolution: { upsert: resolutionUpsert },
+      auditLog: { create: auditCreate },
     };
     transaction.mockImplementation(async (callback) => callback(tx));
 
@@ -63,8 +67,16 @@ describe('payment-state capture transitions', () => {
       fulfilPaymentReview({
         paymentAttemptId: 'payment-review',
         orderId: 'order-review',
+        resolution: {
+          adminUserId: 'admin-1',
+          reason: 'Captured payment confirmed and stock is available.',
+        },
       }),
-    ).resolves.toEqual({ status: 'fulfilled', orderId: 'order-review' });
+    ).resolves.toEqual({
+      status: 'fulfilled',
+      orderId: 'order-review',
+      resolution: { id: 'resolution-1' },
+    });
     expect(variantUpdate).toHaveBeenCalledWith({
       where: { id: 'variant-1' },
       data: { stockOnHand: { decrement: 1 }, stockReserved: undefined },
@@ -76,6 +88,32 @@ describe('payment-state capture transitions', () => {
     expect(paymentAttemptUpdate).toHaveBeenCalledWith({
       where: { id: 'payment-review' },
       data: { status: 'PAID', providerPaymentId: undefined },
+    });
+    expect(resolutionUpsert).toHaveBeenCalledWith({
+      where: { orderId: 'order-review' },
+      create: {
+        orderId: 'order-review',
+        adminUserId: 'admin-1',
+        action: 'FULFIL',
+        reason: 'Captured payment confirmed and stock is available.',
+      },
+      update: {
+        adminUserId: 'admin-1',
+        action: 'FULFIL',
+        reason: 'Captured payment confirmed and stock is available.',
+        refundReference: null,
+      },
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: {
+        actorId: 'admin-1',
+        action: 'order.payment_review_fulfil',
+        entityType: 'Order',
+        entityId: 'order-review',
+        details: {
+          reason: 'Captured payment confirmed and stock is available.',
+        },
+      },
     });
   });
 

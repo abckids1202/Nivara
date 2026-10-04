@@ -162,10 +162,15 @@ export async function fulfilPaymentReview({
   paymentAttemptId,
   orderId,
   providerPaymentId,
+  resolution,
 }: {
   paymentAttemptId: string;
   orderId: string;
   providerPaymentId?: string;
+  resolution?: {
+    adminUserId: string;
+    reason: string;
+  };
 }) {
   return prisma.$transaction(async (tx) => {
     const payment = await lockPaymentAttempt(tx, paymentAttemptId);
@@ -226,7 +231,38 @@ export async function fulfilPaymentReview({
       where: { id: orderId },
       data: { paymentStatus: 'PAID' },
     });
-    return { status: 'fulfilled' as const, orderId };
+    const paymentReviewResolution = resolution
+      ? await tx.paymentReviewResolution.upsert({
+          where: { orderId },
+          create: {
+            orderId,
+            adminUserId: resolution.adminUserId,
+            action: 'FULFIL',
+            reason: resolution.reason,
+          },
+          update: {
+            adminUserId: resolution.adminUserId,
+            action: 'FULFIL',
+            reason: resolution.reason,
+            refundReference: null,
+          },
+        })
+      : undefined;
+    if (resolution)
+      await tx.auditLog.create({
+        data: {
+          actorId: resolution.adminUserId,
+          action: 'order.payment_review_fulfil',
+          entityType: 'Order',
+          entityId: orderId,
+          details: { reason: resolution.reason },
+        },
+      });
+    return {
+      status: 'fulfilled' as const,
+      orderId,
+      resolution: paymentReviewResolution,
+    };
   });
 }
 
@@ -313,10 +349,16 @@ export async function cancelPaymentReview({
   paymentAttemptId,
   orderId,
   refundReference,
+  resolution,
 }: {
   paymentAttemptId: string;
   orderId: string;
   refundReference?: string;
+  resolution?: {
+    adminUserId: string;
+    action: 'REFUND' | 'CANCEL';
+    reason: string;
+  };
 }) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`
@@ -359,6 +401,38 @@ export async function cancelPaymentReview({
       where: { id: orderId },
       data: { paymentStatus: 'CANCELLED' },
     });
-    return { status: 'cancelled' as const, orderId };
+    const paymentReviewResolution = resolution
+      ? await tx.paymentReviewResolution.upsert({
+          where: { orderId },
+          create: {
+            orderId,
+            adminUserId: resolution.adminUserId,
+            action: resolution.action,
+            reason: resolution.reason,
+            refundReference,
+          },
+          update: {
+            adminUserId: resolution.adminUserId,
+            action: resolution.action,
+            reason: resolution.reason,
+            refundReference,
+          },
+        })
+      : undefined;
+    if (resolution)
+      await tx.auditLog.create({
+        data: {
+          actorId: resolution.adminUserId,
+          action: `order.payment_review_${resolution.action.toLowerCase()}`,
+          entityType: 'Order',
+          entityId: orderId,
+          details: { reason: resolution.reason, refundReference },
+        },
+      });
+    return {
+      status: 'cancelled' as const,
+      orderId,
+      resolution: paymentReviewResolution,
+    };
   });
 }

@@ -60,6 +60,7 @@ export async function PATCH(request: Request): Promise<Response> {
     const payment = order.payments[0];
     if (!payment) return badRequest('The order has no payment attempt');
 
+    let resolution;
     if (parsed.data.action === 'FULFIL') {
       if (order.paymentStatus !== 'PAID_REVIEW') {
         return badRequest('Fulfilment requires verified captured payment');
@@ -68,6 +69,10 @@ export async function PATCH(request: Request): Promise<Response> {
         paymentAttemptId: payment.id,
         orderId: order.id,
         providerPaymentId: payment.providerPaymentId ?? undefined,
+        resolution: {
+          adminUserId: access.identity.id,
+          reason: parsed.data.reason,
+        },
       });
       if (result.status === 'stock_unavailable')
         return badRequest(
@@ -77,49 +82,24 @@ export async function PATCH(request: Request): Promise<Response> {
         return noStore({ error: 'Payment not found' }, 404);
       if (result.status === 'not_review')
         return badRequest('This order is no longer waiting for payment review');
+      resolution = result.resolution;
     } else {
       const result = await cancelPaymentReview({
         paymentAttemptId: payment.id,
         orderId: order.id,
         refundReference: parsed.data.refundReference,
+        resolution: {
+          adminUserId: access.identity.id,
+          action: parsed.data.action,
+          reason: parsed.data.reason,
+        },
       });
       if (result.status === 'missing')
         return noStore({ error: 'Payment not found' }, 404);
       if (result.status === 'not_review')
         return badRequest('This order is no longer waiting for payment review');
+      resolution = result.resolution;
     }
-
-    const resolution = await prisma.$transaction(async (tx) => {
-      const result = await tx.paymentReviewResolution.upsert({
-        where: { orderId: order.id },
-        create: {
-          orderId: order.id,
-          adminUserId: access.identity.id,
-          action: parsed.data.action,
-          reason: parsed.data.reason,
-          refundReference: parsed.data.refundReference,
-        },
-        update: {
-          adminUserId: access.identity.id,
-          action: parsed.data.action,
-          reason: parsed.data.reason,
-          refundReference: parsed.data.refundReference,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId: access.identity.id,
-          action: `order.payment_review_${parsed.data.action.toLowerCase()}`,
-          entityType: 'Order',
-          entityId: order.id,
-          details: {
-            reason: parsed.data.reason,
-            refundReference: parsed.data.refundReference,
-          },
-        },
-      });
-      return result;
-    });
 
     return noStore({ data: resolution });
   } catch (error) {
