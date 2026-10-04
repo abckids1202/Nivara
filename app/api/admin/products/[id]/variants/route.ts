@@ -10,6 +10,7 @@ import {
 } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
 import { getAuthenticatedIdentity, isAdministrator } from '@/lib/server-auth';
+import { isValidComparisonPrice } from '@/lib/catalogue-pricing';
 import { logServerError } from '@/lib/safe-logging';
 
 const variantSchema = z.object({
@@ -65,17 +66,21 @@ export async function POST(
     return badRequest('Variant details are invalid', parsed.error.flatten());
   try {
     const { id } = await context.params;
+    const pricePaise = Math.round(parsed.data.priceRupees * 100);
+    const compareAtPaise =
+      parsed.data.compareAtRupees === undefined
+        ? null
+        : Math.round(parsed.data.compareAtRupees * 100);
+    if (!isValidComparisonPrice(pricePaise, compareAtPaise))
+      return badRequest('Comparison price must be at least the selling price');
     const variant = await prisma.$transaction(async (transaction) => {
       const createdVariant = await transaction.productVariant.create({
         data: {
           productId: id,
           name: parsed.data.name,
           sku: parsed.data.sku,
-          pricePaise: Math.round(parsed.data.priceRupees * 100),
-          compareAtPaise:
-            parsed.data.compareAtRupees === undefined
-              ? null
-              : Math.round(parsed.data.compareAtRupees * 100),
+          pricePaise,
+          compareAtPaise,
           stockOnHand: parsed.data.stockOnHand,
         },
       });

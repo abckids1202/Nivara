@@ -53,6 +53,35 @@ afterEach(() => {
 });
 
 describe('admin variant route resilience', () => {
+  it('rejects a comparison price below the selling price on creation', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({ id: 'admin-1', email: 'admin@example.com' });
+    isAdministrator.mockResolvedValue(true);
+
+    const response = await POST(
+      new Request(
+        'https://nivara.example/api/admin/products/product-1/variants',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Large',
+            sku: 'ARC-LARGE',
+            priceRupees: 799,
+            compareAtRupees: 699,
+            stockOnHand: 8,
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'product-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Comparison price must be at least the selling price');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('returns a conflict when creating a duplicate SKU', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({ id: 'admin-1', email: 'admin@example.com' });
