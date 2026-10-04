@@ -113,6 +113,7 @@ export default function Home() {
   const [categories, setCategories] = useState<HomepageCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [productReload, setProductReload] = useState(0);
   const [categoryError, setCategoryError] = useState('');
   const [categoryReload, setCategoryReload] = useState(0);
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
@@ -132,15 +133,16 @@ export default function Home() {
         return payload.data ?? [];
       })
       .then(setProducts)
-      .catch((reason: unknown) =>
+      .catch((reason: unknown) => {
+        setProducts([]);
         setError(
-          reason instanceof Error
+          reason instanceof Error && !(reason instanceof TypeError)
             ? reason.message
             : 'Featured products could not be loaded',
-        ),
-      )
+        );
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [productReload]);
 
   useEffect(() => {
     fetch('/api/categories', { cache: 'no-store' })
@@ -379,9 +381,16 @@ export default function Home() {
         {error && (
           <div
             role="alert"
-            className="mt-8 rounded-2xl bg-[#f7ddd5] p-6 text-sm text-[#8f3f31]"
+            className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-[#f7ddd5] p-6 text-sm text-[#8f3f31]"
           >
-            {error}
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => setProductReload((value) => value + 1)}
+              className="rounded-full border border-[#c98271] px-4 py-2 font-semibold hover:bg-[#f1cfc5]"
+            >
+              Try again
+            </button>
           </div>
         )}
         {!error && loading && (

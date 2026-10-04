@@ -31,6 +31,20 @@ test('homepage exposes the main shopping journey', async ({
   ).toBeVisible();
 });
 
+test('homepage featured products offer recovery after a network failure', async ({
+  page,
+}) => {
+  await page.route('**/api/catalogue**', (route) => route.abort());
+  await page.goto('/');
+  const catalogueAlert = page
+    .getByRole('alert')
+    .filter({ hasText: 'Featured products could not be loaded' });
+  await expect(catalogueAlert).toBeVisible();
+  await expect(
+    catalogueAlert.getByRole('button', { name: 'Try again' }),
+  ).toBeVisible();
+});
+
 test('catalogue filters remain represented in the URL', async ({ page }) => {
   await page.goto('/shop');
   const search = page.getByPlaceholder('Search the collection');
