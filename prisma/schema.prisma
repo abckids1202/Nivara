@@ -51,6 +51,7 @@ enum PaymentReviewAction {
 
 enum EmailDeliveryStatus {
   PENDING
+  PROCESSING
   SENT
   FAILED
 }

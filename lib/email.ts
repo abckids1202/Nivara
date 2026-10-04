@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
@@ -22,16 +23,48 @@ export async function sendOrderConfirmationEmail(orderId: string) {
     if (!recipient)
       return { sent: false as const, reason: 'recipient_not_found' };
 
+    const deliveryKey = {
+      orderId,
+      kind: 'ORDER_CONFIRMATION',
+    } as const;
     const existing = await prisma.emailDelivery.findUnique({
-      where: { orderId_kind: { orderId, kind: 'ORDER_CONFIRMATION' } },
+      where: { orderId_kind: deliveryKey },
     });
     if (existing?.status === 'SENT')
       return { sent: true as const, duplicate: true as const };
-    await prisma.emailDelivery.upsert({
-      where: { orderId_kind: { orderId, kind: 'ORDER_CONFIRMATION' } },
-      create: { orderId, kind: 'ORDER_CONFIRMATION', status: 'PENDING' },
-      update: { status: 'PENDING', errorMessage: null },
+    const staleClaimCutoff = new Date(Date.now() - 10 * 60 * 1000);
+    if (
+      existing?.status === 'PROCESSING' &&
+      (!existing.updatedAt || existing.updatedAt >= staleClaimCutoff)
+    )
+      return { sent: false as const, reason: 'email_delivery_in_progress' };
+    const claimed = await prisma.emailDelivery.updateMany({
+      where: {
+        ...deliveryKey,
+        OR: [
+          { status: { in: ['PENDING', 'FAILED'] } },
+          { status: 'PROCESSING', updatedAt: { lt: staleClaimCutoff } },
+        ],
+      },
+      data: { status: 'PROCESSING', errorMessage: null, providerMessageId: null },
     });
+    if (claimed.count === 0) {
+      let created = false;
+      try {
+        await prisma.emailDelivery.create({
+          data: { ...deliveryKey, status: 'PROCESSING' },
+        });
+        created = true;
+      } catch (error) {
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== 'P2002'
+        )
+          throw error;
+      }
+      if (!created)
+        return { sent: false as const, reason: 'email_delivery_in_progress' };
+    }
 
     let response: Response;
     try {
@@ -55,8 +88,8 @@ export async function sendOrderConfirmationEmail(orderId: string) {
         }),
       });
     } catch {
-      await prisma.emailDelivery.update({
-        where: { orderId_kind: { orderId, kind: 'ORDER_CONFIRMATION' } },
+      await prisma.emailDelivery.updateMany({
+        where: { ...deliveryKey, status: 'PROCESSING' },
         data: { status: 'FAILED', errorMessage: 'Resend request timed out' },
       });
       return { sent: false as const, reason: 'provider_timeout' };
@@ -66,8 +99,8 @@ export async function sendOrderConfirmationEmail(orderId: string) {
       message?: string;
     };
     if (!response.ok) {
-      await prisma.emailDelivery.update({
-        where: { orderId_kind: { orderId, kind: 'ORDER_CONFIRMATION' } },
+      await prisma.emailDelivery.updateMany({
+        where: { ...deliveryKey, status: 'PROCESSING' },
         data: {
           status: 'FAILED',
           errorMessage: result.message ?? 'Resend request failed',
@@ -75,8 +108,8 @@ export async function sendOrderConfirmationEmail(orderId: string) {
       });
       return { sent: false as const, reason: 'provider_rejected' };
     }
-    await prisma.emailDelivery.update({
-      where: { orderId_kind: { orderId, kind: 'ORDER_CONFIRMATION' } },
+    await prisma.emailDelivery.updateMany({
+      where: { ...deliveryKey, status: 'PROCESSING' },
       data: { status: 'SENT', providerMessageId: result.id },
     });
     return { sent: true as const };
