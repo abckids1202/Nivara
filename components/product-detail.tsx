@@ -15,6 +15,7 @@ import {
 import { formatInr } from '@/lib/format';
 import { StoreHeader } from '@/components/experience-tools';
 import { useCart } from '@/components/cart-provider';
+import { selectDefaultVariant } from '@/lib/catalogue-display';
 import { sellableStock } from '@/lib/inventory';
 import { trackEvent } from '@/lib/analytics';
 
@@ -77,7 +78,7 @@ export function ProductDetail({ slug }: { slug: string }) {
       .then((data) => {
         if (!data) throw new Error('Product not found');
         setProduct(data);
-        setSelectedVariantId(data.variants[0]?.id ?? '');
+        setSelectedVariantId(selectDefaultVariant(data.variants)?.id ?? '');
         setSelectedImageIndex(0);
         trackEvent('ProductView', { slug });
       })
