@@ -857,6 +857,68 @@ test('account sign-in merges the guest cart before showing the dashboard', async
   await expect.poll(() => mergeRequests).toBe(1);
 });
 
+test('account signup explains the email-verification handoff', async ({
+  page,
+}) => {
+  await page.route('**/api/account/profile', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    }),
+  );
+  await page.route('**/api/auth/signup', (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: { userId: 'user-2', needsVerification: true },
+      }),
+    }),
+  );
+
+  await page.goto('/account');
+  await page.getByRole('button', { name: 'Create account' }).first().click();
+  await page.getByLabel('Email').fill('new-customer@example.com');
+  await page.getByLabel('Password').fill('Password!123');
+  await page.getByRole('button', { name: 'Create account' }).click();
+
+  await expect(
+    page.getByText('Check your email to verify your Nivara account.'),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
+});
+
+test('account password reset uses a non-enumerating confirmation', async ({
+  page,
+}) => {
+  await page.route('**/api/account/profile', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    }),
+  );
+  await page.route('**/api/auth/password-reset', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { sent: true } }),
+    }),
+  );
+
+  await page.goto('/account');
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+
+  await expect(
+    page.getByText(
+      'If that address is registered, a reset link is on its way.',
+    ),
+  ).toBeVisible();
+});
+
 test('delivered orders expose review submission and moderation feedback', async ({
   page,
 }) => {
