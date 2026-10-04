@@ -71,6 +71,23 @@ test('authorized admin dashboard renders operational sections', async ({
         body: JSON.stringify({ data: { id: 'product-1' } }),
       });
     if (
+      url.pathname ===
+        '/api/admin/products/product-1/variants/variant-1' &&
+      route.request().method() === 'PATCH'
+    )
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: 'variant-1',
+            name: 'Single',
+            sku: 'ARC-UPDATED',
+            pricePaise: 69900,
+          },
+        }),
+      });
+    if (
       url.pathname === '/api/admin/products/product-1/images' &&
       route.request().method() === 'POST'
     )
@@ -218,6 +235,11 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Review queue.')).toBeVisible();
 
   await page.getByRole('button', { name: 'View variants' }).click();
+  await page.getByLabel('SKU for Single').fill('ARC-UPDATED');
+  await page.getByLabel('Price for Single').fill('699');
+  await page.getByRole('button', { name: 'Save variant' }).click();
+  await expect(page.getByText('Variant updated.')).toBeVisible();
+
   await page
     .getByLabel('Image file for Arc desk organizer')
     .setInputFiles({
