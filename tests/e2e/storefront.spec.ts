@@ -285,6 +285,48 @@ test('checkout keeps a payment failure visible after hosted checkout closes', as
   ).toBeVisible();
 });
 
+test('guest order page exposes only scoped order details and retry action', async ({
+  page,
+}) => {
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: [] }),
+    }),
+  );
+  await page.route('**/api/guest-orders/access-token', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-1001',
+        paymentStatus: 'FAILED',
+        fulfilmentStatus: 'PROCESSING',
+        totalPaise: 72800,
+        items: [
+          {
+            id: 'order-item-1',
+            productName: 'Arc desk organizer',
+            variantName: 'Single',
+            unitPricePaise: 64900,
+            quantity: 1,
+          },
+        ],
+        shipment: null,
+      }),
+    }),
+  );
+
+  await page.goto('/guest-order/access-token');
+  await expect(page.getByRole('heading', { name: 'NV-1001' })).toBeVisible();
+  await expect(page.getByText('Arc desk organizer')).toBeVisible();
+  await expect(
+    page.getByText(/private link expires after seven days/i),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry payment' })).toBeVisible();
+});
+
 test('password reset page explains how to request an expired link', async ({
   page,
 }) => {
