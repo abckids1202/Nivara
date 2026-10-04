@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import {
   markPaymentFailed,
   markPaymentPaid,
@@ -20,6 +21,17 @@ function razorpayAuth() {
   const secret = process.env.RAZORPAY_KEY_SECRET;
   if (!hasConfiguredValue(keyId) || !hasConfiguredValue(secret)) return null;
   return `Basic ${Buffer.from(`${keyId}:${secret}`).toString('base64')}`;
+}
+
+function hasValidCronAuthorization(request: Request, secret: string) {
+  const expected = Buffer.from(`Bearer ${secret}`, 'utf8');
+  const provided = Buffer.from(
+    request.headers.get('authorization') ?? '',
+    'utf8',
+  );
+  return (
+    provided.length === expected.length && timingSafeEqual(provided, expected)
+  );
 }
 
 async function readRazorpayOrderStatus(auth: string, providerOrderId: string) {
@@ -45,7 +57,7 @@ export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (
     !cronSecret ||
-    request.headers.get('authorization') !== `Bearer ${cronSecret}`
+    !hasValidCronAuthorization(request, cronSecret)
   ) {
     return unauthorized();
   }

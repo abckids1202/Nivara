@@ -32,6 +32,17 @@ describe('reconciliation job authorization', () => {
     expect(response.status).toBe(401);
   });
 
+  it('rejects a different-length bearer value without throwing', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer x' },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+  });
+
   it('checks authorization before reporting missing infrastructure', async () => {
     process.env.CRON_SECRET = 'cron-secret';
     delete process.env.DATABASE_URL;
