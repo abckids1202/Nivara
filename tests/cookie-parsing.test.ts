@@ -32,4 +32,12 @@ describe('cookie parsing', () => {
 
     expect(getAccessToken(request)).toBe('access-token');
   });
+
+  it('decodes a direct access-token cookie', () => {
+    const request = new Request('http://localhost/api/account/profile', {
+      headers: { cookie: 'nivara-access-token=%22access%2Btoken%22' },
+    });
+
+    expect(getAccessToken(request)).toBe('access+token');
+  });
 });

@@ -25,7 +25,16 @@ function getCookieToken(request: Request) {
     }),
   );
   const directToken = cookies.get('nivara-access-token');
-  if (directToken) return directToken;
+  if (directToken) {
+    try {
+      const decoded = decodeURIComponent(directToken);
+      return decoded.startsWith('"') && decoded.endsWith('"')
+        ? decoded.slice(1, -1)
+        : decoded;
+    } catch {
+      return null;
+    }
+  }
   const sessionNames = [...cookies.keys()]
     .filter((name) => /^sb-[^-]+-auth-token(?:\.\d+)?$/.test(name))
     .sort((left, right) => {
