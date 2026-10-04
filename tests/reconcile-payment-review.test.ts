@@ -80,6 +80,56 @@ afterEach(() => {
 });
 
 describe('reconciliation payment-review polling', () => {
+  it('expires reservations even when provider credentials are temporarily unavailable', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    delete process.env.RAZORPAY_KEY_ID;
+    delete process.env.RAZORPAY_KEY_SECRET;
+    transaction.mockResolvedValue([{ count: 0 }, { count: 0 }]);
+    processStorageCleanupTasks.mockResolvedValue({
+      completed: 0,
+      failed: 0,
+      purged: 0,
+      skipped: false,
+    });
+    expiredReservations.mockResolvedValue([
+      {
+        orderId: 'order-no-provider',
+        order: {
+          paymentStatus: 'PENDING',
+          payments: [{ id: 'payment-no-provider', providerOrderId: null }],
+        },
+      },
+    ]);
+    reviewPayments.mockResolvedValue([]);
+    orderFindMany.mockResolvedValue([]);
+    accessRateDeleteMany.mockResolvedValue({ count: 0 });
+    guestAttemptDeleteMany.mockResolvedValue({ count: 0 });
+    expireReservationsForOrder.mockResolvedValue({ expired: 1 });
+    markPaymentFailed.mockResolvedValue({ status: 'cancelled' });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+    const body = (await response.json()) as {
+      processed?: { released?: number; providerUnavailable?: boolean };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.processed).toMatchObject({
+      released: 1,
+      providerUnavailable: true,
+    });
+    expect(expireReservationsForOrder).toHaveBeenCalledWith('order-no-provider');
+    expect(markPaymentFailed).toHaveBeenCalledWith(
+      'payment-no-provider',
+      'CANCELLED',
+    );
+    expect(providerFetch).not.toHaveBeenCalled();
+  });
+
   it('rechecks unresolved payment reviews after their reservations expired', async () => {
     process.env.CRON_SECRET = 'cron-secret';
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';

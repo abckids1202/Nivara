@@ -53,7 +53,6 @@ export async function GET(request: Request) {
     return unavailable('Reconciliation database is not configured');
 
   const auth = razorpayAuth();
-  if (!auth) return unavailable('Razorpay credentials are not configured');
 
   try {
     const storageCleanup = await processStorageCleanupTasks();
@@ -83,6 +82,7 @@ export async function GET(request: Request) {
       review: 0,
       skipped: 0,
       emailRetried: 0,
+      providerUnavailable: !auth,
       storageCleanup,
       deletedRateLogs: deletedRateLogs.count,
       deletedGuestAttempts: deletedGuestAttempts.count,
@@ -112,6 +112,13 @@ export async function GET(request: Request) {
           await releaseReservationsForOrder(reservation.orderId);
           processed.released += 1;
         }
+        continue;
+      }
+
+      if (!auth) {
+        await expireReservationsForOrder(reservation.orderId);
+        await markPaymentReview(payment.id);
+        processed.review += 1;
         continue;
       }
 
@@ -161,6 +168,10 @@ export async function GET(request: Request) {
       if (processedPaymentAttempts.has(payment.id) || !payment.providerOrderId)
         continue;
       processedPaymentAttempts.add(payment.id);
+      if (!auth) {
+        processed.review += 1;
+        continue;
+      }
       const providerStatus = await readRazorpayOrderStatus(
         auth,
         payment.providerOrderId,
