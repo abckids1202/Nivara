@@ -166,6 +166,17 @@ test('authorized admin dashboard renders operational sections', async ({
           pagination: { ...pagination, total: 1 },
         }),
       });
+    if (
+      url.pathname === '/api/admin/categories' &&
+      route.request().method() === 'POST'
+    )
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { id: 'category-2', name: 'Living room', slug: 'living-room' },
+        }),
+      });
     if (url.pathname === '/api/admin/categories')
       return route.fulfill({
         status: 200,
@@ -233,6 +244,12 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Orders that need attention.')).toBeVisible();
   await expect(page.getByText('NV-ADMIN-1')).toBeVisible();
   await expect(page.getByText('Review queue.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'New category' }).click();
+  await page.getByLabel('Category name').fill('Living room');
+  await page.getByLabel('Category slug').fill('living-room');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(page.getByText('Category created.')).toBeVisible();
 
   await page.getByRole('button', { name: 'View variants' }).click();
   await page.getByLabel('SKU for Single').fill('ARC-UPDATED');
