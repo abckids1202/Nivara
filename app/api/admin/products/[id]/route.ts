@@ -1,5 +1,6 @@
 import {
   badRequest,
+  conflict,
   forbidden,
   noStore,
   unauthorized,
@@ -27,6 +28,15 @@ export async function PATCH(
     return badRequest('Product details are invalid', parsed.error.flatten());
 
   try {
+    if (parsed.data.status === 'PUBLISHED') {
+      const product = await prisma.product.findUnique({
+        where: { id },
+        select: { id: true, _count: { select: { variants: true } } },
+      });
+      if (!product) return noStore({ error: 'Product not found' }, 404);
+      if (product._count.variants === 0)
+        return conflict('Add at least one variant before publishing this product');
+    }
     const product = await prisma.$transaction(async (transaction) => {
       const updatedProduct = await transaction.product.update({
         where: { id },

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const {
   update,
+  findUnique,
   createAudit,
   transaction,
   getIdentity,
@@ -9,6 +10,7 @@ const {
   logServerError,
 } = vi.hoisted(() => ({
     update: vi.fn(),
+  findUnique: vi.fn(),
     createAudit: vi.fn(),
     transaction: vi.fn(),
     getIdentity: vi.fn(),
@@ -17,7 +19,10 @@ const {
   }));
 
 vi.mock('@/lib/prisma', () => ({
-  prisma: { $transaction: transaction },
+  prisma: {
+    product: { findUnique },
+    $transaction: transaction,
+  },
 }));
 vi.mock('@/lib/server-auth', () => ({
   getAuthenticatedIdentity: getIdentity,
@@ -33,6 +38,7 @@ afterEach(() => {
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, originalEnvironment);
   update.mockReset();
+  findUnique.mockReset();
   createAudit.mockReset();
   transaction.mockReset();
   getIdentity.mockReset();
@@ -41,6 +47,33 @@ afterEach(() => {
 });
 
 describe('admin product mutation resilience', () => {
+  it('blocks publishing a product without a variant', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+    });
+    isAdministrator.mockResolvedValue(true);
+    findUnique.mockResolvedValue({
+      id: 'product-1',
+      _count: { variants: 0 },
+    });
+
+    const response = await PATCH(
+      new Request('https://nivara.example/api/admin/products/product-1', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'PUBLISHED' }),
+      }),
+      { params: Promise.resolve({ id: 'product-1' }) },
+    );
+    const body = (await response.json()) as { error?: string };
+
+    expect(response.status).toBe(409);
+    expect(body.error).toBe('Add at least one variant before publishing this product');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('returns a safe response when a product update fails', async () => {
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
     getIdentity.mockResolvedValue({
