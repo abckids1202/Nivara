@@ -115,6 +115,121 @@ test('product-card wishlist prompts unauthenticated shoppers to sign in', async 
   ).toBeVisible();
 });
 
+test('product variant add-to-bag persists after a page refresh', async ({
+  page,
+}) => {
+  let cartItem: {
+    id: string;
+    quantity: number;
+    variantId: string;
+    variant: {
+      name: string;
+      sku: string;
+      pricePaise: number;
+      stockOnHand: number;
+      stockReserved: number;
+      product: { name: string; slug: string };
+    };
+  } | null = null;
+  let postedVariantId = '';
+  let postedQuantity = 0;
+
+  await page.route('**/api/products/arc-desk-organizer', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          id: 'product-1',
+          name: 'Arc desk organizer',
+          description: 'A calm place for everyday desk essentials.',
+          material: 'Powder-coated steel',
+          dimensions: '32 × 12 × 8 cm',
+          care: 'Wipe clean with a soft cloth.',
+          category: { name: 'Desk & study' },
+          images: [{ id: 'image-1', url: '/nivara-editorial.png', altText: 'Front angle' }],
+          variants: [
+            {
+              id: 'variant-1',
+              name: 'Single',
+              pricePaise: 64900,
+              compareAtPaise: null,
+              stockOnHand: 5,
+              stockReserved: 0,
+            },
+            {
+              id: 'variant-2',
+              name: 'Set of 2',
+              pricePaise: 119900,
+              compareAtPaise: 129800,
+              stockOnHand: 4,
+              stockReserved: 0,
+            },
+          ],
+          rating: null,
+          reviewCount: 0,
+          reviews: [],
+        },
+      }),
+    }),
+  );
+  await page.route('**/api/wishlist', (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'Sign in required.' }),
+    }),
+  );
+  await page.route('**/api/cart', async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON() as {
+        variantId?: string;
+        quantity?: number;
+      };
+      postedVariantId = body.variantId ?? '';
+      postedQuantity = body.quantity ?? 0;
+      cartItem = {
+        id: 'cart-item-1',
+        quantity: postedQuantity,
+        variantId: postedVariantId,
+        variant: {
+          name: 'Set of 2',
+          sku: 'ARC-SET-2',
+          pricePaise: 119900,
+          stockOnHand: 4,
+          stockReserved: 0,
+          product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+        },
+      };
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { id: 'cart-item-1', quantity: postedQuantity } }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: cartItem ? [cartItem] : [] }),
+    });
+  });
+
+  await page.goto('/product/arc-desk-organizer');
+  await expect(page.getByRole('heading', { name: 'Arc desk organizer' })).toBeVisible();
+  await page.getByRole('button', { name: 'Set of 2' }).click();
+  await page.getByRole('button', { name: 'Increase quantity' }).click();
+  await page.getByRole('button', { name: 'Add to bag' }).click();
+
+  await expect.poll(() => postedVariantId).toBe('variant-2');
+  await expect.poll(() => postedQuantity).toBe(2);
+  await expect(page.getByRole('button', { name: 'Added to bag' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Bag with 2 items' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('link', { name: 'Bag with 2 items' })).toBeVisible();
+});
+
 test('product page reflects an existing wishlist item', async ({ page }) => {
   await page.route('**/api/products/arc-desk-organizer', (route) =>
     route.fulfill({
@@ -878,7 +993,9 @@ test('account signup explains the email-verification handoff', async ({
   );
 
   await page.goto('/account');
-  await page.getByRole('button', { name: 'Create account' }).first().click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Back to sign in' })).toBeVisible();
   await page.getByLabel('Email').fill('new-customer@example.com');
   await page.getByLabel('Password').fill('Password!123');
   await page.getByRole('button', { name: 'Create account' }).click();
