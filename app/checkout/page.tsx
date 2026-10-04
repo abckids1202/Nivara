@@ -224,6 +224,14 @@ export default function CheckoutPage() {
               Order {orderNumber} is not considered paid by the browser.
               Razorpay webhooks must verify the payment on the server first.
             </p>
+            {error && (
+              <p
+                role="alert"
+                className="mt-4 rounded-xl bg-[#f7ddd5] px-4 py-3 text-left text-sm text-[#8f3f31]"
+              >
+                {error}
+              </p>
+            )}
             {guestAccessToken && (
               <Link
                 href={`/guest-order/${encodeURIComponent(guestAccessToken)}`}

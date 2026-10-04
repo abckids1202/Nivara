@@ -147,9 +147,16 @@ export default function GuestOrderPage({
         `/api/guest-orders/${encodeURIComponent(token)}`,
         { cache: 'no-store' },
       ).catch(() => null);
-      const result = (await response?.json().catch(() => ({}))) as GuestOrder;
-      if (active && response?.ok && result.paymentStatus)
-        setOrder(result);
+      if (!response?.ok) {
+        if (active)
+          setNotice('Order status is temporarily unavailable. We’ll keep trying.');
+      } else {
+        const result = (await response.json().catch(() => null)) as GuestOrder | null;
+        if (active && result?.paymentStatus) {
+          setOrder(result);
+          setNotice('');
+        }
+      }
       attempts += 1;
       if (active && attempts < 10)
         timer = window.setTimeout(() => void poll(), 3000);

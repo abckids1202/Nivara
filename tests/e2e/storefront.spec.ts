@@ -200,6 +200,91 @@ test('empty checkout does not claim a payment succeeded', async ({ page }) => {
   await expect(page.getByText(/Payment is being verified/i)).toHaveCount(0);
 });
 
+test('checkout keeps a payment failure visible after hosted checkout closes', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.Razorpay = class {
+      private readonly handlers = new Map<string, (value: unknown) => void>();
+
+      constructor(_options: unknown) {}
+
+      on(name: string, handler: (value: unknown) => void) {
+        this.handlers.set(name, handler);
+      }
+
+      open() {
+        this.handlers.get('payment.failed')?.({
+          error: { description: 'Test payment was declined.' },
+        });
+      }
+    } as never;
+  });
+  await page.route('**/api/cart', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: [
+          {
+            id: 'cart-item-1',
+            quantity: 1,
+            variantId: 'variant-1',
+            variant: {
+              name: 'Single',
+              sku: 'NIV-1',
+              pricePaise: 64900,
+              stockOnHand: 5,
+              stockReserved: 0,
+              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+            },
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/api/checkout', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-TEST-1',
+        razorpayOrderId: 'order_test_1',
+        keyId: 'fixture-payment-key',
+        amountPaise: 72800,
+        currency: 'INR',
+        guestAccessToken: 'guest-test-token',
+      }),
+    }),
+  );
+  await page.route('**/api/guest-orders/guest-test-token', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        orderNumber: 'NV-TEST-1',
+        paymentStatus: 'FAILED',
+        fulfilmentStatus: 'PROCESSING',
+        totalPaise: 72800,
+        items: [],
+        shipment: null,
+      }),
+    }),
+  );
+
+  await page.goto('/checkout');
+  await page.getByLabel('Email').fill('customer@example.com');
+  await page.getByLabel('Full name').fill('Test customer');
+  await page.getByLabel('Address').fill('1 Test Street');
+  await page.getByLabel('City').fill('Delhi');
+  await page.getByLabel('State').fill('Delhi');
+  await page.getByLabel('PIN code').fill('110001');
+  await page.getByRole('button', { name: /Continue to Razorpay/ }).click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Test payment was declined' }),
+  ).toBeVisible();
+});
+
 test('password reset page explains how to request an expired link', async ({
   page,
 }) => {
