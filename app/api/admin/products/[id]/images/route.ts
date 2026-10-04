@@ -70,6 +70,7 @@ export async function POST(
           Authorization: `Bearer ${config.key}`,
           apikey: config.key,
           'Content-Type': file.type,
+          'Cache-Control': 'public, max-age=31536000, immutable',
           'x-upsert': 'false',
         },
         body: imageBytes,

@@ -147,6 +147,14 @@ describe('admin product image lifecycle', () => {
     const body = (await response.json()) as { error?: string };
 
     expect(response.status).toBe(503);
+    expect(providerFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/storage/v1/object/product-images/lamp/'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        }),
+      }),
+    );
     expect(body.error).toBe('Image metadata or audit record could not be saved');
     expect(deleteStorageObject).toHaveBeenCalledWith(
       expect.stringMatching(/^lamp\//),
