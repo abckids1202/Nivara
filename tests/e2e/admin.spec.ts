@@ -101,6 +101,24 @@ test('authorized admin dashboard renders operational sections', async ({
         }),
       });
     if (
+      url.pathname === '/api/admin/products/product-1/variants' &&
+      route.request().method() === 'POST'
+    )
+      return route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            id: 'variant-2',
+            name: 'Standard',
+            sku: 'NIV-NEW-VARIANT',
+            pricePaise: 0,
+            stockOnHand: 0,
+            stockReserved: 0,
+          },
+        }),
+      });
+    if (
       url.pathname === '/api/admin/products/product-1/images' &&
       route.request().method() === 'POST'
     )
@@ -286,6 +304,8 @@ test('authorized admin dashboard renders operational sections', async ({
   await expect(page.getByText('Category created.')).toBeVisible();
 
   await page.getByRole('button', { name: 'View variants' }).click();
+  await page.getByRole('button', { name: 'Add variant' }).click();
+  await expect(page.getByText('Variant created. Update its price and SKU.')).toBeVisible();
   await page.getByLabel('SKU for Single').fill('ARC-UPDATED');
   await page.getByLabel('Price for Single').fill('699');
   await page.getByRole('button', { name: 'Save variant' }).click();

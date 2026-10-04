@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const {
   findFirst,
+  create,
   update,
   createAudit,
   transaction,
@@ -10,6 +11,7 @@ const {
   logServerError,
 } = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  create: vi.fn(),
   update: vi.fn(),
   createAudit: vi.fn(),
   transaction: vi.fn(),
@@ -20,7 +22,7 @@ const {
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    productVariant: { findFirst },
+    productVariant: { findFirst, create },
     auditLog: {},
     $transaction: transaction,
   },
@@ -31,6 +33,7 @@ vi.mock('@/lib/server-auth', () => ({
 }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
+import { POST } from '@/app/api/admin/products/[id]/variants/route';
 import { PATCH } from '@/app/api/admin/products/[id]/variants/[variantId]/route';
 
 const originalEnvironment = { ...process.env };
@@ -39,6 +42,7 @@ afterEach(() => {
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, originalEnvironment);
   findFirst.mockReset();
+  create.mockReset();
   update.mockReset();
   createAudit.mockReset();
   transaction.mockReset();
@@ -77,6 +81,79 @@ describe('admin variant route resilience', () => {
       'admin_variant_update_failed',
       expect.any(Error),
     );
+  });
+
+  it('creates a variant with paise conversion and an audit record', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    getIdentity.mockResolvedValue({
+      id: 'admin-1',
+      email: 'admin@example.com',
+    });
+    isAdministrator.mockResolvedValue(true);
+    const createdVariant = {
+      id: 'variant-2',
+      productId: 'product-1',
+      name: 'Large',
+      sku: 'ARC-LARGE',
+      pricePaise: 79900,
+      compareAtPaise: 89900,
+      stockOnHand: 8,
+    };
+    create.mockResolvedValue(createdVariant);
+    createAudit.mockResolvedValue({ id: 'audit-2' });
+    transaction.mockImplementation(async (callback) =>
+      callback({
+        productVariant: { create },
+        auditLog: { create: createAudit },
+      }),
+    );
+
+    const response = await POST(
+      new Request(
+        'https://nivara.example/api/admin/products/product-1/variants',
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Large',
+            sku: 'ARC-LARGE',
+            priceRupees: 799,
+            compareAtRupees: 899,
+            stockOnHand: 8,
+          }),
+        },
+      ),
+      { params: Promise.resolve({ id: 'product-1' }) },
+    );
+    const body = (await response.json()) as { data: typeof createdVariant };
+
+    expect(response.status).toBe(201);
+    expect(body.data).toEqual(createdVariant);
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        productId: 'product-1',
+        name: 'Large',
+        sku: 'ARC-LARGE',
+        pricePaise: 79900,
+        compareAtPaise: 89900,
+        stockOnHand: 8,
+      },
+    });
+    expect(createAudit).toHaveBeenCalledWith({
+      data: {
+        actorId: 'admin-1',
+        action: 'variant.created',
+        entityType: 'ProductVariant',
+        entityId: 'variant-2',
+        details: {
+          name: 'Large',
+          sku: 'ARC-LARGE',
+          priceRupees: 799,
+          compareAtRupees: 899,
+          stockOnHand: 8,
+        },
+      },
+    });
   });
 
   it('does not report success when the audit record cannot be written', async () => {
