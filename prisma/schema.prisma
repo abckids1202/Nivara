@@ -141,6 +141,7 @@ model ProductVariant {
   reservations InventoryReservation[]
   inventoryAdjustments InventoryAdjustment[]
   @@index([productId])
+  @@index([productId, stockOnHand, stockReserved, pricePaise])
 }
 
 model ProductImage {
