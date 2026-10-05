@@ -49,6 +49,12 @@ jobs:
           DIRECT_URL: postgresql://placeholder:placeholder@localhost:5432/nivara
         run: npm run db:validate
 
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/nivara
+          DIRECT_URL: postgresql://placeholder:placeholder@localhost:5432/nivara
+        run: npm run db:generate
+
       - name: Unit tests
         run: npm run test
 
