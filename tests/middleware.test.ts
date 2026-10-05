@@ -51,6 +51,19 @@ describe('API origin protection', () => {
     ).toBe(200);
   });
 
+  it('does not allow loopback-origin bypasses in production', () => {
+    Object.assign(process.env, { NODE_ENV: 'production' });
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
+    expect(
+      middleware(
+        new NextRequest('https://store.nivara.in/api/checkout', {
+          method: 'POST',
+          headers: { origin: 'http://127.0.0.1:3000' },
+        }),
+      ).status,
+    ).toBe(403);
+  });
+
   it('rejects null origins for mutation requests', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
     expect(middleware(request('POST', 'null')).status).toBe(403);
