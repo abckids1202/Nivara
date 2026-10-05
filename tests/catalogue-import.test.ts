@@ -1,9 +1,21 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 import { parseCatalogueCsv } from '../lib/catalogue-import.ts';
 import { sortCatalogueProducts } from '../lib/catalogue-sort.ts';
 
 const header =
   'categorySlug,categoryName,productName,productSlug,description,material,dimensions,care,status,variantName,sku,priceRupees,compareAtRupees,stockOnHand,imageUrl,imageAlt';
+
+it('keeps the handoff template valid against the importer', () => {
+  const template = readFileSync(
+    fileURLToPath(new URL('../docs/catalogue-import-template.csv', import.meta.url)),
+    'utf8',
+  );
+  const result = parseCatalogueCsv(template);
+  expect(result.errors).toEqual([]);
+  expect(result.rows).toHaveLength(1);
+});
 
 it('parses valid catalogue rows and quoted commas', () => {
   const result = parseCatalogueCsv(
