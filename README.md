@@ -79,11 +79,13 @@ Then open `http://localhost:3000`.
 npm run lint
 npm run test
 npm run build
+npm run check:performance
 ```
 
 Run the complete local release gate before sharing a preview or deploying. It
-also runs the secret scan, administrator authorization audit, Prisma schema
-validation, and desktop/mobile browser acceptance tests:
+also runs the secret scan, administrator authorization audit, production
+dependency audit, Prisma validation/client generation, performance budget, and
+desktop/mobile browser acceptance tests:
 
 ```cmd
 npm run check:quality
