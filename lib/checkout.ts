@@ -131,7 +131,9 @@ export async function createPendingOrder({
             expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           })),
         },
-        payments: { create: { status: 'CREATED' } },
+        payments: {
+          create: { status: 'CREATED', idempotencyKey: randomUUID() },
+        },
       },
       include: { payments: true },
     });
