@@ -20,6 +20,30 @@ afterEach(() => {
 });
 
 describe('reconciliation job resilience', () => {
+  it('rejects requests without the configured cron authorization', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile'),
+    );
+
+    expect(response.status).toBe(401);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects requests with an incorrect cron authorization', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer wrong-secret' },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('returns a safe response when retention cleanup fails', async () => {
     process.env.CRON_SECRET = 'cron-secret';
     process.env.DATABASE_URL = 'postgresql://database.example/nivara';
