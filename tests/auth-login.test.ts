@@ -56,4 +56,38 @@ describe('login session cookies', () => {
     expect(cookies).toContain('SameSite=lax');
     expect(cookies).toContain('Path=/');
   });
+
+  it('does not issue a session for an explicitly unverified email', async () => {
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({
+      ok: true,
+      data: {
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        user: {
+          id: 'user-1',
+          email: 'shopper@nivara.in',
+          email_confirmed_at: null,
+        },
+      },
+    });
+
+    const response = await POST(
+      new Request('https://nivara.example/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'shopper@nivara.in',
+          password: 'correct horse battery staple',
+        }),
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Please verify your email before signing in',
+    });
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(ensureUserProfile).not.toHaveBeenCalled();
+  });
 });

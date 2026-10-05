@@ -28,6 +28,15 @@ export async function POST(request: Request): Promise<Response> {
     return authResponse({ error: 'Email or password is incorrect' }, 401);
   if (!result.data.user?.id)
     return authResponse({ error: 'Email or password is incorrect' }, 401);
+  if (
+    ('email_confirmed_at' in result.data.user &&
+      !result.data.user.email_confirmed_at) ||
+    ('confirmed_at' in result.data.user && !result.data.user.confirmed_at)
+  )
+    return authResponse(
+      { error: 'Please verify your email before signing in' },
+      403,
+    );
   try {
     await ensureUserProfile({
       id: result.data.user.id,
