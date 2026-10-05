@@ -49,6 +49,12 @@ describe('guest payment retry route resilience', () => {
         endpoint: expect.stringMatching(/^guest-payment-retry:[a-f0-9]{16}$/),
       }),
     );
+    expect(consumeRateLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: 'guest-payment-retry:client',
+        maxAttempts: 20,
+      }),
+    );
     expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain('secret');
     expect(logServerError).toHaveBeenCalledWith(
       'guest_payment_retry_lookup_failed',

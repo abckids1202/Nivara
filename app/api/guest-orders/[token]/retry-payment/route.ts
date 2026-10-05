@@ -45,6 +45,14 @@ export async function POST(
       }))
     )
       return noStore({ error: 'Too many payment retry attempts' }, 429);
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'guest-payment-retry:client',
+        maxAttempts: 20,
+      }))
+    )
+      return noStore({ error: 'Too many payment retry attempts' }, 429);
   } catch (error) {
     logServerError('guest_payment_retry_rate_limit_failed', error);
     return unavailable('Payment retry is temporarily unavailable');
