@@ -3,6 +3,7 @@ import { supabaseAuthRequest } from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse } from '@/lib/auth-response';
 import { logServerError } from '@/lib/safe-logging';
+import { normalizeSiteUrl } from '@/lib/site-url';
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: Request): Promise<Response> {
     return authResponse({ error: 'Enter a valid email address' }, 400);
   const result = await supabaseAuthRequest('recover', {
     ...parsed.data,
-    redirect_to: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/account/reset-password`,
+    redirect_to: `${normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin)}/account/reset-password`,
   });
   if (!result)
     return authResponse({ error: 'Supabase Auth is not configured' }, 503);

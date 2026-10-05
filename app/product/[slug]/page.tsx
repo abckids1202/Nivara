@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { ProductDetail } from '@/components/product-detail';
 import { prisma } from '@/lib/prisma';
 import { summarizeSeoOffers } from '@/lib/seo-offers';
+import { normalizeSiteUrl } from '@/lib/site-url';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nivara.example';
+const siteUrl = normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
 
 async function getSeoProduct(slug: string) {
   if (!process.env.DATABASE_URL) return null;

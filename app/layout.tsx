@@ -5,11 +5,10 @@ import { CartProvider } from '@/components/cart-provider';
 import { AuthSessionRefresh } from '@/components/auth-session-refresh';
 import { ConnectionStatus } from '@/components/connection-status';
 import { Analytics } from '@/components/analytics';
+import { normalizeSiteUrl } from '@/lib/site-url';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://nivara.example',
-  ),
+  metadataBase: new URL(normalizeSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)),
   title: 'Nivara — everyday living, considered well',
   description:
     'A calm home and everyday-living store for first homes and fresh starts.',
