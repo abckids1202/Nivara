@@ -1,6 +1,10 @@
 import { createHmac } from 'node:crypto';
 import { Prisma } from '@prisma/client';
-import { markPaymentFailed, markPaymentPaid } from '@/lib/payment-state';
+import {
+  markPaymentFailed,
+  markPaymentPaid,
+  markPaymentReview,
+} from '@/lib/payment-state';
 import { prisma } from '@/lib/prisma';
 import { noStore, unavailable } from '@/lib/http';
 import { sendOrderConfirmationEmail } from '@/lib/email';
@@ -114,6 +118,10 @@ export async function POST(request: Request) {
       typedPayload.event === 'payment.captured' ||
       typedPayload.event === 'order.paid'
     ) {
+      if (!paymentId) {
+        await markPaymentReview(attempt.id);
+        return noStore({ received: true, matched: true, paymentReview: true });
+      }
       const result = await markPaymentPaid({
         paymentAttemptId: attempt.id,
         providerPaymentId: paymentId,

@@ -8,6 +8,7 @@ const {
   findEvent,
   markPaymentPaid,
   markPaymentFailed,
+  markPaymentReview,
   sendOrderConfirmationEmail,
 } = vi.hoisted(() => ({
   findAttempt: vi.fn(),
@@ -15,6 +16,7 @@ const {
   findEvent: vi.fn(),
   markPaymentPaid: vi.fn(),
   markPaymentFailed: vi.fn(),
+  markPaymentReview: vi.fn(),
   sendOrderConfirmationEmail: vi.fn(),
 }));
 
@@ -27,6 +29,7 @@ vi.mock('@/lib/prisma', () => ({
 vi.mock('@/lib/payment-state', () => ({
   markPaymentPaid,
   markPaymentFailed,
+  markPaymentReview,
 }));
 vi.mock('@/lib/email', () => ({ sendOrderConfirmationEmail }));
 vi.mock('@/lib/safe-logging', () => ({
@@ -67,6 +70,7 @@ afterEach(() => {
   findEvent.mockReset();
   markPaymentPaid.mockReset();
   markPaymentFailed.mockReset();
+  markPaymentReview.mockReset();
   sendOrderConfirmationEmail.mockReset();
 });
 
@@ -123,6 +127,28 @@ describe('Razorpay webhook processing', () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({ received: true, duplicate: true });
     expect(markPaymentPaid).toHaveBeenCalledOnce();
+  });
+
+  it('moves a captured event without a provider payment ID into review', async () => {
+    process.env.RAZORPAY_WEBHOOK_SECRET = secret;
+    const body = JSON.stringify({
+      id: 'evt_captured_missing_payment_id',
+      event: 'payment.captured',
+      payload: { payment: { entity: { order_id: 'order_4' } } },
+    });
+    findAttempt.mockResolvedValue({ id: 'payment-4' });
+    createEvent.mockResolvedValue({ id: 'event-4' });
+
+    const response = await POST(signedRequest(body));
+    const payload = (await response.json()) as {
+      paymentReview?: boolean;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.paymentReview).toBe(true);
+    expect(markPaymentReview).toHaveBeenCalledWith('payment-4');
+    expect(markPaymentPaid).not.toHaveBeenCalled();
+    expect(sendOrderConfirmationEmail).not.toHaveBeenCalled();
   });
 
   it('rejects reuse of an event ID with a different payload', async () => {
