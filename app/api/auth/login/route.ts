@@ -29,9 +29,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!result.data.user?.id)
     return authResponse({ error: 'Email or password is incorrect' }, 401);
   if (
-    ('email_confirmed_at' in result.data.user &&
-      !result.data.user.email_confirmed_at) ||
-    ('confirmed_at' in result.data.user && !result.data.user.confirmed_at)
+    !result.data.user.email_confirmed_at && !result.data.user.confirmed_at
   )
     return authResponse(
       { error: 'Please verify your email before signing in' },

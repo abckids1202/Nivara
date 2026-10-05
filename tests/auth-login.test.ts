@@ -31,7 +31,11 @@ describe('login session cookies', () => {
       data: {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
-        user: { id: 'user-1', email: 'shopper@nivara.in' },
+        user: {
+          id: 'user-1',
+          email: 'shopper@nivara.in',
+          email_confirmed_at: '2026-10-05T00:00:00.000Z',
+        },
       },
     });
     ensureUserProfile.mockResolvedValue({ id: 'user-1' });

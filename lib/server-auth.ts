@@ -18,7 +18,7 @@ function hasVerifiedEmail(user: SupabaseUser) {
   if (Object.hasOwn(user, 'email_confirmed_at'))
     return Boolean(user.email_confirmed_at);
   if (Object.hasOwn(user, 'confirmed_at')) return Boolean(user.confirmed_at);
-  return true;
+  return false;
 }
 
 function getBearerToken(request: Request) {

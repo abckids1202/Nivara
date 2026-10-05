@@ -4,7 +4,12 @@ import { hasConfiguredValue } from '@/lib/configuration';
 export type SupabaseSession = {
   access_token?: string;
   refresh_token?: string;
-  user?: { id?: string; email?: string };
+  user?: {
+    id?: string;
+    email?: string;
+    email_confirmed_at?: string | null;
+    confirmed_at?: string | null;
+  };
 };
 
 export async function supabaseAuthRequest(
