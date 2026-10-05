@@ -38,6 +38,7 @@ cd /d C:\path\to\nivara-store
 docker compose up -d postgres
 copy .env.example .env
 npm run db:migrate
+npm run db:status
 npm run db:seed
 npm run dev
 ```
@@ -109,6 +110,7 @@ that is explicitly intended:
 npm run db:validate
 npm run db:generate
 npm run db:migrate
+npm run db:status
 npm run db:seed
 ```
 
