@@ -3,10 +3,11 @@
 ## Current practice
 
 The repository runs `npm audit --omit=dev` during launch-readiness review and
-surfaces the same high-severity audit in the GitHub quality workflow. The audit
-step is intentionally non-blocking while the documented transitive findings
-remain under review; lint, tests, build, authorization, and secret checks stay
-blocking.
+surfaces the result in the GitHub quality workflow. The production dependency
+audit is now clean after the compatible overrides below; the full development
+toolchain audit remains non-blocking because preview and build tools are not
+part of the deployed application bundle. Lint, tests, build, authorization,
+and secret checks stay blocking.
 
 The direct React Server Components advisory was addressed by updating the React runtime and `react-server-dom-webpack` packages to the patched `19.2.8` release line. The application was then verified with lint, unit tests, and a production build.
 
@@ -14,28 +15,31 @@ The lockfile is kept on the latest compatible Next 15.5 patch release, and
 `sharp` is pinned to the patched `0.35.5` release for the production image
 pipeline. These updates were applied without a forced framework migration.
 
-## Remaining audit findings
+## Production audit status
 
-The current `npm audit --omit=dev --audit-level=high` report contains two
-vulnerable dependency paths and three advisories (including lower-severity
-advisories in the same paths):
+The current `npm audit --omit=dev --audit-level=high` report is clean. Two
+compatible npm overrides enforce patched transitive versions:
 
-- `postcss@8.4.31`, bundled by the pinned Next 15.5.27 release, is reported for
-  the PostCSS XSS/source-map advisories. npm recommends `next@16.3.8`, which is
-  a breaking framework upgrade and is not applied automatically.
-- `esbuild@0.27.3` is reached through Prisma/Vite tooling and is relevant to
-  development-server behavior, not the standard Next runtime bundle.
+- `postcss@8.5.28` resolves the vulnerable nested PostCSS copy used by Next
+  15.5.27 without upgrading the framework.
+- `esbuild@0.28.2` resolves the vulnerable transitive build-tool copy.
 
 The `shadcn` CLI is classified as a development dependency because its CSS is
 consumed during the Next build and it is not imported by application routes at
 runtime. This removes its `braces` and `undici` tooling paths from the
 production dependency audit while preserving the Vercel build.
 
+The full development audit still reports high findings in preview tooling such
+as Shadcn, Vinext, Vite, Cloudflare/Miniflare, `undici`, `ws`, and nested image
+parsers. Those packages are used for local preview/build tooling and are not
+imported by Nivara application routes. Reassess them before using the preview
+toolchain in an untrusted environment or when upgrading its package ranges.
+
 Sites/Cloudflare and Vinext preview dependencies are development-only and are
 not part of the standard Vercel production dependency set. Run
 `npm audit --omit=dev` again before a real production launch and after any
-supported framework upgrade. Reassess the PostCSS finding when the project is
-ready for a tested Next major-version migration.
+supported framework upgrade. Reassess the overrides when the project is ready
+for a tested Next major-version migration.
 
 Do not run `npm audit fix --force` automatically. A forced repair may replace the framework or build tooling with a breaking major version. Each remaining finding needs a package-owner review, a compatible upgrade, or a documented risk decision.
 
