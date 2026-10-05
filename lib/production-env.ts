@@ -50,6 +50,8 @@ export function validateProductionEnvironment(environment: NodeJS.ProcessEnv) {
     if (!value) continue;
     try {
       const url = new URL(value);
+      if (url.username || url.password)
+        failures.push(`${name} must not contain embedded credentials`);
       if (name === 'NEXT_PUBLIC_SUPABASE_URL' && url.protocol !== 'https:')
         failures.push(`${name} must use HTTPS`);
       if (name === 'NEXT_PUBLIC_SITE_URL' && url.protocol !== 'https:')

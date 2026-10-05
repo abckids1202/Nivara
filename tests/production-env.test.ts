@@ -52,6 +52,21 @@ describe('production environment validation', () => {
     expect(failures).toContain('NEXT_PUBLIC_SITE_URL must use HTTPS');
   });
 
+  it('rejects credentials embedded in public provider URLs', () => {
+    const failures = validateProductionEnvironment({
+      ...validEnvironment,
+      NEXT_PUBLIC_SITE_URL: 'https://user:secret@nivara.test',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://user:secret@project.supabase.co',
+    });
+
+    expect(failures).toContain(
+      'NEXT_PUBLIC_SITE_URL must not contain embedded credentials',
+    );
+    expect(failures).toContain(
+      'NEXT_PUBLIC_SUPABASE_URL must not contain embedded credentials',
+    );
+  });
+
   it('rejects malformed transactional and support email addresses', () => {
     const failures = validateProductionEnvironment({
       ...validEnvironment,
