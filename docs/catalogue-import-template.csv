@@ -1,0 +1,2 @@
+categorySlug,categoryName,productName,productSlug,description,material,dimensions,care,status,variantName,sku,priceRupees,compareAtRupees,stockOnHand,imageUrl,imageAlt
+desk-study,Desk & study,Example product,example-product,"Replace this description with at least ten characters.",Material,"20 x 10 x 8 cm","Replace with care instructions.",DRAFT,Standard,EXAMPLE-PRODUCT-1,999,,0,,Example product

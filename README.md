@@ -95,6 +95,8 @@ npm run db:seed
 Run `db:seed` only against a non-production or intentionally seeded database. For an intentional production-mode rehearsal, set `ALLOW_DEMO_SEED=true` for that command only; never use it for the approved launch catalogue.
 Production catalogue data should be imported through the protected admin CSV
 dry-run/import flow after the client approves the content.
+Use [`docs/catalogue-import-template.csv`](docs/catalogue-import-template.csv) as
+the starting format; replace its example row before uploading it.
 
 With local placeholder database variables, validate the Prisma schema with:
 
