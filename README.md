@@ -43,8 +43,9 @@ npm run dev
 ```
 
 The committed [`compose.yaml`](compose.yaml) is local-only convenience
-configuration. It uses demonstration credentials and must not be used for the
-client production database; production uses the client-owned Supabase URLs.
+configuration. It uses demonstration credentials and binds PostgreSQL to
+loopback only; it must not be used for the client production database,
+which uses the client-owned Supabase URLs.
 Stop the local database with `docker compose down` and remove its persisted
 demonstration data only when intentionally resetting the rehearsal environment
 with `docker compose down -v`.
