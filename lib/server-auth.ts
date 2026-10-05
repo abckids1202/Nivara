@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { providerFetch } from '@/lib/provider-fetch';
 import { hasConfiguredValue } from '@/lib/configuration';
+import { isSupabaseUserVerified } from '@/lib/supabase-auth';
 
 export type AuthenticatedIdentity = {
   id: string;
@@ -13,13 +14,6 @@ type SupabaseUser = {
   email_confirmed_at?: string | null;
   confirmed_at?: string | null;
 };
-
-function hasVerifiedEmail(user: SupabaseUser) {
-  if (Object.hasOwn(user, 'email_confirmed_at'))
-    return Boolean(user.email_confirmed_at);
-  if (Object.hasOwn(user, 'confirmed_at')) return Boolean(user.confirmed_at);
-  return false;
-}
 
 function getBearerToken(request: Request) {
   const value = request.headers.get('authorization');
@@ -123,7 +117,7 @@ export async function getAuthenticatedIdentity(
 
   if (!response.ok) return null;
   const user = (await response.json()) as SupabaseUser;
-  if (!user.id || !user.email || !hasVerifiedEmail(user)) return null;
+  if (!user.id || !user.email || !isSupabaseUserVerified(user)) return null;
 
   return { id: user.id, email: user.email };
 }

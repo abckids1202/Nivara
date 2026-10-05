@@ -6,7 +6,11 @@ const { supabaseAuthRequest, consumeRateLimit, ensureUserProfile } = vi.hoisted(
   ensureUserProfile: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase-auth', () => ({ supabaseAuthRequest }));
+vi.mock('@/lib/supabase-auth', () => ({
+  supabaseAuthRequest,
+  isSupabaseUserVerified: (user: { email_confirmed_at?: string | null }) =>
+    Boolean(user?.email_confirmed_at),
+}));
 vi.mock('@/lib/access-rate', () => ({ consumeRateLimit }));
 vi.mock('@/lib/server-auth', () => ({ ensureUserProfile }));
 

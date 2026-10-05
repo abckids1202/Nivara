@@ -1,4 +1,7 @@
-import { supabaseAuthRequest } from '@/lib/supabase-auth';
+import {
+  isSupabaseUserVerified,
+  supabaseAuthRequest,
+} from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse, clearAuthCookies } from '@/lib/auth-response';
 import { logServerError } from '@/lib/safe-logging';
@@ -52,6 +55,10 @@ export async function POST(request: Request): Promise<Response> {
   if (!result.ok || !result.data.access_token)
     return clearAuthCookies(
       authResponse({ error: 'Session could not be refreshed' }, 401),
+    );
+  if (!isSupabaseUserVerified(result.data.user))
+    return clearAuthCookies(
+      authResponse({ error: 'Please verify your email before signing in' }, 403),
     );
   const response = authResponse({ data: { refreshed: true } });
   response.cookies.set('nivara-access-token', result.data.access_token, {

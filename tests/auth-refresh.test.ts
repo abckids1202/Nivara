@@ -6,7 +6,11 @@ const { consumeRateLimit, supabaseAuthRequest } = vi.hoisted(() => ({
 }));
 
 vi.mock('../lib/access-rate', () => ({ consumeRateLimit }));
-vi.mock('../lib/supabase-auth', () => ({ supabaseAuthRequest }));
+vi.mock('../lib/supabase-auth', () => ({
+  supabaseAuthRequest,
+  isSupabaseUserVerified: (user: { email_confirmed_at?: string | null }) =>
+    Boolean(user?.email_confirmed_at),
+}));
 
 import { POST } from '../app/api/auth/refresh/route';
 
@@ -50,6 +54,7 @@ describe('session refresh endpoint', () => {
       data: {
         access_token: 'new-access-token',
         refresh_token: 'new-refresh-token',
+        user: { email_confirmed_at: '2026-10-05T00:00:00.000Z' },
       },
     });
 
@@ -72,7 +77,10 @@ describe('session refresh endpoint', () => {
     consumeRateLimit.mockResolvedValue(true);
     supabaseAuthRequest.mockResolvedValue({
       ok: true,
-      data: { access_token: 'new-access-token' },
+      data: {
+        access_token: 'new-access-token',
+        user: { email_confirmed_at: '2026-10-05T00:00:00.000Z' },
+      },
     });
 
     const response = await POST(
@@ -104,5 +112,30 @@ describe('session refresh endpoint', () => {
     const cookies = response.headers.get('set-cookie') ?? '';
     expect(cookies).toContain('nivara-access-token=;');
     expect(cookies).toContain('nivara-refresh-token=;');
+  });
+
+  it('clears local cookies when the refreshed identity is unverified', async () => {
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({
+      ok: true,
+      data: {
+        access_token: 'new-access-token',
+        user: { email_confirmed_at: null },
+      },
+    });
+
+    const response = await POST(
+      new Request('https://nivara.example/api/auth/refresh', {
+        headers: { cookie: 'nivara-refresh-token=refresh-token' },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Please verify your email before signing in',
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'nivara-access-token=;',
+    );
   });
 });

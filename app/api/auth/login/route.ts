@@ -1,5 +1,8 @@
 import { authCredentialsSchema } from '@/lib/schemas';
-import { supabaseAuthRequest } from '@/lib/supabase-auth';
+import {
+  isSupabaseUserVerified,
+  supabaseAuthRequest,
+} from '@/lib/supabase-auth';
 import { consumeRateLimit } from '@/lib/access-rate';
 import { authResponse } from '@/lib/auth-response';
 import { ensureUserProfile } from '@/lib/server-auth';
@@ -28,9 +31,7 @@ export async function POST(request: Request): Promise<Response> {
     return authResponse({ error: 'Email or password is incorrect' }, 401);
   if (!result.data.user?.id)
     return authResponse({ error: 'Email or password is incorrect' }, 401);
-  if (
-    !result.data.user.email_confirmed_at && !result.data.user.confirmed_at
-  )
+  if (!isSupabaseUserVerified(result.data.user))
     return authResponse(
       { error: 'Please verify your email before signing in' },
       403,

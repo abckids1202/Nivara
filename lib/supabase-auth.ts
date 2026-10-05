@@ -12,6 +12,10 @@ export type SupabaseSession = {
   };
 };
 
+export function isSupabaseUserVerified(user: SupabaseSession['user']) {
+  return Boolean(user?.email_confirmed_at ?? user?.confirmed_at);
+}
+
 export async function supabaseAuthRequest(
   path: string,
   body: Record<string, unknown>,
