@@ -67,6 +67,7 @@ export async function GET() {
   let database = 'not_configured';
   let schemaConfigured = false;
   let inventoryConstraintConfigured = false;
+  let dataInvariantsConfigured = false;
   let catalogueQueryIndexConfigured = false;
   let emailProcessingStateConfigured = false;
   if (process.env.DATABASE_URL) {
@@ -99,6 +100,7 @@ export async function GET() {
           emailDeliveryTable: string | null;
           cleanupTable: string | null;
           inventoryConstraint: boolean;
+          dataInvariants: boolean;
           catalogueQueryIndex: boolean;
           emailProcessingState: boolean;
         }>
@@ -135,6 +137,18 @@ export async function GET() {
             WHERE conname = 'ProductVariant_stock_invariants'
               AND conrelid = 'public."ProductVariant"'::regclass
           ) AS "inventoryConstraint",
+          (
+            SELECT COUNT(*) = 6
+            FROM pg_constraint
+            WHERE conname IN (
+              'ProductVariant_money_invariant',
+              'CartItem_quantity_invariant',
+              'Order_money_invariant',
+              'OrderItem_money_quantity_invariant',
+              'InventoryReservation_quantity_invariant',
+              'Review_rating_invariant'
+            )
+          ) AS "dataInvariants",
           to_regclass(
             'public."ProductVariant_productId_stockOnHand_stockReserved_pricePaise_idx"'
           ) IS NOT NULL AS "catalogueQueryIndex",
@@ -153,12 +167,14 @@ export async function GET() {
             .filter(
               ([key]) =>
                 key !== 'inventoryConstraint' &&
+                  key !== 'dataInvariants' &&
                 key !== 'catalogueQueryIndex' &&
                 key !== 'emailProcessingState',
             )
             .every(([, value]) => Boolean(value)),
       );
       inventoryConstraintConfigured = schema?.inventoryConstraint === true;
+      dataInvariantsConfigured = schema?.dataInvariants === true;
       catalogueQueryIndexConfigured = schema?.catalogueQueryIndex === true;
       emailProcessingStateConfigured = schema?.emailProcessingState === true;
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
@@ -194,6 +210,7 @@ export async function GET() {
     database === 'connected' &&
     schemaConfigured &&
     inventoryConstraintConfigured &&
+    dataInvariantsConfigured &&
     catalogueQueryIndexConfigured &&
     emailProcessingStateConfigured &&
     deploymentConfigured &&
@@ -209,6 +226,7 @@ export async function GET() {
     database,
     schemaConfigured,
     inventoryConstraintConfigured,
+    dataInvariantsConfigured,
     catalogueQueryIndexConfigured,
     emailProcessingStateConfigured,
     deploymentConfigured,

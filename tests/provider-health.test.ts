@@ -28,6 +28,7 @@ describe('provider readiness helpers', () => {
       database: 'connected',
       schemaConfigured: true,
       inventoryConstraintConfigured: true,
+      dataInvariantsConfigured: true,
       catalogueQueryIndexConfigured: true,
       emailProcessingStateConfigured: true,
       paymentsConfigured: true,
@@ -39,6 +40,6 @@ describe('provider readiness helpers', () => {
     };
     expect(isReadyHealthPayload(ready)).toBe(true);
     expect(isReadyHealthPayload({ ...ready, ready: false })).toBe(false);
-    expect(healthChecks(ready)).toHaveLength(12);
+    expect(healthChecks(ready)).toHaveLength(13);
   });
 });

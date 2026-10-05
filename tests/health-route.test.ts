@@ -39,6 +39,7 @@ const completeSchema = {
   emailDeliveryTable: 'EmailDelivery',
   cleanupTable: 'StorageCleanupTask',
   inventoryConstraint: true,
+  dataInvariants: true,
   catalogueQueryIndex: true,
   emailProcessingState: true,
 };
@@ -143,6 +144,7 @@ describe('health readiness', () => {
     expect(body.database).toBe('connected');
     expect(body.schemaConfigured).toBe(true);
     expect(body.inventoryConstraintConfigured).toBe(true);
+    expect(body.dataInvariantsConfigured).toBe(true);
     expect(body.catalogueQueryIndexConfigured).toBe(true);
     expect(body.emailProcessingStateConfigured).toBe(true);
     expect(body.deploymentConfigured).toBe(true);
