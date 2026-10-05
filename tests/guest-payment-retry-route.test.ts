@@ -32,12 +32,16 @@ describe('guest payment retry route resilience', () => {
 
     const response = await POST(
       new Request(
-        'https://nivara.example/api/guest-orders/secret/retry-payment',
+        'https://nivara.example/api/guest-orders/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/retry-payment',
         {
           method: 'POST',
         },
       ),
-      { params: Promise.resolve({ token: 'secret' }) },
+      {
+        params: Promise.resolve({
+          token: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        }),
+      },
     );
     const body = (await response.json()) as { error?: string };
 
@@ -55,7 +59,9 @@ describe('guest payment retry route resilience', () => {
         maxAttempts: 20,
       }),
     );
-    expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain('secret');
+    expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain(
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
     expect(logServerError).toHaveBeenCalledWith(
       'guest_payment_retry_lookup_failed',
       expect.any(Error),

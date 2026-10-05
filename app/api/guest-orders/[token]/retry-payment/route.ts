@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isGuestOrderToken } from '@/lib/guest-token';
 import {
   CheckoutConflict,
   prepareRetryPayment,
@@ -34,6 +35,8 @@ export async function POST(
   if (!process.env.DATABASE_URL)
     return unavailable('Guest payment retry is not configured');
   const { token } = await params;
+  if (!isGuestOrderToken(token))
+    return noStore({ error: 'Order link is invalid or expired' }, 404);
   const guestAccessHash = createHash('sha256').update(token).digest('hex');
   let providerRejected = false;
   try {

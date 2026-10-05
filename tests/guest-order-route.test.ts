@@ -20,6 +20,7 @@ vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 import { GET } from '@/app/api/guest-orders/[token]/route';
 
 const originalEnvironment = { ...process.env };
+const validToken = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
 afterEach(() => {
   for (const key of Object.keys(process.env)) delete process.env[key];
@@ -37,8 +38,8 @@ describe('guest order route resilience', () => {
     findFirst.mockRejectedValue(new Error('private guest order details'));
 
     const response = await GET(
-      new Request('https://nivara.example/api/guest-orders/secret-token'),
-      { params: Promise.resolve({ token: 'secret-token' }) },
+      new Request(`https://nivara.example/api/guest-orders/${validToken}`),
+      { params: Promise.resolve({ token: validToken }) },
     );
     const body = (await response.json()) as { error?: string };
 
@@ -56,7 +57,7 @@ describe('guest order route resilience', () => {
       }),
     );
     expect(JSON.stringify(consumeRateLimit.mock.calls)).not.toContain(
-      'secret-token',
+      validToken,
     );
   });
 
@@ -83,8 +84,8 @@ describe('guest order route resilience', () => {
     });
 
     const response = await GET(
-      new Request('https://nivara.example/api/guest-orders/secret-token'),
-      { params: Promise.resolve({ token: 'secret-token' }) },
+      new Request(`https://nivara.example/api/guest-orders/${validToken}`),
+      { params: Promise.resolve({ token: validToken }) },
     );
     const body = (await response.json()) as Record<string, unknown>;
 
@@ -130,8 +131,8 @@ describe('guest order route resilience', () => {
     consumeRateLimit.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     const response = await GET(
-      new Request('https://nivara.example/api/guest-orders/random-token'),
-      { params: Promise.resolve({ token: 'random-token' }) },
+      new Request(`https://nivara.example/api/guest-orders/${validToken}`),
+      { params: Promise.resolve({ token: validToken }) },
     );
 
     expect(response.status).toBe(429);
