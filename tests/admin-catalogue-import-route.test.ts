@@ -175,4 +175,46 @@ describe('admin catalogue import route', () => {
       }),
     });
   });
+
+  it('audits the delta when an existing variant stock level changes', async () => {
+    configureAdmin();
+    categoryUpsert.mockResolvedValue({ id: 'category-1' });
+    productUpsert.mockResolvedValue({ id: 'product-1' });
+    variantFindUnique.mockResolvedValue({ stockReserved: 2, stockOnHand: 5 });
+    variantUpsert.mockResolvedValue({ id: 'variant-1' });
+    inventoryAdjustmentCreate.mockResolvedValue({ id: 'adjustment-1' });
+    auditCreate.mockResolvedValue({ id: 'audit-1' });
+    transaction.mockImplementation(async (callback) =>
+      callback({
+        category: { upsert: categoryUpsert },
+        product: { upsert: productUpsert },
+        $queryRaw: queryRaw,
+        productVariant: {
+          findUnique: variantFindUnique,
+          upsert: variantUpsert,
+        },
+        inventoryAdjustment: { create: inventoryAdjustmentCreate },
+        auditLog: { create: auditCreate },
+      }),
+    );
+
+    const response = await POST(
+      new Request(
+        'https://nivara.example/api/admin/catalogue/import?dryRun=false',
+        { method: 'POST', body: `${header}\n${row}` },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(inventoryAdjustmentCreate).toHaveBeenCalledWith({
+      data: {
+        variantId: 'variant-1',
+        adminUserId: 'admin-1',
+        quantityDelta: 3,
+        beforeQuantity: 5,
+        afterQuantity: 8,
+        reason: 'Catalogue import: NIV-001',
+      },
+    });
+  });
 });
