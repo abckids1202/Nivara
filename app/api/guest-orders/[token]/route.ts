@@ -24,6 +24,15 @@ export async function GET(
     )
       return noStore({ error: 'Too many access attempts' }, 429);
 
+    if (
+      !(await consumeRateLimit({
+        request,
+        endpoint: 'guest-order-access:client',
+        maxAttempts: 30,
+      }))
+    )
+      return noStore({ error: 'Too many access attempts' }, 429);
+
     const fingerprint = requestFingerprint(request);
     const order = await prisma.order.findFirst({
       where: { guestAccessHash: tokenHash },

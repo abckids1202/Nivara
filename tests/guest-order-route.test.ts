@@ -124,4 +124,24 @@ describe('guest order route resilience', () => {
       },
     });
   });
+
+  it('applies a client-wide limit when token values are rotated', async () => {
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    consumeRateLimit.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+
+    const response = await GET(
+      new Request('https://nivara.example/api/guest-orders/random-token'),
+      { params: Promise.resolve({ token: 'random-token' }) },
+    );
+
+    expect(response.status).toBe(429);
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(consumeRateLimit).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        endpoint: 'guest-order-access:client',
+        maxAttempts: 30,
+      }),
+    );
+  });
 });
