@@ -38,6 +38,19 @@ describe('API origin protection', () => {
     expect(middleware(request('POST')).status).toBe(200);
   });
 
+  it('allows the actual local dev origin when the configured host uses localhost', () => {
+    Object.assign(process.env, { NODE_ENV: 'development' });
+    process.env.NEXT_PUBLIC_SITE_URL = 'http://localhost:3000';
+    expect(
+      middleware(
+        new NextRequest('http://127.0.0.1:3000/api/checkout', {
+          method: 'POST',
+          headers: { origin: 'http://127.0.0.1:3000' },
+        }),
+      ).status,
+    ).toBe(200);
+  });
+
   it('rejects null origins for mutation requests', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
     expect(middleware(request('POST', 'null')).status).toBe(403);

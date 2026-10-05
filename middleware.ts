@@ -12,10 +12,26 @@ function isTrustedOrigin(request: NextRequest) {
     return process.env.NODE_ENV !== 'production';
 
   try {
-    return new URL(origin).origin === new URL(configuredSiteUrl).origin;
+    const originUrl = new URL(origin);
+    const requestUrl = new URL(request.url);
+    const originValue = originUrl.origin;
+    if (process.env.NODE_ENV !== 'production')
+      return (
+        originValue === requestUrl.origin ||
+        (isLocalDevelopmentHost(originUrl.hostname) &&
+          isLocalDevelopmentHost(requestUrl.hostname) &&
+          originUrl.protocol === requestUrl.protocol &&
+          originUrl.port === requestUrl.port) ||
+        originValue === new URL(configuredSiteUrl).origin
+      );
+    return originValue === new URL(configuredSiteUrl).origin;
   } catch {
     return false;
   }
+}
+
+function isLocalDevelopmentHost(hostname: string) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
 export function middleware(request: NextRequest) {
