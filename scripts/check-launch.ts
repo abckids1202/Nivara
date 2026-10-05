@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { validateLaunchTarget } from '../lib/launch-target.ts';
 import { loadLocalEnvironment } from './load-env.ts';
 
 loadLocalEnvironment();
@@ -16,35 +17,13 @@ if (!deploymentUrl) {
   process.exit(2);
 }
 
-let deploymentTarget: URL;
-try {
-  deploymentTarget = new URL(deploymentUrl);
-} catch {
-  console.error('Launch preflight requires a valid HTTP(S) deployment URL.');
+const launchTargetError = validateLaunchTarget(
+  deploymentUrl,
+  process.env.NEXT_PUBLIC_SITE_URL,
+);
+if (launchTargetError) {
+  console.error(launchTargetError);
   process.exit(2);
-}
-
-if (deploymentTarget.protocol !== 'https:') {
-  console.error('Launch preflight requires an HTTPS deployment URL.');
-  process.exit(2);
-}
-
-const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-if (configuredSiteUrl) {
-  let configuredTarget: URL;
-  try {
-    configuredTarget = new URL(configuredSiteUrl);
-  } catch {
-    console.error('NEXT_PUBLIC_SITE_URL must be a valid HTTP(S) URL.');
-    process.exit(2);
-  }
-
-  if (configuredTarget.origin !== deploymentTarget.origin) {
-    console.error(
-      `Deployment URL origin must match NEXT_PUBLIC_SITE_URL (${configuredTarget.origin}).`,
-    );
-    process.exit(2);
-  }
 }
 
 process.env.NIVARA_HEALTH_URL = deploymentUrl;
