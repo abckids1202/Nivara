@@ -38,11 +38,12 @@ ready for a tested Next major-version migration.
 
 Do not run `npm audit fix --force` automatically. A forced repair may replace the framework or build tooling with a breaking major version. Each remaining finding needs a package-owner review, a compatible upgrade, or a documented risk decision.
 
-The preview-toolchain peer conflict was resolved without force flags by
-updating `@vitejs/plugin-rsc` to `0.5.35`, which satisfies the
-`vinext@1.0.1` peer range of `^0.5.34`. `npm audit fix --dry-run` and
-`npm ci --dry-run` now resolve successfully. The remaining audit findings are
-still transitive and are not fixed by this development-toolchain update.
+The preview-toolchain peer range is kept compatible with current Vinext
+releases by pinning `@vitejs/plugin-rsc` to `0.5.35`. The committed lockfile
+remains the reproducible source of the exact preview-toolchain versions;
+`npm ci --dry-run` should be run after any lockfile refresh. The remaining
+audit findings are transitive and are not fixed by this development-toolchain
+compatibility setting.
 
 Release gate for this finding:
 
