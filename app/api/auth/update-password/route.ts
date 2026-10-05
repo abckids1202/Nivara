@@ -1,6 +1,9 @@
 import { consumeRateLimit } from '@/lib/access-rate';
 import { passwordUpdateSchema } from '@/lib/schemas';
-import { supabaseUpdatePassword } from '@/lib/supabase-auth';
+import {
+  isSupabaseUserVerified,
+  supabaseUpdatePassword,
+} from '@/lib/supabase-auth';
 import { authResponse } from '@/lib/auth-response';
 import { logServerError } from '@/lib/safe-logging';
 
@@ -33,6 +36,11 @@ export async function POST(request: Request): Promise<Response> {
     return authResponse({ error: 'Supabase Auth is not configured' }, 503);
   if (!result.ok || !result.data.user?.id)
     return authResponse({ error: 'Password could not be updated' }, 401);
+  if (!isSupabaseUserVerified(result.data.user))
+    return authResponse(
+      { error: 'Please verify your email before signing in' },
+      403,
+    );
 
   const response = authResponse({
     data: { userId: result.data.user.id },

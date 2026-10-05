@@ -16,6 +16,8 @@ vi.mock('@/lib/access-rate', () => ({ consumeRateLimit }));
 vi.mock('@/lib/supabase-auth', () => ({
   supabaseAuthRequest,
   supabaseUpdatePassword,
+  isSupabaseUserVerified: (user: { email_confirmed_at?: string | null }) =>
+    Boolean(user?.email_confirmed_at),
 }));
 vi.mock('@/lib/safe-logging', () => ({ logServerError }));
 
