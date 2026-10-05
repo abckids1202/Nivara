@@ -1,6 +1,9 @@
 import { PrismaClient, ProductStatus } from '@prisma/client';
 import { products } from '../lib/demo-data.ts';
 import { rupeesToPaise } from '../lib/money.ts';
+import { loadLocalEnvironment } from './load-env.ts';
+
+loadLocalEnvironment();
 
 if (
   process.env.NODE_ENV === 'production' &&

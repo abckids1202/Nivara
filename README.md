@@ -19,6 +19,7 @@ npm run test:e2e
 ```
 
 Use the local URL printed by the dev server. Do not add real credentials to the repository; copy `.env.example` to `.env` and fill only local/test values. Prisma commands require both `DATABASE_URL` and `DIRECT_URL`; use the Supabase pooled URL for the former and the Supabase direct connection URL for the latter.
+The standalone seed and administrator-bootstrap scripts automatically load `.env.local` and `.env` when those files exist; already-exported environment variables remain authoritative.
 
 For Windows CMD:
 

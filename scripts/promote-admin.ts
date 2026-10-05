@@ -5,6 +5,9 @@ import {
 } from '../lib/admin-bootstrap.ts';
 import { hasConfiguredValue } from '../lib/configuration.ts';
 import { providerFetch } from '../lib/provider-fetch.ts';
+import { loadLocalEnvironment } from './load-env.ts';
+
+loadLocalEnvironment();
 
 const emailIndex = process.argv.findIndex((value) => value === '--email');
 const email = emailIndex >= 0 ? process.argv[emailIndex + 1]?.trim() : undefined;
