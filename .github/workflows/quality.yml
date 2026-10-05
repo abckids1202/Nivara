@@ -60,6 +60,9 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Check JavaScript performance budget
+        run: npm run check:performance
+
   browser:
     runs-on: ubuntu-latest
     timeout-minutes: 20

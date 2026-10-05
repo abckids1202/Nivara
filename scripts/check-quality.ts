@@ -9,6 +9,7 @@ const steps = [
   ["Lint", "lint"],
   ["Unit and integration tests", "test"],
   ["Production build", "build"],
+  ["JavaScript performance budget", "check:performance"],
   ["Browser acceptance tests", "test:e2e"],
 ] as const;
 
