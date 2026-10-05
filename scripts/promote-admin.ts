@@ -1,4 +1,8 @@
 import { PrismaClient } from '@prisma/client';
+import {
+  canPromoteAdmin,
+  type SupabaseAdminUser,
+} from '../lib/admin-bootstrap.ts';
 import { hasConfiguredValue } from '../lib/configuration.ts';
 import { providerFetch } from '../lib/provider-fetch.ts';
 
@@ -46,18 +50,7 @@ async function readSupabaseUser(userId: string) {
     },
   );
   if (!response.ok) return null;
-  return (await response.json().catch(() => null)) as {
-    id?: string;
-    email?: string;
-    email_confirmed_at?: string | null;
-    confirmed_at?: string | null;
-  } | null;
-}
-
-function isVerifiedSupabaseUser(
-  user: { email_confirmed_at?: string | null; confirmed_at?: string | null } | null,
-) {
-  return Boolean(user?.email_confirmed_at ?? user?.confirmed_at);
+  return (await response.json().catch(() => null)) as SupabaseAdminUser | null;
 }
 
 try {
@@ -78,9 +71,11 @@ try {
       const supabaseUser = await readSupabaseUser(user.id);
       if (
         !supabaseUser ||
-        supabaseUser.id !== user.id ||
-        supabaseUser.email?.toLowerCase() !== user.email.toLowerCase() ||
-        !isVerifiedSupabaseUser(supabaseUser)
+        !canPromoteAdmin({
+          applicationUserId: user.id,
+          applicationEmail: user.email,
+          supabaseUser,
+        })
       ) {
         console.error(
           'The application account was not verified in Supabase Auth. No administrator was changed.',
