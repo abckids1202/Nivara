@@ -165,6 +165,8 @@ npm run check:launch -- --url https://your-deployment.example
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
 Use [`docs/acceptance-walkthrough.md`](docs/acceptance-walkthrough.md) as the
 client-facing evidence worksheet for the provider-backed acceptance run.
+Use [`docs/launch-readiness-matrix.md`](docs/launch-readiness-matrix.md) to
+separate repository evidence from provider and client-content tasks.
 
 ## Delivery assumptions
 
