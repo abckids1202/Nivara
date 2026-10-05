@@ -136,7 +136,7 @@ Run the production environment preflight in the deployment environment before
 running migrations or accepting payments:
 
 ```cmd
-npm run check:env
+npm run check:env -- --production
 ```
 
 It checks variable presence, placeholder values, required URL formats, and
@@ -153,6 +153,14 @@ The check calls `/api/health` and requires a connected database, direct
 migration URL, canonical HTTPS site URL, and configured Auth, Storage,
 Razorpay, Resend, support email, and cron secret. A degraded response is a
 launch blocker.
+
+For the final handover, run the combined release gate. It checks the
+production environment, administrator route authorization, secret safety, and
+live provider readiness in one command:
+
+```cmd
+npm run check:launch -- --url https://your-deployment.example
+```
 
 See [`docs/operations-runbook.md`](docs/operations-runbook.md) for provider setup, cron, backup, restore, acceptance testing, and handover steps.
 Use [`docs/acceptance-walkthrough.md`](docs/acceptance-walkthrough.md) as the
