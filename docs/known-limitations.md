@@ -10,7 +10,7 @@ This document separates the implemented practice MVP from the work that still re
 - Configure Resend and verify the client sender domain.
 - Set the production `NEXT_PUBLIC_SITE_URL`, deploy to Vercel, and run the complete acceptance journey in the operations runbook.
 - Replace demonstration contact details, product copy, imagery, delivery information, returns policy, privacy text, and terms with client-approved content.
-- Create and securely transfer the first administrator account through the client-owned identity and hosting accounts.
+- Have the first administrator sign up and verify their email through the client-owned Supabase Auth project, then run the controlled `npm run admin:promote -- --email verified-user@example.com --confirm` command with the production database and Supabase service-role environment variables. The command verifies the Auth record before setting `isAdmin` and records an audit event.
 - Rehearse backup and restore against a non-production target.
 
 ## Implemented MVP boundaries
