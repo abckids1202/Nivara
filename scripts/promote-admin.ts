@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { hasConfiguredValue } from '../lib/configuration.ts';
+import { providerFetch } from '../lib/provider-fetch.ts';
 
 const emailIndex = process.argv.findIndex((value) => value === '--email');
 const email = emailIndex >= 0 ? process.argv[emailIndex + 1]?.trim() : undefined;
@@ -22,6 +24,42 @@ if (!process.env.DATABASE_URL) {
 
 const prisma = new PrismaClient();
 
+async function readSupabaseUser(userId: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (
+    !hasConfiguredValue(supabaseUrl, ['your-project']) ||
+    !hasConfiguredValue(serviceRoleKey)
+  )
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required to verify the account',
+    );
+
+  const response = await providerFetch(
+    `${supabaseUrl}/auth/v1/admin/users/${encodeURIComponent(userId)}`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      cache: 'no-store',
+    },
+  );
+  if (!response.ok) return null;
+  return (await response.json().catch(() => null)) as {
+    id?: string;
+    email?: string;
+    email_confirmed_at?: string | null;
+    confirmed_at?: string | null;
+  } | null;
+}
+
+function isVerifiedSupabaseUser(
+  user: { email_confirmed_at?: string | null; confirmed_at?: string | null } | null,
+) {
+  return Boolean(user?.email_confirmed_at ?? user?.confirmed_at);
+}
+
 try {
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: 'insensitive' } },
@@ -36,22 +74,42 @@ try {
   } else if (user.isAdmin) {
     console.log(`${user.email} is already an administrator.`);
   } else {
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: user.id },
-        data: { isAdmin: true },
-      });
-      await tx.auditLog.create({
-        data: {
-          actorId: user.id,
-          action: 'user.admin_granted',
-          entityType: 'User',
-          entityId: user.id,
-          details: { source: 'promote-admin-script' },
-        },
-      });
-    });
-    console.log(`${user.email} is now an administrator.`);
+    try {
+      const supabaseUser = await readSupabaseUser(user.id);
+      if (
+        !supabaseUser ||
+        supabaseUser.id !== user.id ||
+        supabaseUser.email?.toLowerCase() !== user.email.toLowerCase() ||
+        !isVerifiedSupabaseUser(supabaseUser)
+      ) {
+        console.error(
+          'The application account was not verified in Supabase Auth. No administrator was changed.',
+        );
+        process.exitCode = 1;
+      } else {
+        await prisma.$transaction(async (tx) => {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { isAdmin: true },
+          });
+          await tx.auditLog.create({
+            data: {
+              actorId: user.id,
+              action: 'user.admin_granted',
+              entityType: 'User',
+              entityId: user.id,
+              details: { source: 'promote-admin-script' },
+            },
+          });
+        });
+        console.log(`${user.email} is now an administrator.`);
+      }
+    } catch (error) {
+      console.error(
+        `Supabase account verification failed: ${error instanceof Error ? error.message : 'provider request failed'}. No administrator was changed.`,
+      );
+      process.exitCode = 1;
+    }
   }
 } finally {
   await prisma.$disconnect();
