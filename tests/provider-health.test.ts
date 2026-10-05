@@ -21,6 +21,12 @@ describe('provider readiness helpers', () => {
     );
   });
 
+  it('rejects embedded credentials before a health URL is logged', () => {
+    expect(() =>
+      healthUrlFromBase('https://user:secret@store.nivara.in'),
+    ).toThrow('Health URL must not contain embedded credentials');
+  });
+
   it('requires an explicit healthy response from every provider check', () => {
     const ready = {
       status: 'ok',

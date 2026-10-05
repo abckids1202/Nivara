@@ -21,6 +21,9 @@ export function healthUrlFromBase(value: string) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('Health URL must use HTTP or HTTPS');
   }
+  if (url.username || url.password) {
+    throw new Error('Health URL must not contain embedded credentials');
+  }
 
   url.pathname = '/api/health';
   url.search = '';
