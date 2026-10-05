@@ -6,6 +6,7 @@ const {
   create,
   update,
   createAudit,
+  createInventoryAdjustment,
   transaction,
   getIdentity,
   isAdministrator,
@@ -15,6 +16,7 @@ const {
   create: vi.fn(),
   update: vi.fn(),
   createAudit: vi.fn(),
+  createInventoryAdjustment: vi.fn(),
   transaction: vi.fn(),
   getIdentity: vi.fn(),
   isAdministrator: vi.fn(),
@@ -46,6 +48,7 @@ afterEach(() => {
   create.mockReset();
   update.mockReset();
   createAudit.mockReset();
+  createInventoryAdjustment.mockReset();
   transaction.mockReset();
   getIdentity.mockReset();
   isAdministrator.mockReset();
@@ -203,6 +206,7 @@ describe('admin variant route resilience', () => {
     transaction.mockImplementation(async (callback) =>
       callback({
         productVariant: { create },
+        inventoryAdjustment: { create: createInventoryAdjustment },
         auditLog: { create: createAudit },
       }),
     );
@@ -251,6 +255,16 @@ describe('admin variant route resilience', () => {
           compareAtRupees: 899,
           stockOnHand: 8,
         },
+      },
+    });
+    expect(createInventoryAdjustment).toHaveBeenCalledWith({
+      data: {
+        variantId: 'variant-2',
+        adminUserId: 'admin-1',
+        quantityDelta: 8,
+        beforeQuantity: 0,
+        afterQuantity: 8,
+        reason: 'Initial variant stock',
       },
     });
   });

@@ -84,6 +84,17 @@ export async function POST(
           stockOnHand: parsed.data.stockOnHand,
         },
       });
+      if (createdVariant.stockOnHand > 0)
+        await transaction.inventoryAdjustment.create({
+          data: {
+            variantId: createdVariant.id,
+            adminUserId: access.identity.id,
+            quantityDelta: createdVariant.stockOnHand,
+            beforeQuantity: 0,
+            afterQuantity: createdVariant.stockOnHand,
+            reason: 'Initial variant stock',
+          },
+        });
       await transaction.auditLog.create({
         data: {
           actorId: access.identity.id,
