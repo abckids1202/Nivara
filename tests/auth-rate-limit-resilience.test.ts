@@ -35,6 +35,32 @@ afterEach(() => {
 });
 
 describe('authentication rate-limit failure handling', () => {
+  it('normalizes the password-reset redirect to the canonical site URL', async () => {
+    const previousSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in///?preview=1';
+    consumeRateLimit.mockResolvedValue(true);
+    supabaseAuthRequest.mockResolvedValue({ ok: true, data: {} });
+
+    try {
+      const response = await resetPassword(
+        new Request('https://preview.nivara.in/api/auth/password-reset', {
+          method: 'POST',
+          body: JSON.stringify({ email: 'shopper@example.com' }),
+        }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(supabaseAuthRequest).toHaveBeenCalledWith('recover', {
+        email: 'shopper@example.com',
+        redirect_to: 'https://store.nivara.in/account/reset-password',
+      });
+    } finally {
+      if (previousSiteUrl === undefined)
+        delete process.env.NEXT_PUBLIC_SITE_URL;
+      else process.env.NEXT_PUBLIC_SITE_URL = previousSiteUrl;
+    }
+  });
+
   it('returns a safe response for password-reset infrastructure failure', async () => {
     consumeRateLimit.mockRejectedValue(new Error('private rate log details'));
 
