@@ -20,6 +20,7 @@
     "check:env": "node --experimental-strip-types scripts/check-env.ts --production",
     "check:provider": "node --experimental-strip-types scripts/check-provider.ts",
     "check:launch": "node --experimental-strip-types scripts/check-launch.ts",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
     "check:secrets": "node --experimental-strip-types scripts/check-secrets.ts",
     "check:admin-auth": "node --experimental-strip-types scripts/check-admin-auth.ts",
     "check:quality": "node --experimental-strip-types scripts/check-quality.ts",

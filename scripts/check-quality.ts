@@ -3,7 +3,9 @@ import { spawnSync } from "node:child_process";
 const steps = [
   ["Secret scan", "check:secrets"],
   ["Admin authorization audit", "check:admin-auth"],
+  ["Production dependency audit", "audit:production"],
   ["Prisma schema validation", "db:validate"],
+  ["Prisma client generation", "db:generate"],
   ["Lint", "lint"],
   ["Unit and integration tests", "test"],
   ["Production build", "build"],
