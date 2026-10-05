@@ -16,6 +16,7 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 9. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
    The same job retries queued Supabase Storage image deletions, and retains rate-limit and guest-access-attempt records for 30 days before removing older entries.
 10. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready, including `catalogue query index`. A degraded response means the migration or provider configuration is incomplete.
+    Before handover, run `npm run check:launch -- --url https://your-deployment.example`. This combines the production environment, admin authorization, secret-safety, and provider-readiness checks into one release gate. It loads local `.env.local`/`.env` values for maintenance use without committing them.
 
 For the approved launch catalogue, copy [`catalogue-import-template.csv`](./catalogue-import-template.csv), replace the example row with client-approved content, and submit it through the administrator CSV dry-run first. Keep one row per SKU; use the same `productSlug` for variants of the same product. The import accepts rupee amounts with at most two decimal places and never lowers stock below the currently reserved quantity.
 
