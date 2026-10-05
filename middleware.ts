@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const mutationMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const MAX_MUTATION_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_MULTIPART_BODY_BYTES = 6 * 1024 * 1024;
 
 function isTrustedOrigin(request: NextRequest) {
   const origin = request.headers.get('origin');
@@ -35,14 +37,24 @@ function isLocalDevelopmentHost(hostname: string) {
 }
 
 export function middleware(request: NextRequest) {
-  if (
-    mutationMethods.has(request.method) &&
-    !isTrustedOrigin(request)
-  )
-    return NextResponse.json(
-      { error: 'Cross-origin request blocked' },
-      { status: 403, headers: { 'Cache-Control': 'no-store' } },
-    );
+  if (mutationMethods.has(request.method)) {
+    if (!isTrustedOrigin(request))
+      return NextResponse.json(
+        { error: 'Cross-origin request blocked' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      );
+
+    const declaredLength = Number(request.headers.get('content-length'));
+    const contentType = request.headers.get('content-type')?.toLowerCase() ?? '';
+    const maxBytes = contentType.startsWith('multipart/form-data')
+      ? MAX_MULTIPART_BODY_BYTES
+      : MAX_MUTATION_BODY_BYTES;
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes)
+      return NextResponse.json(
+        { error: 'Request body is too large' },
+        { status: 413, headers: { 'Cache-Control': 'no-store' } },
+      );
+  }
 
   return NextResponse.next();
 }

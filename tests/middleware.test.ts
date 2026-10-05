@@ -73,4 +73,38 @@ describe('API origin protection', () => {
     process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
     expect(middleware(request('GET', 'https://attacker.example')).status).toBe(200);
   });
+
+  it('rejects oversized ordinary mutation bodies', async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
+    const response = middleware(
+      new NextRequest('https://store.nivara.in/api/checkout', {
+        method: 'POST',
+        headers: {
+          origin: 'https://store.nivara.in',
+          'content-length': String(2 * 1024 * 1024 + 1),
+          'content-type': 'application/json',
+        },
+      }),
+    );
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Request body is too large',
+    });
+  });
+
+  it('keeps the multipart limit above the five megabyte image limit', () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://store.nivara.in';
+    expect(
+      middleware(
+        new NextRequest('https://store.nivara.in/api/admin/products/p/images', {
+          method: 'POST',
+          headers: {
+            origin: 'https://store.nivara.in',
+            'content-length': String(5 * 1024 * 1024 + 1),
+            'content-type': 'multipart/form-data; boundary=test',
+          },
+        }),
+      ).status,
+    ).toBe(200);
+  });
 });
