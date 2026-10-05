@@ -108,6 +108,8 @@ npx prisma validate
 
 Before deployment, create the Prisma migration against the client-owned Supabase project, configure Vercel environment variables, configure the Razorpay webhook URL, and verify the Resend sender domain. No provider secret belongs in Git.
 
+To bootstrap the first administrator, first create and verify the account through Supabase Auth, then run `npm run admin:promote -- --email verified-user@example.com --confirm` from a controlled environment with the production `DATABASE_URL`. The command does not create accounts or accept unknown emails.
+
 Run the production environment preflight in the deployment environment before
 running migrations or accepting payments:
 

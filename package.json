@@ -21,7 +21,8 @@
     "check:secrets": "node --experimental-strip-types scripts/check-secrets.ts",
     "check:admin-auth": "node --experimental-strip-types scripts/check-admin-auth.ts",
     "check:quality": "node --experimental-strip-types scripts/check-quality.ts",
-    "db:seed": "node --experimental-strip-types scripts/seed.ts"
+    "db:seed": "node --experimental-strip-types scripts/seed.ts",
+    "admin:promote": "node --experimental-strip-types scripts/promote-admin.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

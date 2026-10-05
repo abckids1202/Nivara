@@ -10,11 +10,12 @@ This runbook covers the remaining client-owned setup and the repeatable checks f
 3. Enable Supabase Auth email/password, email confirmation, and password recovery redirects for the deployed site.
 4. Create a private Supabase service-role key and a `product-images` Storage bucket with public reads and admin-only application writes. Set `SUPABASE_STORAGE_BUCKET` if using another bucket name.
 5. Configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in Vercel. Keep the service-role key server-only.
-6. Configure Razorpay test keys and webhook secret. Point the webhook to `/api/payments/razorpay/webhook` and set `CRON_SECRET`.
-7. Configure Resend and verify the client sender domain before sending real order mail.
-8. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
+6. After the first administrator signs up and verifies their email, promote that existing application account from a controlled environment: `npm run admin:promote -- --email verified-user@example.com --confirm`. The command refuses unknown accounts, requires explicit confirmation, and records the grant in `AuditLog`; never promote an account that has not been verified in Supabase Auth.
+7. Configure Razorpay test keys and webhook secret. Point the webhook to `/api/payments/razorpay/webhook` and set `CRON_SECRET`.
+8. Configure Resend and verify the client sender domain before sending real order mail.
+9. Set `NEXT_PUBLIC_SITE_URL` to the deployed canonical URL and configure the Vercel Cron job for `/api/jobs/reconcile` every five minutes with `Authorization: Bearer $CRON_SECRET`.
    The same job retries queued Supabase Storage image deletions, and retains rate-limit and guest-access-attempt records for 30 days before removing older entries.
-9. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready, including `catalogue query index`. A degraded response means the migration or provider configuration is incomplete.
+10. From a machine with network access, run `npm run check:provider -- --url https://your-deployment.example`. Continue only when the endpoint returns HTTP 200 and all readiness checks report ready, including `catalogue query index`. A degraded response means the migration or provider configuration is incomplete.
 
 For the approved launch catalogue, copy [`catalogue-import-template.csv`](./catalogue-import-template.csv), replace the example row with client-approved content, and submit it through the administrator CSV dry-run first. Keep one row per SKU; use the same `productSlug` for variants of the same product. The import accepts rupee amounts with at most two decimal places and never lowers stock below the currently reserved quantity.
 
