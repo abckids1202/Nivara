@@ -163,23 +163,38 @@ export async function GET(request: Request) {
     }
 
     // A provider lookup failure above moves the payment into PAYMENT_REVIEW
-    // after its reservation expires. Keep polling those attempts on later
-    // runs; otherwise they would disappear from the active-reservation query
-    // and remain unresolved forever.
+    // after its reservation expires. Also recover pending attempts whose
+    // reservation release succeeded but whose payment-state update failed;
+    // otherwise they would disappear from the active-reservation query and
+    // remain unresolved forever.
     const reviewPayments = await prisma.paymentAttempt.findMany({
       where: {
-        status: 'PAYMENT_REVIEW',
-        providerOrderId: { not: null },
-        order: { paymentStatus: 'PAYMENT_REVIEW' },
+        OR: [
+          {
+            status: 'PAYMENT_REVIEW',
+            order: { paymentStatus: 'PAYMENT_REVIEW' },
+          },
+          {
+            status: { in: ['CREATED', 'PENDING'] },
+            order: {
+              paymentStatus: { in: ['CREATED', 'PENDING'] },
+              reservations: { none: { status: 'ACTIVE' } },
+            },
+          },
+        ],
       },
       select: { id: true, providerOrderId: true },
       orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
       take: 100,
     });
     for (const payment of reviewPayments) {
-      if (processedPaymentAttempts.has(payment.id) || !payment.providerOrderId)
-        continue;
+      if (processedPaymentAttempts.has(payment.id)) continue;
       processedPaymentAttempts.add(payment.id);
+      if (!payment.providerOrderId) {
+        await markPaymentReview(payment.id);
+        processed.review += 1;
+        continue;
+      }
       if (!auth) {
         processed.review += 1;
         continue;

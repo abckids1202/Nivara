@@ -295,4 +295,38 @@ describe('reconciliation payment-review polling', () => {
     expect(expireReservationsForOrder).toHaveBeenCalledWith('order-4');
     expect(markPaymentFailed).not.toHaveBeenCalled();
   });
+
+  it('recovers a pending payment after reservation release but before state update', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    process.env.DATABASE_URL = 'postgresql://database.example/nivara';
+    process.env.RAZORPAY_KEY_ID = 'razorpay-test-id';
+    process.env.RAZORPAY_KEY_SECRET = 'test-secret';
+    transaction.mockResolvedValue([{ count: 0 }, { count: 0 }]);
+    processStorageCleanupTasks.mockResolvedValue({
+      completed: 0,
+      failed: 0,
+      purged: 0,
+      skipped: false,
+    });
+    expiredReservations.mockResolvedValue([]);
+    reviewPayments.mockResolvedValue([
+      { id: 'payment-orphaned', providerOrderId: null },
+    ]);
+    orderFindMany.mockResolvedValue([]);
+    accessRateDeleteMany.mockResolvedValue({ count: 0 });
+    guestAttemptDeleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await GET(
+      new Request('https://nivara.example/api/jobs/reconcile', {
+        headers: { authorization: 'Bearer cron-secret' },
+      }),
+    );
+    const body = (await response.json()) as {
+      processed?: { review?: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.processed?.review).toBe(1);
+    expect(markPaymentReview).toHaveBeenCalledWith('payment-orphaned');
+  });
 });
