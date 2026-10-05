@@ -7,7 +7,9 @@ export default defineConfig({
   // projects exercise database-backed recovery flows in parallel.
   workers: 2,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // A single local retry absorbs transient Next dev-server startup failures;
+  // CI keeps the stricter two-retry policy for shared runners.
+  retries: process.env.CI ? 2 : 1,
   reporter: [['list'], ['html', { open: 'never' }]],
   expect: { timeout: 10_000 },
   use: {
