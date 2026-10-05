@@ -11,6 +11,7 @@ vi.mock('@/lib/cart', () => ({
   cartCookieHeader: vi.fn(),
   createCartKey: vi.fn(),
   findOrCreateCart,
+  isCartKey: vi.fn(() => true),
   readCookie: vi.fn(() => null),
 }));
 vi.mock('@/lib/prisma', () => ({

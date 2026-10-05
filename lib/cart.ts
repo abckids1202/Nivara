@@ -22,6 +22,10 @@ export function createCartKey() {
   return randomBytes(18).toString('base64url');
 }
 
+export function isCartKey(value: string) {
+  return /^[A-Za-z0-9_-]{24}$/.test(value);
+}
+
 export async function findOrCreateCart(
   identity: AuthenticatedIdentity | null,
   guestKey: string | null,
@@ -37,7 +41,7 @@ export async function findOrCreateCart(
       },
     });
   }
-  if (!guestKey) return null;
+  if (!guestKey || !isCartKey(guestKey)) return null;
   return prisma.cart.upsert({
     where: { guestKey },
     create: { guestKey },

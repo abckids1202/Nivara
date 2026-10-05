@@ -1,7 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { noStore, unauthorized, unavailable } from '@/lib/http';
 import { prisma } from '@/lib/prisma';
-import { CART_COOKIE, clearCartCookieHeader, readCookie } from '@/lib/cart';
+import {
+  CART_COOKIE,
+  clearCartCookieHeader,
+  isCartKey,
+  readCookie,
+} from '@/lib/cart';
 import { mergedCartQuantity } from '@/lib/cart-merge';
 import { ensureUserProfile, getAuthenticatedIdentity } from '@/lib/server-auth';
 import { logServerError } from '@/lib/safe-logging';
@@ -12,7 +17,11 @@ export async function POST(request: Request): Promise<Response> {
   const identity = await getAuthenticatedIdentity(request);
   if (!identity) return unauthorized();
   const guestKey = readCookie(request, CART_COOKIE);
-  if (!guestKey) return noStore({ merged: false });
+  if (!guestKey || !isCartKey(guestKey)) {
+    const response = noStore({ merged: false });
+    if (guestKey) response.headers.set('Set-Cookie', clearCartCookieHeader());
+    return response;
+  }
 
   try {
     await ensureUserProfile(identity);

@@ -5,6 +5,7 @@ import {
   cartCookieHeader,
   createCartKey,
   findOrCreateCart,
+  isCartKey,
   readCookie,
   CART_COOKIE,
 } from '@/lib/cart';
@@ -57,9 +58,12 @@ export async function POST(request: Request): Promise<Response> {
     return badRequest('Cart item is invalid', parsed.error.flatten());
   try {
     const identity = await getAuthenticatedIdentity(request);
+    const existingGuestKey = readCookie(request, CART_COOKIE);
     const createdGuestKey = identity
       ? null
-      : (readCookie(request, CART_COOKIE) ?? createCartKey());
+      : existingGuestKey && isCartKey(existingGuestKey)
+        ? existingGuestKey
+        : createCartKey();
     const variant = await prisma.productVariant.findFirst({
       where: { id: parsed.data.variantId, product: { status: 'PUBLISHED' } },
       select: { id: true, stockOnHand: true, stockReserved: true },

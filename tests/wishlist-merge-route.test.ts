@@ -12,6 +12,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: { wishlist: { findUnique } } }));
 vi.mock('@/lib/cart', () => ({
   CART_COOKIE: 'nivara-cart',
   clearCartCookieHeader: vi.fn(),
+  isCartKey: vi.fn(() => true),
   readCookie: vi.fn(() => null),
 }));
 vi.mock('@/lib/cart-merge', () => ({ mergedCartQuantity: vi.fn() }));
