@@ -39,8 +39,7 @@ type CatalogueProduct = {
 
 type CategoryOption = { id: string; name: string; slug: string };
 
-const formatPaise = (paise: number | null) =>
-  formatInrFromPaise(paise ?? 0);
+const formatPaise = (paise: number | null) => formatInrFromPaise(paise ?? 0);
 
 export default function ShopPage() {
   const searchParams = useSearchParams();
@@ -57,6 +56,14 @@ export default function ShopPage() {
   const [maxPrice, setMaxPrice] = useState(() => {
     const price = Number(searchParams.get('maxPrice'));
     return Number.isFinite(price) && price >= 300 ? price : 2500;
+  });
+  const [minPrice, setMinPrice] = useState(() => {
+    const price = Number(searchParams.get('minPrice'));
+    const max = Number(searchParams.get('maxPrice'));
+    const effectiveMax = Number.isFinite(max) && max >= 300 ? max : 2500;
+    return Number.isFinite(price) && price >= 0
+      ? Math.min(price, effectiveMax)
+      : 0;
   });
   const [page, setPage] = useState(() => {
     const value = Number(searchParams.get('page'));
@@ -104,7 +111,8 @@ export default function ShopPage() {
     fetch('/api/wishlist', { cache: 'no-store' })
       .then(async (response) => {
         if (response.status === 401) return [];
-        if (!response.ok) throw new Error('Wishlist status could not be loaded');
+        if (!response.ok)
+          throw new Error('Wishlist status could not be loaded');
         const payload = (await response.json().catch(() => ({}))) as {
           data?: Array<{ productId: string }>;
         };
@@ -126,6 +134,7 @@ export default function ShopPage() {
     if (category) params.set('category', category);
     if (availability !== 'all') params.set('availability', availability);
     if (sort !== 'newest') params.set('sort', sort);
+    if (minPrice > 0) params.set('minPrice', String(minPrice));
     if (maxPrice !== 2500) params.set('maxPrice', String(maxPrice));
     if (page > 1) params.set('page', String(page));
     window.history.replaceState(
@@ -133,7 +142,7 @@ export default function ShopPage() {
       '',
       `/shop${params.toString() ? `?${params}` : ''}`,
     );
-  }, [availability, category, maxPrice, page, query, sort]);
+  }, [availability, category, maxPrice, minPrice, page, query, sort]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -141,6 +150,7 @@ export default function ShopPage() {
       pageSize: '48',
       page: String(page),
       sort,
+      minPricePaise: String(minPrice * 100),
       maxPricePaise: String(maxPrice * 100),
     });
     if (debouncedQuery) params.set('q', debouncedQuery);
@@ -185,7 +195,7 @@ export default function ShopPage() {
       });
 
     return () => controller.abort();
-  }, [availability, category, debouncedQuery, maxPrice, page, sort]);
+  }, [availability, category, debouncedQuery, maxPrice, minPrice, page, sort]);
 
   const selectedCategoryLabel = useMemo(
     () =>
@@ -235,7 +245,11 @@ export default function ShopPage() {
         else next.add(product.id);
         return next;
       });
-      setNotice(saved ? `${product.name} removed from your wishlist.` : `${product.name} saved.`);
+      setNotice(
+        saved
+          ? `${product.name} removed from your wishlist.`
+          : `${product.name} saved.`,
+      );
     }
     window.setTimeout(() => setNotice(''), 2400);
   };
@@ -346,6 +360,22 @@ export default function ShopPage() {
                 : `${products.length} of ${total} pieces`}
             </p>
             <label className="flex items-center gap-3">
+              From {formatInr(minPrice)}
+              <input
+                type="range"
+                min="0"
+                max={maxPrice}
+                step="50"
+                value={minPrice}
+                onChange={(event) => {
+                  setMinPrice(Math.min(Number(event.target.value), maxPrice));
+                  setPage(1);
+                }}
+                className="accent-[#a6503d]"
+                aria-label="Minimum price"
+              />
+            </label>
+            <label className="flex items-center gap-3">
               Up to {formatInr(maxPrice)}
               <input
                 type="range"
@@ -354,7 +384,9 @@ export default function ShopPage() {
                 step="50"
                 value={maxPrice}
                 onChange={(event) => {
-                  setMaxPrice(Number(event.target.value));
+                  const nextMax = Number(event.target.value);
+                  setMaxPrice(nextMax);
+                  setMinPrice((current) => Math.min(current, nextMax));
                   setPage(1);
                 }}
                 className="accent-[#a6503d]"
@@ -368,6 +400,7 @@ export default function ShopPage() {
                 setCategory('');
                 setAvailability('all');
                 setSort('newest');
+                setMinPrice(0);
                 setMaxPrice(2500);
                 setPage(1);
               }}
@@ -452,7 +485,11 @@ export default function ShopPage() {
                       >
                         <Heart
                           size={16}
-                          fill={wishlistIds.has(product.id) ? 'currentColor' : 'none'}
+                          fill={
+                            wishlistIds.has(product.id)
+                              ? 'currentColor'
+                              : 'none'
+                          }
                         />
                       </button>
                       {product.stockAvailable && (

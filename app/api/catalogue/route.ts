@@ -35,6 +35,7 @@ function candidateQuery({
   sort,
   page,
   pageSize,
+  minPricePaise,
   maxPricePaise,
 }: {
   query?: string;
@@ -43,11 +44,10 @@ function candidateQuery({
   sort: 'newest' | 'best' | 'price-low' | 'price-high';
   page: number;
   pageSize: number;
+  minPricePaise?: number;
   maxPricePaise?: number;
 }) {
-  const conditions: Prisma.Sql[] = [
-    Prisma.sql`p."status" = 'PUBLISHED'`,
-  ];
+  const conditions: Prisma.Sql[] = [Prisma.sql`p."status" = 'PUBLISHED'`];
   if (query) {
     const pattern = `%${query}%`;
     conditions.push(Prisma.sql`(
@@ -61,8 +61,7 @@ function candidateQuery({
       )
     )`);
   }
-  if (category)
-    conditions.push(Prisma.sql`c."slug" = ${category}`);
+  if (category) conditions.push(Prisma.sql`c."slug" = ${category}`);
   if (availability === 'available')
     conditions.push(Prisma.sql`EXISTS (
       SELECT 1
@@ -110,6 +109,8 @@ function candidateQuery({
     FROM "ProductVariant" any_variant
     WHERE any_variant."productId" = p."id"
   ), 2147483647))`;
+  if (minPricePaise !== undefined)
+    conditions.push(Prisma.sql`${displayPrice} >= ${minPricePaise}`);
   if (maxPricePaise !== undefined)
     conditions.push(Prisma.sql`${displayPrice} <= ${maxPricePaise}`);
   const orderBy =
@@ -173,6 +174,7 @@ export async function GET(request: Request) {
     sort,
     page,
     pageSize,
+    minPricePaise,
     maxPricePaise,
   } = parsedQuery.data;
   try {
@@ -184,6 +186,7 @@ export async function GET(request: Request) {
         sort,
         page,
         pageSize,
+        minPricePaise,
         maxPricePaise,
       }),
     );

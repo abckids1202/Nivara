@@ -20,6 +20,7 @@ describe('catalogue query validation', () => {
         sort: 'price-low',
         page: '2',
         pageSize: '48',
+        minPricePaise: '50000',
         maxPricePaise: '250000',
       }),
     ).toEqual({
@@ -29,23 +30,30 @@ describe('catalogue query validation', () => {
       sort: 'price-low',
       page: 2,
       pageSize: 48,
+      minPricePaise: 50000,
       maxPricePaise: 250000,
     });
   });
 
   it('rejects unbounded or malformed filters', () => {
-    expect(
-      catalogueQuerySchema.safeParse({ q: 'x'.repeat(121) }).success,
-    ).toBe(false);
+    expect(catalogueQuerySchema.safeParse({ q: 'x'.repeat(121) }).success).toBe(
+      false,
+    );
     expect(
       catalogueQuerySchema.safeParse({ category: 'Home Decor' }).success,
     ).toBe(false);
     expect(catalogueQuerySchema.safeParse({ page: '0' }).success).toBe(false);
-    expect(
-      catalogueQuerySchema.safeParse({ pageSize: '49' }).success,
-    ).toBe(false);
+    expect(catalogueQuerySchema.safeParse({ pageSize: '49' }).success).toBe(
+      false,
+    );
     expect(
       catalogueQuerySchema.safeParse({ maxPricePaise: '-1' }).success,
+    ).toBe(false);
+    expect(
+      catalogueQuerySchema.safeParse({
+        minPricePaise: 300000,
+        maxPricePaise: 250000,
+      }).success,
     ).toBe(false);
   });
 });

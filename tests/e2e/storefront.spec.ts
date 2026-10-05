@@ -52,6 +52,8 @@ test('catalogue filters remain represented in the URL', async ({ page }) => {
   await expect(page).toHaveURL(/q=desk/);
   await page.getByLabel('Availability').selectOption('available');
   await expect(page).toHaveURL(/availability=available/);
+  await page.getByLabel('Minimum price').fill('500');
+  await expect(page).toHaveURL(/minPrice=500/);
 });
 
 test('product-card wishlist prompts unauthenticated shoppers to sign in', async ({
@@ -147,7 +149,13 @@ test('product variant add-to-bag persists after a page refresh', async ({
           dimensions: '32 × 12 × 8 cm',
           care: 'Wipe clean with a soft cloth.',
           category: { name: 'Desk & study' },
-          images: [{ id: 'image-1', url: '/nivara-editorial.png', altText: 'Front angle' }],
+          images: [
+            {
+              id: 'image-1',
+              url: '/nivara-editorial.png',
+              altText: 'Front angle',
+            },
+          ],
           variants: [
             {
               id: 'variant-1',
@@ -204,7 +212,9 @@ test('product variant add-to-bag persists after a page refresh', async ({
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { id: 'cart-item-1', quantity: postedQuantity } }),
+        body: JSON.stringify({
+          data: { id: 'cart-item-1', quantity: postedQuantity },
+        }),
       });
       return;
     }
@@ -216,18 +226,26 @@ test('product variant add-to-bag persists after a page refresh', async ({
   });
 
   await page.goto('/product/arc-desk-organizer');
-  await expect(page.getByRole('heading', { name: 'Arc desk organizer' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Arc desk organizer' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Set of 2' }).click();
   await page.getByRole('button', { name: 'Increase quantity' }).click();
   await page.getByRole('button', { name: 'Add to bag' }).click();
 
   await expect.poll(() => postedVariantId).toBe('variant-2');
   await expect.poll(() => postedQuantity).toBe(2);
-  await expect(page.getByRole('button', { name: 'Added to bag' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Bag with 2 items' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Added to bag' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Bag with 2 items' }),
+  ).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole('link', { name: 'Bag with 2 items' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Bag with 2 items' }),
+  ).toBeVisible();
 });
 
 test('product page reflects an existing wishlist item', async ({ page }) => {
@@ -372,7 +390,9 @@ test('header search opens an accessible live-search form', async ({ page }) => {
   ).toBeFocused();
 });
 
-test('header search suggestions support keyboard selection', async ({ page }) => {
+test('header search suggestions support keyboard selection', async ({
+  page,
+}) => {
   await page.route('**/api/catalogue?q=desk**', (route) =>
     route.fulfill({
       status: 200,
@@ -526,7 +546,10 @@ test('checkout keeps a payment failure visible after hosted checkout closes', as
               pricePaise: 64900,
               stockOnHand: 5,
               stockReserved: 0,
-              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+              product: {
+                name: 'Arc desk organizer',
+                slug: 'arc-desk-organizer',
+              },
             },
           },
         ],
@@ -605,7 +628,10 @@ test('checkout hands a created order to hosted payment and keeps it pending', as
               pricePaise: 64900,
               stockOnHand: 5,
               stockReserved: 0,
-              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+              product: {
+                name: 'Arc desk organizer',
+                slug: 'arc-desk-organizer',
+              },
             },
           },
         ],
@@ -681,7 +707,10 @@ test('checkout preserves an order when hosted checkout cannot load', async ({
               pricePaise: 64900,
               stockOnHand: 5,
               stockReserved: 0,
-              product: { name: 'Arc desk organizer', slug: 'arc-desk-organizer' },
+              product: {
+                name: 'Arc desk organizer',
+                slug: 'arc-desk-organizer',
+              },
             },
           },
         ],
@@ -723,7 +752,9 @@ test('checkout preserves an order when hosted checkout cannot load', async ({
     page.getByRole('heading', { name: 'Payment is being verified.' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('alert').filter({ hasText: 'Razorpay checkout could not load' }),
+    page
+      .getByRole('alert')
+      .filter({ hasText: 'Razorpay checkout could not load' }),
   ).toBeVisible();
 });
 
@@ -766,7 +797,9 @@ test('guest order page exposes only scoped order details and retry action', asyn
   await expect(
     page.getByText(/private link expires after seven days/i),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry payment' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Retry payment' }),
+  ).toBeVisible();
 });
 
 test('guest order page recovers from a transient order-service failure', async ({
@@ -791,7 +824,9 @@ test('guest order page recovers from a transient order-service failure', async (
   });
 
   await page.goto('/guest-order/recovery-token');
-  await expect(page.getByRole('heading', { name: 'This link is unavailable.' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'This link is unavailable.' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByRole('heading', { name: 'NV-1001' })).toBeVisible();
 });
@@ -801,7 +836,9 @@ test('expired guest order links expose no order details', async ({ page }) => {
     route.fulfill({
       status: 404,
       contentType: 'application/json',
-      body: JSON.stringify({ error: 'This order link is no longer available.' }),
+      body: JSON.stringify({
+        error: 'This order link is no longer available.',
+      }),
     }),
   );
 
@@ -884,11 +921,9 @@ test('account entry reports a profile-service failure', async ({ page }) => {
   });
   await page.goto('/account');
   await expect(
-    page
-      .getByRole('alert')
-      .filter({
-        hasText: 'Account details could not be loaded. Please try again.',
-      }),
+    page.getByRole('alert').filter({
+      hasText: 'Account details could not be loaded. Please try again.',
+    }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(
@@ -980,7 +1015,9 @@ test('account sign-in merges the guest cart before showing the dashboard', async
 
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByText('You’re signed out.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
+  ).toBeVisible();
 });
 
 test('account signup explains the email-verification handoff', async ({
@@ -1004,9 +1041,15 @@ test('account signup explains the email-verification handoff', async ({
   );
 
   await page.goto('/account');
-  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Back to sign in' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Sign in', exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Create account', exact: true })
+    .click();
+  await expect(
+    page.getByRole('button', { name: 'Back to sign in' }),
+  ).toBeVisible();
   await page.getByLabel('Email').fill('new-customer@example.com');
   await page.getByLabel('Password').fill('Password!123');
   await page.getByRole('button', { name: 'Create account' }).click();
