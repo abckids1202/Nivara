@@ -31,6 +31,24 @@ npm run db:seed
 npm run dev
 ```
 
+For a local PostgreSQL rehearsal database with Docker Desktop:
+
+```cmd
+cd /d C:\path\to\nivara-store
+docker compose up -d postgres
+copy .env.example .env
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+The committed [`compose.yaml`](compose.yaml) is local-only convenience
+configuration. It uses demonstration credentials and must not be used for the
+client production database; production uses the client-owned Supabase URLs.
+Stop the local database with `docker compose down` and remove its persisted
+demonstration data only when intentionally resetting the rehearsal environment
+with `docker compose down -v`.
+
 `npm run db:seed` is safe to run repeatedly on a development or rehearsal database. It upserts the demonstration catalogue, categories, variants, and placeholder product images; existing variant stock and existing product publication status are preserved so a repeat seed cannot silently reset inventory or republish an archived product, while newly created variants receive the demonstration stock quantity and newly created products start as published. It requires a reachable `DATABASE_URL`. In `NODE_ENV=production`, the script refuses to run unless `ALLOW_DEMO_SEED=true` is explicitly set.
 
 Then open `http://localhost:3000`.
