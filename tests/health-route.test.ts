@@ -40,6 +40,7 @@ const completeSchema = {
   cleanupTable: 'StorageCleanupTask',
   inventoryConstraint: true,
   catalogueQueryIndex: true,
+  emailProcessingState: true,
 };
 
 function restoreEnvironment() {
@@ -143,6 +144,7 @@ describe('health readiness', () => {
     expect(body.schemaConfigured).toBe(true);
     expect(body.inventoryConstraintConfigured).toBe(true);
     expect(body.catalogueQueryIndexConfigured).toBe(true);
+    expect(body.emailProcessingStateConfigured).toBe(true);
     expect(body.deploymentConfigured).toBe(true);
     expect(body.paymentsConfigured).toBe(true);
     expect(body.authConfigured).toBe(true);

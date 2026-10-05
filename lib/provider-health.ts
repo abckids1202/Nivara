@@ -5,6 +5,7 @@ export type ProviderHealthPayload = {
   schemaConfigured?: unknown;
   inventoryConstraintConfigured?: unknown;
   catalogueQueryIndexConfigured?: unknown;
+  emailProcessingStateConfigured?: unknown;
   deploymentConfigured?: unknown;
   paymentsConfigured?: unknown;
   authConfigured?: unknown;
@@ -40,6 +41,7 @@ export function healthChecks(payload: ProviderHealthPayload) {
     ['schema', payload.schemaConfigured],
     ['inventory constraint', payload.inventoryConstraintConfigured],
     ['catalogue query index', payload.catalogueQueryIndexConfigured],
+    ['email processing state', payload.emailProcessingStateConfigured],
     ['deployment', payload.deploymentConfigured],
     ['payments', payload.paymentsConfigured],
     ['auth', payload.authConfigured],

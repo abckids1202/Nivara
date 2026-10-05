@@ -68,6 +68,7 @@ export async function GET() {
   let schemaConfigured = false;
   let inventoryConstraintConfigured = false;
   let catalogueQueryIndexConfigured = false;
+  let emailProcessingStateConfigured = false;
   if (process.env.DATABASE_URL) {
     try {
       const rows = await prisma.$queryRaw<
@@ -99,6 +100,7 @@ export async function GET() {
           cleanupTable: string | null;
           inventoryConstraint: boolean;
           catalogueQueryIndex: boolean;
+          emailProcessingState: boolean;
         }>
       >`
         SELECT
@@ -135,7 +137,14 @@ export async function GET() {
           ) AS "inventoryConstraint",
           to_regclass(
             'public."ProductVariant_productId_stockOnHand_stockReserved_pricePaise_idx"'
-          ) IS NOT NULL AS "catalogueQueryIndex"
+          ) IS NOT NULL AS "catalogueQueryIndex",
+          EXISTS (
+            SELECT 1
+            FROM pg_enum
+            JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+            WHERE pg_type.typname = 'EmailDeliveryStatus'
+              AND pg_enum.enumlabel = 'PROCESSING'
+          ) AS "emailProcessingState"
       `;
       const schema = rows[0];
       schemaConfigured = Boolean(
@@ -143,12 +152,15 @@ export async function GET() {
           Object.entries(schema)
             .filter(
               ([key]) =>
-                key !== 'inventoryConstraint' && key !== 'catalogueQueryIndex',
+                key !== 'inventoryConstraint' &&
+                key !== 'catalogueQueryIndex' &&
+                key !== 'emailProcessingState',
             )
             .every(([, value]) => Boolean(value)),
       );
       inventoryConstraintConfigured = schema?.inventoryConstraint === true;
       catalogueQueryIndexConfigured = schema?.catalogueQueryIndex === true;
+      emailProcessingStateConfigured = schema?.emailProcessingState === true;
       database = schemaConfigured ? 'connected' : 'schema_incomplete';
     } catch {
       database = 'unreachable';
@@ -183,6 +195,7 @@ export async function GET() {
     schemaConfigured &&
     inventoryConstraintConfigured &&
     catalogueQueryIndexConfigured &&
+    emailProcessingStateConfigured &&
     deploymentConfigured &&
     authConfigured &&
     paymentsConfigured &&
@@ -197,6 +210,7 @@ export async function GET() {
     schemaConfigured,
     inventoryConstraintConfigured,
     catalogueQueryIndexConfigured,
+    emailProcessingStateConfigured,
     deploymentConfigured,
     paymentsConfigured,
     authConfigured,
