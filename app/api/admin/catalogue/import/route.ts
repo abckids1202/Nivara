@@ -75,14 +75,14 @@ export async function POST(request: Request) {
       `);
           const existingVariant = await tx.productVariant.findUnique({
             where: { sku: row.sku },
-            select: { stockReserved: true },
+            select: { stockReserved: true, stockOnHand: true },
           });
           if (
             existingVariant &&
             row.stockOnHand < existingVariant.stockReserved
           )
             throw new Error('STOCK_BELOW_RESERVED');
-          await tx.productVariant.upsert({
+          const variant = await tx.productVariant.upsert({
             where: { sku: row.sku },
             create: {
               productId: product.id,
@@ -100,6 +100,19 @@ export async function POST(request: Request) {
               stockOnHand: row.stockOnHand,
             },
           });
+          const beforeQuantity = existingVariant?.stockOnHand ?? 0;
+          const quantityDelta = row.stockOnHand - beforeQuantity;
+          if (quantityDelta !== 0)
+            await tx.inventoryAdjustment.create({
+              data: {
+                variantId: variant.id,
+                adminUserId: identity.id,
+                quantityDelta,
+                beforeQuantity,
+                afterQuantity: row.stockOnHand,
+                reason: `Catalogue import: ${row.sku}`,
+              },
+            });
           if (row.imageUrl) {
             const existingImage = await tx.productImage.findFirst({
               where: { productId: product.id, url: row.imageUrl },

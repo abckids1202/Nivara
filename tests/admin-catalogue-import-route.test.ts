@@ -6,6 +6,7 @@ const {
   queryRaw,
   variantFindUnique,
   variantUpsert,
+  inventoryAdjustmentCreate,
   auditCreate,
   transaction,
   getIdentity,
@@ -17,6 +18,7 @@ const {
   queryRaw: vi.fn(),
   variantFindUnique: vi.fn(),
   variantUpsert: vi.fn(),
+  inventoryAdjustmentCreate: vi.fn(),
   auditCreate: vi.fn(),
   transaction: vi.fn(),
   getIdentity: vi.fn(),
@@ -47,6 +49,7 @@ afterEach(() => {
   queryRaw.mockReset();
   variantFindUnique.mockReset();
   variantUpsert.mockReset();
+  inventoryAdjustmentCreate.mockReset();
   auditCreate.mockReset();
   transaction.mockReset();
   getIdentity.mockReset();
@@ -97,6 +100,7 @@ describe('admin catalogue import route', () => {
           findUnique: variantFindUnique,
           upsert: variantUpsert,
         },
+        inventoryAdjustment: { create: inventoryAdjustmentCreate },
         auditLog: { create: auditCreate },
       }),
     );
@@ -115,6 +119,16 @@ describe('admin catalogue import route', () => {
       timeout: 60_000,
     });
     expect(auditCreate).toHaveBeenCalled();
+    expect(inventoryAdjustmentCreate).toHaveBeenCalledWith({
+      data: {
+        variantId: 'variant-1',
+        adminUserId: 'admin-1',
+        quantityDelta: 8,
+        beforeQuantity: 0,
+        afterQuantity: 8,
+        reason: 'Catalogue import: NIV-001',
+      },
+    });
   });
 
   it('converts decimal rupee prices to integer paise', async () => {
@@ -133,6 +147,7 @@ describe('admin catalogue import route', () => {
           findUnique: variantFindUnique,
           upsert: variantUpsert,
         },
+        inventoryAdjustment: { create: inventoryAdjustmentCreate },
         auditLog: { create: auditCreate },
       }),
     );
